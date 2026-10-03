@@ -20,7 +20,9 @@ The migration intentionally allows anonymous reads and writes so this static dem
 
 ## GitHub and Vercel
 
-The project has no build step: deploy the repository root as a Vercel static project. Vercel's default output settings are sufficient; `vercel.json` only adds clean URLs and basic security headers.
+Run `npm install`, `npm test` and `npm run build` locally. Vercel uses the same build and deploys `dist/`; set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the Vercel project if you want the build to generate a config file from environment variables. The checked-in config already contains the project's publishable key, which is safe for browser use. Never add a secret/service-role key.
+
+The repository is `https://github.com/tanton199101-hub/crocs-admin-supabase` and the production deployment is `https://crocs-admin-supabase.vercel.app`.
 
 ## Included
 

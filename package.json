@@ -1,0 +1,13 @@
+{
+  "name": "crocs-admin-supabase",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/*.test.cjs",
+    "verify:backend": "node scripts/verify-backend.mjs"
+  },
+  "dependencies": { "@supabase/supabase-js": "2.117.2" },
+  "devDependencies": { "esbuild": "0.28.2" },
+  "engines": { "node": ">=22" }
+}
