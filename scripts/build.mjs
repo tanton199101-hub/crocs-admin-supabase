@@ -21,4 +21,4 @@ if (process.env.SUPABASE_URL || process.env.SUPABASE_PUBLISHABLE_KEY) {
   if (!/^https:\/\/[\w-]+\.supabase\.co$/.test(url)) throw new Error('Invalid Supabase project URL');
   await writeFile(resolve(output, 'supabase-config.js'), `window.CrocsSupabaseConfig = Object.freeze(${JSON.stringify({ url, publishableKey, stateId: 'default' })});\n`);
 }
-console.log('Built static storefront and authenticated admin in dist/.');
+console.log('Built static storefront and Supabase-backed admin in dist/.');
