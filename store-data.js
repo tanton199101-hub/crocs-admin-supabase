@@ -1,0 +1,118 @@
+(function (root, factory) {
+  const api = factory(root);
+  if (typeof module === 'object' && module.exports) module.exports = api;
+  else root.CrocsStore = api;
+})(typeof window === 'undefined' ? globalThis : window, function (root) {
+  'use strict';
+  const KEY = 'crocs-studio-v1';
+  const clone = value => JSON.parse(JSON.stringify(value));
+  const id = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
+  const money = cents => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(cents / 100);
+  const safeLink = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|index\.html(?:#[\w-]+)?)$/.test(value);
+  const safeImage = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value);
+  function seed() {
+    const date = days => new Date(Date.now() - days * 86400000).toISOString();
+    const rows = [
+      ['p1', 'Classic Clog', '10001-100', 3499, 8, 'Active', 'arrival-classic-clog-100.png', 'Clogs'],
+      ['p2', 'Crocband™ Runner', '20598-5AD', 5999, 64, 'Active', 'arrival-crocband-runner-5AD.png', 'Clogs'],
+      ['p3', 'Kids’ Classic Clog', '206991-0DA', 3999, 32, 'Draft', 'arrival-kids-classic-0DA.png', 'Kids'],
+      ['p4', 'Classic Platform Bloom', '206750-001', 6499, 5, 'Active', 'arrival-platform-bloom-001.png', 'Platforms'],
+      ['p5', 'Getaway Strappy', '209587-001', 2799, 42, 'Active', 'arrival-getaway-001.png', 'Sandals'],
+      ['p6', 'Classic Ballet', '210260-6UR', 3499, 27, 'Active', 'arrival-ballet-6UR.png', 'Flats'],
+      ['p7', 'Classic Lined Clog', '203591-206', 4999, 12, 'Active', 'icon-lined-206.png', 'Clogs'],
+      ['p8', 'Sporty Shoe Tattoos', '100152-90H', 999, 0, 'Draft', 'jibbitz-sporty-90H.png', 'Accessories'],
+    ];
+    const products = rows.map(([id, title, sku, price, stock, status, image, category]) => ({ id, title, sku, price, stock, status, image: `assets/${image}`, category, description: 'Lightweight comfort. Made for everyday adventures.', tags: ['Crocs'], updatedAt: date(0) }));
+    const customers = [['c1', 'Olivia Grant', 'olivia@example.com', 'London'], ['c2', 'Noah Williams', 'noah@example.com', 'Manchester'], ['c3', 'Amelia Brown', 'amelia@example.com', 'Bristol'], ['c4', 'Charlie Evans', 'charlie@example.com', 'Leeds']].map(([id, name, email, city]) => ({ id, name, email, city, phone: '', note: 'Khách hàng mẫu để trải nghiệm quản trị.', marketing: false, createdAt: date(10) }));
+    const orders = Array.from({ length: 18 }, (_, i) => {
+      const product = products[i % 7];
+      return { id: `o${i + 1}`, number: 1048 - i, customerId: customers[i % 4].id, customerName: customers[i % 4].name, customerEmail: customers[i % 4].email, createdAt: date(Math.floor(i / 2)), payment: i % 6 === 2 ? 'pending' : i % 9 === 8 ? 'refunded' : 'paid', fulfillment: i < 5 ? 'unfulfilled' : 'fulfilled', items: [{ productId: product.id, title: product.title, price: product.price, quantity: i % 3 + 1, image: product.image }], shipping: 0, note: 'Đơn hàng minh họa, không phải giao dịch thật.', stockReserved: true, channel: 'Online store' };
+    });
+    const theme = { name: 'Cozy Favourites', accent: '#84bd00', background: '#f7f5f8', heroTitle: 'Cozy Favourites', heroSubtitle: 'McKenna Grace in the Unfurgettable Clog', heroButton: 'Shop the Collection', campaign: 'cozy', announcement: 'Jibbitz™ Only • Spend £25, Get £5 Off. Spend £50, Get £15 Off', showClassics: true, showArrivals: true, showCollabs: true, showClub: true, collectionId: 'col1' };
+    return { version: 1, products, customers, orders,
+      collections: [{ id: 'col1', title: 'New arrivals', description: 'The latest comfort icons.', productIds: ['p1', 'p2', 'p4', 'p5', 'p6', 'p7'], status: 'Active' }, { id: 'col2', title: 'Cozy favourites', description: 'Made for colder days.', productIds: ['p1', 'p7'], status: 'Active' }, { id: 'col3', title: 'Little adventures', description: 'Big comfort for little feet.', productIds: ['p3'], status: 'Draft' }],
+      menus: [{ id: 'main', title: 'Main menu', items: [{ id: 'm1', label: 'Sale', url: '#new-arrivals' }, { id: 'm2', label: 'Women', url: '#shop' }, { id: 'm3', label: 'Men', url: '#shop' }, { id: 'm4', label: 'Kids', url: '#shop' }, { id: 'm5', label: 'Jibbitz™ Charms', url: '#jibbitz' }, { id: 'm6', label: 'Crocs at Work™', url: '#shop' }, { id: 'm7', label: 'Bags & Accessories', url: '#shop' }, { id: 'm8', label: 'HeyDude', url: '#collabs' }] }, { id: 'footer', title: 'Footer menu', items: [{ id: 'f1', label: 'Privacy policy', url: '#footer' }, { id: 'f2', label: 'Terms of use', url: '#footer' }, { id: 'f3', label: 'United Kingdom', url: '#footer' }] }],
+      theme: { draft: clone(theme), published: clone(theme), publishedAt: date(0) },
+      settings: { name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10 },
+      campaigns: [{ id: 'camp1', title: 'Cozy Favourites', channel: 'Email', status: 'Draft', subject: 'A softer side of comfort', content: 'Discover the new Cozy Favourites collection.', date: '' }],
+      activity: [{ id: 'a1', title: 'Đã khởi tạo cửa hàng mẫu', detail: 'Mọi số liệu là dữ liệu minh họa cục bộ.', createdAt: date(0) }],
+    };
+  }
+  function validate(data) {
+    if (!data || data.version !== 1 || !['products', 'customers', 'orders', 'collections', 'menus', 'campaigns', 'activity'].every(key => Array.isArray(data[key]))) throw new Error('Tệp không đúng định dạng Crocs Studio v1.');
+    for (const key of ['products', 'customers', 'orders', 'collections', 'menus', 'campaigns']) {
+      const ids = data[key].map(item => item.id);
+      if (ids.some(value => typeof value !== 'string' || !value) || new Set(ids).size !== ids.length) throw new Error(`Mã ${key} không hợp lệ hoặc bị trùng.`);
+    }
+    data.products.forEach(p => {
+      if (!p.title?.trim() || !p.sku?.trim() || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0 || !['Active', 'Draft', 'Archived'].includes(p.status) || !safeImage(p.image)) throw new Error('Sản phẩm cần tên, SKU, ảnh, giá và tồn kho hợp lệ.');
+    });
+    if (new Set(data.products.map(p => p.sku.toLowerCase())).size !== data.products.length) throw new Error('SKU đã tồn tại. Hãy dùng mã khác.');
+    data.customers.forEach(c => { if (!c.name?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)) throw new Error('Tên hoặc email khách hàng không hợp lệ.'); });
+    data.collections.forEach(c => { if (!c.title?.trim() || !['Active', 'Draft'].includes(c.status) || !Array.isArray(c.productIds) || c.productIds.some(pid => !data.products.some(p => p.id === pid))) throw new Error('Bộ sưu tập không hợp lệ.'); });
+    data.menus.forEach(m => { if (!m.title?.trim() || !Array.isArray(m.items) || m.items.some(item => !item.label?.trim() || !safeLink(item.url))) throw new Error('Menu cần tên và liên kết hợp lệ (#section hoặc https://…).'); });
+    data.orders.forEach(o => {
+      if (!['paid', 'pending', 'refunded'].includes(o.payment) || !['unfulfilled', 'fulfilled', 'cancelled'].includes(o.fulfillment) || !Array.isArray(o.items) || !o.items.length || !Number.isFinite(Date.parse(o.createdAt)) || !Number.isSafeInteger(o.shipping) || o.shipping < 0 || o.items.some(item => !Number.isSafeInteger(item.quantity) || item.quantity < 1 || !Number.isSafeInteger(item.price) || item.price < 0)) throw new Error('Đơn hàng không hợp lệ.');
+    });
+    for (const theme of [data.theme?.draft, data.theme?.published]) {
+      if (!theme || !/^#[\da-f]{6}$/i.test(theme.accent) || !/^#[\da-f]{6}$/i.test(theme.background) || !theme.heroTitle?.trim() || !theme.heroButton?.trim() || !['cozy', 'crocband', 'ninjago'].includes(theme.campaign)) throw new Error('Cấu hình theme không hợp lệ.');
+    }
+    if (!data.settings?.name?.trim() || data.settings.currency !== 'GBP' || !Number.isSafeInteger(data.settings.stockThreshold) || data.settings.stockThreshold < 0 || !data.menus.some(m => m.id === data.settings.mainMenuId) || !data.menus.some(m => m.id === data.settings.footerMenuId)) throw new Error('Cài đặt cửa hàng hoặc menu đang sử dụng không hợp lệ.');
+    return data;
+  }
+  let state;
+  let storageIssue = '';
+  function read() {
+    if (state) return clone(state);
+    try { const raw = root.localStorage?.getItem(KEY); state = raw ? validate(JSON.parse(raw)) : seed(); }
+    catch (error) { storageIssue = `Không thể đọc dữ liệu đã lưu: ${error.message}. Dữ liệu gốc chưa bị ghi đè.`; state = seed(); }
+    return clone(state);
+  }
+  function save(next) {
+    validate(next);
+    if (storageIssue) throw new Error(storageIssue);
+    if (!root.localStorage) throw new Error('Trình duyệt không hỗ trợ lưu cục bộ. Hãy mở bằng localhost.');
+    try { root.localStorage.setItem(KEY, JSON.stringify(next)); }
+    catch { throw new Error('Chưa lưu được. Bộ nhớ trình duyệt bị chặn hoặc đã đầy; thử giảm dung lượng ảnh.'); }
+    state = clone(next);
+    root.dispatchEvent?.(new Event('crocs:change'));
+    return clone(state);
+  }
+  function commit(update, title, detail = '') {
+    const next = read();
+    update(next);
+    if (title) next.activity.unshift({ id: id('act'), title, detail, createdAt: new Date().toISOString() });
+    next.activity = next.activity.slice(0, 100);
+    return save(next);
+  }
+  const total = order => order.items.reduce((sum, item) => sum + item.price * item.quantity, 0) + order.shipping;
+  function createOrder(data, customerId, lines, note = '', shipping = 0) {
+    const customer = data.customers.find(c => c.id === customerId);
+    if (!customer || !lines.length) throw new Error('Chọn khách hàng và ít nhất một sản phẩm.');
+    const quantities = new Map();
+    lines.forEach(line => quantities.set(line.productId, (quantities.get(line.productId) || 0) + Number(line.quantity)));
+    const items = [...quantities].map(([pid, quantity]) => {
+      const product = data.products.find(p => p.id === pid && p.status === 'Active');
+      if (!product || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > product.stock) throw new Error(`Không đủ tồn kho hoặc số lượng không hợp lệ: ${product?.title || pid}.`);
+      return { productId: pid, title: product.title, image: product.image, price: product.price, quantity };
+    });
+    const order = { id: id('order'), number: Math.max(1000, ...data.orders.map(o => o.number)) + 1, customerId, customerName: customer.name, customerEmail: customer.email, items, shipping, note, createdAt: new Date().toISOString(), payment: 'pending', fulfillment: 'unfulfilled', stockReserved: true, channel: 'Admin · local' };
+    items.forEach(item => { data.products.find(p => p.id === item.productId).stock -= item.quantity; });
+    data.orders.unshift(order);
+    return order;
+  }
+  function transitionOrder(data, orderId, action) {
+    const order = data.orders.find(o => o.id === orderId);
+    if (!order) throw new Error('Không tìm thấy đơn hàng.');
+    if (action === 'pay' && order.payment === 'pending' && order.fulfillment !== 'cancelled') order.payment = 'paid';
+    else if (action === 'fulfill' && order.payment === 'paid' && order.fulfillment === 'unfulfilled') order.fulfillment = 'fulfilled';
+    else if (action === 'cancel' && order.fulfillment === 'unfulfilled') {
+      if (order.stockReserved) order.items.forEach(item => { const p = data.products.find(p => p.id === item.productId); if (p) p.stock += item.quantity; });
+      order.stockReserved = false;
+      order.fulfillment = 'cancelled';
+    } else if (action === 'refund' && order.payment === 'paid') order.payment = 'refunded';
+    else throw new Error('Không thể thực hiện thao tác ở trạng thái hiện tại của đơn.');
+  }
+  root.addEventListener?.('storage', event => { if (event.key === KEY) { state = undefined; storageIssue = ''; read(); root.dispatchEvent?.(new Event('crocs:change')); } });
+  return { KEY, seed, validate, read, save, commit, id, money, total, safeLink, safeImage, createOrder, transitionOrder, get storageIssue() { read(); return storageIssue; } };
+});

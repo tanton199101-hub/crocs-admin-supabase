@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en-GB">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="Crocs — come as you are. Shop cosy favourites, classic icons and new arrivals." />
+    <title>Crocs UK — Come As You Are</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="sr-only" id="liveRegion" aria-live="polite"></div>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <button class="icon-button mobile-only" id="menuButton" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menuDrawer">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></svg>
+        </button>
+        <a class="brand" href="#top" aria-label="Crocs home">crocs<span class="brand-mark">™</span></a>
+        <nav class="desktop-nav" aria-label="Primary navigation">
+          <a class="sale-link" href="#new-arrivals">Sale</a>
+          <a href="#shop">Women</a>
+          <a href="#shop">Men</a>
+          <a href="#shop">Kids</a>
+          <a href="#jibbitz">Jibbitz™ Charms</a>
+          <a href="#shop">Crocs at Work™</a>
+          <a href="#shop">Bags &amp; Accessories</a>
+          <a href="#collabs">HeyDude</a>
+        </nav>
+        <div class="header-tools">
+          <button class="search-trigger" id="searchTrigger" type="button" aria-label="Search" aria-expanded="false" aria-controls="searchPanel">
+            <span>Search</span>
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.7" /><path d="m16 16 5 5" /></svg>
+          </button>
+          <button class="icon-button" id="accountButton" type="button" aria-label="My account" aria-expanded="false" aria-controls="accountDrawer">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M4.7 20c.7-3.6 3.2-5.4 7.3-5.4s6.6 1.8 7.3 5.4" /></svg>
+          </button>
+          <button class="icon-button cart-trigger" id="cartButton" type="button" aria-label="Shopping bag, 0 items" aria-controls="cartDrawer" aria-expanded="false">
+            <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5.2 8.5h13.6l-1 11H6.2l-1-11Z" /><path d="M8.8 9V6.8a3.2 3.2 0 0 1 6.4 0V9" /></svg>
+            <span class="cart-count" id="cartCount">0</span>
+          </button>
+        </div>
+      </div>
+      <div class="search-panel" id="searchPanel" hidden>
+        <form id="searchForm" role="search">
+          <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.7" /><path d="m16 16 5 5" /></svg>
+          <input id="searchInput" type="search" aria-label="Search shoes, charms and more" placeholder="Search shoes, charms and more" autocomplete="off" />
+          <button type="button" class="search-close" id="searchClose">Close</button>
+        </form>
+      </div>
+    </header>
+
+    <div class="promo-bar" role="note">
+      <p><span>Jibbitz™ Only</span> Spend <strong>£25, Get £5 Off.</strong> Spend <strong>£50, Get £15 Off</strong> <a href="#jibbitz">Shop Now!</a></p>
+    </div>
+
+    <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
+    <aside class="side-drawer menu-drawer" id="menuDrawer" aria-label="Menu" aria-hidden="true">
+      <div class="drawer-header"><span>Menu</span><button class="drawer-close" type="button" data-close-drawer aria-label="Close menu">×</button></div>
+      <nav class="drawer-nav">
+        <a href="#new-arrivals">Sale <span>›</span></a>
+        <a href="#shop">Women <span>›</span></a>
+        <a href="#shop">Men <span>›</span></a>
+        <a href="#shop">Kids <span>›</span></a>
+        <a href="#jibbitz">Jibbitz™ Charms <span>›</span></a>
+        <a href="#collabs">Collaborations <span>›</span></a>
+        <a href="#shop">Bags &amp; Accessories <span>›</span></a>
+      </nav>
+      <div class="drawer-links"><a href="#club">Join Crocs Club</a><a href="#footer">Help &amp; FAQs</a><a href="#footer">Store locator</a></div>
+    </aside>
+
+    <aside class="side-drawer cart-drawer" id="cartDrawer" aria-label="Shopping bag" aria-hidden="true">
+      <div class="drawer-header"><span>Your bag</span><button class="drawer-close" type="button" data-close-drawer aria-label="Close bag">×</button></div>
+      <div class="cart-empty" id="cartEmpty"><div class="cart-empty-icon">🛍</div><h2>Your bag is empty</h2><p>Find a pair that feels like you.</p><a class="button button--dark" href="#shop" data-close-drawer>Shop classics</a></div>
+      <div class="cart-items" id="cartItems" hidden></div>
+      <div class="cart-summary" id="cartSummary" hidden><div><span>Subtotal</span><strong id="cartSubtotal">£0.00</strong></div><button class="button button--blue" type="button" id="checkoutButton">Checkout</button></div>
+    </aside>
+    <aside class="side-drawer account-drawer" id="accountDrawer" aria-label="Account" aria-hidden="true">
+      <div class="drawer-header"><span>Log in</span><button class="drawer-close" type="button" data-close-drawer aria-label="Close account">×</button></div>
+      <form class="account-form" id="accountForm">
+        <p>Don’t have an account? <a href="#club">Sign up</a></p>
+        <label for="accountEmail">Email address</label><input id="accountEmail" type="email" required />
+        <label for="accountPassword">Password</label><input id="accountPassword" type="password" required />
+        <label class="remember"><input type="checkbox" /> <span>Remember me</span></label>
+        <button class="button button--green" type="submit">Log in</button>
+        <a class="forgot-link" href="#footer">Forgot your password?</a>
+        <div class="account-divider"><span>or continue with</span></div>
+        <button class="social-login" type="button">G&nbsp;&nbsp; Continue with Google</button>
+        <button class="social-login" type="button">f&nbsp;&nbsp; Continue with Facebook</button>
+      </form>
+    </aside>
+
+    <main id="top">
+      <section class="hero-wrap" aria-label="Featured collection">
+        <div class="hero-track">
+          <article class="hero-card hero-card--side hero-card--left" aria-hidden="true"><img src="assets/eba3407d4d927c9b.png" alt="" /></article>
+          <article class="hero-card hero-card--main">
+            <picture><source media="(min-width: 1025px)" srcset="assets/crocs-hero-desktop.jpg" /><img src="assets/eba3407d4d927c9b.png" alt="McKenna Grace wearing the Unfurgettable Clog" /></picture>
+            <div class="hero-content"><h1>Cozy Favourites</h1><p>McKenna Grace in the Unfurgettable Clog</p><a class="button button--light" href="#new-arrivals">Shop the Collection</a></div>
+          </article>
+          <article class="hero-card hero-card--side hero-card--right" aria-hidden="true"><img src="assets/eba3407d4d927c9b.png" alt="" /></article>
+        </div>
+      </section>
+
+      <section class="section classics" id="shop">
+        <div class="section-heading"><div><h2>Explore Our Classic Icons</h2></div><a class="text-link desktop-only" href="#shop">Shop all classic clogs <span>→</span></a></div>
+        <div class="product-rail icon-rail" data-rail>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--cream"><img src="assets/ce6f460894af3c89.png" alt="Classic Clog in white" loading="lazy" /></div><h3>Classic</h3><p>38 colours</p></a></article>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--sand"><img src="assets/ce6f460894af3c89.png" alt="Classic Crafted Clog" loading="lazy" /></div><h3>Crafted</h3><p>Everyday ease</p></a></article>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--blue"><img src="assets/ea799cf56cb9b7df.png" alt="Classic Lined Clog" loading="lazy" /></div><h3>Lined</h3><p>Sink-in comfort</p></a></article>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--grey"><img src="assets/aff5f44c3634bd97.png" alt="Crocband clog" loading="lazy" /></div><h3>Crocband</h3><p>Retro stripes</p></a></article>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--pink"><img src="assets/c42f8985b710beb0.png" alt="Classic Ballet" loading="lazy" /></div><h3>Ballet</h3><p>Light on your feet</p></a></article>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--yellow"><img src="assets/afa078a42f137753.png" alt="Classic Buckle" loading="lazy" /></div><h3>Buckle</h3><p>A little extra</p></a></article>
+          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--mint"><img src="assets/ce6f460894af3c89.png" alt="Baya Clog" loading="lazy" /></div><h3>Baya</h3><p>Make it yours</p></a></article>
+        </div>
+        <a class="button button--outline mobile-only full-width" href="#new-arrivals">Shop all classic clogs</a>
+      </section>
+
+      <section class="spotlight" aria-label="Cosy collection">
+        <picture><img src="assets/764790f71488026d.png" alt="Cosy slippers and lined clogs" loading="lazy" /></picture>
+        <div class="spotlight-content"><p class="eyebrow">Softness, switched on</p><h2>Killing It Softly</h2><p>Bring the comfort of a slipper to everywhere you go.</p><a class="button button--light" href="#new-arrivals">Shop Cozzzy Slipper</a></div>
+      </section>
+
+      <section class="section arrivals" id="new-arrivals">
+        <div class="section-heading"><div><p class="eyebrow">Fresh from the lab</p><h2>New Arrivals</h2></div><a class="text-link desktop-only" href="#new-arrivals">Shop new arrivals <span>→</span></a></div>
+        <div class="product-rail arrival-rail" data-rail>
+          <article class="product-card"><button class="wishlist" type="button" aria-label="Save Classic Clog">♡</button><a href="#"><div class="product-image product-image--cream"><span class="new-tag">New</span><img src="assets/ce6f460894af3c89.png" alt="Classic Clog" loading="lazy" /></div><h3>Classic Clog</h3><p class="price">£34.99</p><button class="add-button" type="button" data-product="Classic Clog" data-price="34.99">Add to bag</button></a></article>
+          <article class="product-card"><button class="wishlist" type="button" aria-label="Save Crocband Runner">♡</button><a href="#"><div class="product-image product-image--blue"><span class="new-tag">New</span><img src="assets/c4292bd7162eccb9.png" alt="Crocband Runner" loading="lazy" /></div><h3>Crocband Runner</h3><p class="price">£59.99</p><button class="add-button" type="button" data-product="Crocband Runner" data-price="59.99">Add to bag</button></a></article>
+          <article class="product-card"><button class="wishlist" type="button" aria-label="Save Kids Classic Clog">♡</button><a href="#"><div class="product-image product-image--pink"><img src="assets/8a5ac0acf1d99f97.png" alt="Kids' Classic Clog" loading="lazy" /></div><h3>Kids’ Classic Clog</h3><p class="price">£39.99</p><button class="add-button" type="button" data-product="Kids’ Classic Clog" data-price="39.99">Add to bag</button></a></article>
+          <article class="product-card"><button class="wishlist" type="button" aria-label="Save Classic Platform Bloom Clog">♡</button><a href="#"><div class="product-image product-image--yellow"><img src="assets/7d5d03951715d0ef.png" alt="Classic Platform Bloom Clog" loading="lazy" /></div><h3>Classic Platform Bloom</h3><p class="price">£64.99</p><button class="add-button" type="button" data-product="Classic Platform Bloom" data-price="64.99">Add to bag</button></a></article>
+          <article class="product-card"><button class="wishlist" type="button" aria-label="Save Getaway Strappy">♡</button><a href="#"><div class="product-image product-image--mint"><img src="assets/df547d8201bfb2a4.png" alt="Getaway Strappy sandal" loading="lazy" /></div><h3>Getaway Strappy</h3><p class="price">£27.99</p><button class="add-button" type="button" data-product="Getaway Strappy" data-price="27.99">Add to bag</button></a></article>
+          <article class="product-card"><button class="wishlist" type="button" aria-label="Save Classic Ballet">♡</button><a href="#"><div class="product-image product-image--sand"><img src="assets/c42f8985b710beb0.png" alt="Classic Ballet" loading="lazy" /></div><h3>Classic Ballet</h3><p class="price">£34.99</p><button class="add-button" type="button" data-product="Classic Ballet" data-price="34.99">Add to bag</button></a></article>
+        </div>
+        <div class="rail-controls desktop-only"><button type="button" class="rail-arrow" data-direction="prev" aria-label="Previous products">←</button><button type="button" class="rail-arrow" data-direction="next" aria-label="Next products">→</button></div>
+      </section>
+
+      <section class="collabs" id="collabs" aria-label="Collaborations">
+        <article class="collab-card"><img src="assets/12875aebbb61f08d.png" alt="LEGO NINJAGO Crocs collaboration" loading="lazy" /><div class="collab-content"><h2>Go Full Ninja</h2><a class="button button--light" href="#shop">Shop LEGO® NINJAGO®</a></div></article>
+        <article class="collab-card"><img src="assets/8810d0e0f87fc054.png" alt="Super Mario Crocs collaboration" loading="lazy" /><div class="collab-content"><h2>Choose your hero</h2><a class="button button--light" href="#shop">Shop Super Mario™</a></div></article>
+        <article class="collab-card"><img src="assets/9f778bedfc4c0aa4.png" alt="Pokémon Crocs collaboration" loading="lazy" /><div class="collab-content"><h2>Catch your next adventure</h2><a class="button button--light" href="#shop">Shop Pokémon</a></div></article>
+      </section>
+
+      <section class="spotlight throwback" aria-label="Crocband collection">
+        <img src="assets/abed2e8b5d4c3b0d.png" alt="Crocband collection" loading="lazy" />
+        <div class="spotlight-content"><p class="eyebrow">Back in the mix</p><h2>A Throwback Worth Repeating</h2><a class="button button--light" href="#shop">Shop Crocband™ Collection</a></div>
+      </section>
+
+      <section class="section charms" id="jibbitz">
+        <div class="tab-heading"><div><p class="eyebrow">Make it yours</p><h2>Style it your way</h2></div><a class="text-link desktop-only" href="#jibbitz">Shop all accessories <span>→</span></a></div>
+        <div class="tabs" role="tablist" aria-label="Accessories categories">
+          <button class="tab is-active" id="tab-tattoos" type="button" role="tab" aria-selected="true" aria-controls="panel-tattoos" data-tab="tattoos">Shoe Tattoos</button>
+          <button class="tab" id="tab-accessories" type="button" role="tab" aria-selected="false" aria-controls="panel-accessories" data-tab="accessories">Accessories</button>
+          <button class="tab" id="tab-jibbitz" type="button" role="tab" aria-selected="false" aria-controls="panel-jibbitz" data-tab="jibbitz">Jibbitz™ Charms</button>
+        </div>
+        <div class="tab-panels">
+          <div class="tab-panel is-active" id="panel-tattoos" role="tabpanel" aria-labelledby="tab-tattoos" data-panel="tattoos"><div class="product-rail charm-rail">
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--lavender"><img src="assets/9a56a0db458afacf.png" alt="Sporty Shoe Tattoos" loading="lazy" /></div><h3>Sporty Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--coral"><img src="assets/9a56a0db458afacf.png" alt="Western Shoe Tattoos" loading="lazy" /></div><h3>Western Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--mint"><img src="assets/c42f8985b710beb0.png" alt="Rebel Icons Shoe Tattoos" loading="lazy" /></div><h3>Rebel Icons Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--yellow"><img src="assets/8ac97ae0dc2f04c7.png" alt="Fine Line Shoe Tattoos" loading="lazy" /></div><h3>Fine Line Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
+          </div></div>
+          <div class="tab-panel" id="panel-accessories" role="tabpanel" aria-labelledby="tab-accessories" data-panel="accessories">
+            <div class="product-rail charm-rail">
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--blue"><img src="assets/ce6f460894af3c89.png" alt="Classic blue clog" loading="lazy" /></div><h3>Classic Shoe Clips</h3><p class="price">£12.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--pink"><img src="assets/c42f8985b710beb0.png" alt="Classic pink clog" loading="lazy" /></div><h3>Colourful Shoe Clips</h3><p class="price">£12.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--sand"><img src="assets/ce6f460894af3c89.png" alt="Classic neutral clog" loading="lazy" /></div><h3>Everyday Accessories</h3><p class="price">£14.99</p></a></article>
+          </div></div>
+          <div class="tab-panel" id="panel-jibbitz" role="tabpanel" aria-labelledby="tab-jibbitz" data-panel="jibbitz">
+            <div class="product-rail charm-rail">
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--coral"><div class="charm-sparkles">✦ ✧ ✦</div></div><h3>Jibbitz™ 3D Charms</h3><p class="price">From £4.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--yellow"><div class="charm-sparkles">★ ♡ ★</div></div><h3>Sweet &amp; Savage</h3><p class="price">From £4.99</p></a></article>
+            <article class="product-card charm-card"><a href="#"><div class="product-image product-image--mint"><div class="charm-sparkles">☀︎ ✿ ☀︎</div></div><h3>Classic Icons</h3><p class="price">From £4.99</p></a></article>
+          </div></div>
+        </div>
+        <a class="button button--outline full-width mobile-only" href="#jibbitz">Shop all accessories</a>
+      </section>
+
+      <section class="club" id="club">
+        <div class="club-copy"><p class="eyebrow">A little something extra</p><h2>Join Crocs Club &amp; get 15% off your next purchase</h2><p>Sign up for first access to new drops, member-only offers and more.</p></div>
+        <form class="club-form" id="clubForm"><label for="clubEmail">Email address</label><div><input id="clubEmail" name="email" type="email" placeholder="you@example.com" required /><button class="button button--dark" type="submit">Sign up for free</button></div><small>By signing up, you agree to receive Crocs news. Unsubscribe anytime.</small></form>
+      </section>
+    </main>
+
+    <footer class="site-footer" id="footer">
+      <div class="footer-top"><div><p class="footer-kicker">Download the Crocs app</p><p class="footer-muted">Get your favourites wherever you go.</p><div class="app-badges"><a href="#" aria-label="Download on the App Store"> App Store</a><a href="#" aria-label="Get it on Google Play">▶ Google Play</a></div></div><div class="footer-account"><p>Already a member?</p><button type="button" class="button button--outline" id="footerAccount">Log in to my account</button></div></div>
+      <div class="footer-grid">
+        <div class="footer-column"><h3>Crocs Exclusives</h3><a href="#collabs">Collaborations &amp; Limited Editions</a><a href="#shop">Shop all</a><a href="#new-arrivals">Sale &amp; discounted</a><a href="#club">Student discount</a><a href="#club">Crocs app</a></div>
+        <div class="footer-column"><h3>Company</h3><a href="#footer">About Crocs</a><a href="#footer">Crocs Purpose</a><a href="#footer">Careers</a><a href="#footer">Investor relations</a><a href="#footer">Wholesale enquiries</a></div>
+        <div class="footer-column"><h3>Help</h3><a href="#footer">Order status</a><a href="#footer">Return request</a><a href="#footer">Shipping rates &amp; times</a><a href="#footer">FAQs</a><a href="#footer">Size chart</a></div>
+        <div class="footer-column footer-service"><h3>Customer Service</h3><p>Monday–Thursday: 24 hours<br />Friday: closes 10 PM GMT<br />Saturday: closed<br />Sunday: opens 8 PM GMT</p><a href="#footer">+31 23 7411703</a><a href="#footer">Other contact options</a></div>
+      </div>
+      <div class="footer-bottom"><div class="social-links"><a href="#footer" aria-label="Instagram">◎</a><a href="#footer" aria-label="Facebook">f</a><a href="#footer" aria-label="TikTok">♪</a><a href="#footer" aria-label="YouTube">▶</a></div><div class="legal"><a href="#footer">Privacy policy</a><a href="#footer">Terms of use</a><a href="#footer">United Kingdom</a><span>© 2026 Crocs, Inc.</span></div></div>
+    </footer>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="supabase-config.js" defer></script>
+    <script src="supabase-storefront.js" defer></script>
+    <script src="script.js" defer></script>
+  </body>
+</html>
