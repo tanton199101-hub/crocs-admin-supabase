@@ -33,7 +33,7 @@
       collections: [{ id: 'col1', title: 'New arrivals', description: 'The latest comfort icons.', productIds: ['p1', 'p2', 'p4', 'p5', 'p6', 'p7'], status: 'Active' }, { id: 'col2', title: 'Cozy favourites', description: 'Made for colder days.', productIds: ['p1', 'p7'], status: 'Active' }, { id: 'col3', title: 'Little adventures', description: 'Big comfort for little feet.', productIds: ['p3'], status: 'Draft' }],
       menus: [{ id: 'main', title: 'Main menu', items: [{ id: 'm1', label: 'Sale', url: '#new-arrivals' }, { id: 'm2', label: 'Women', url: '#shop' }, { id: 'm3', label: 'Men', url: '#shop' }, { id: 'm4', label: 'Kids', url: '#shop' }, { id: 'm5', label: 'Jibbitz™ Charms', url: '#jibbitz' }, { id: 'm6', label: 'Crocs at Work™', url: '#shop' }, { id: 'm7', label: 'Bags & Accessories', url: '#shop' }, { id: 'm8', label: 'HeyDude', url: '#collabs' }] }, { id: 'footer', title: 'Footer menu', items: [{ id: 'f1', label: 'Privacy policy', url: '#footer' }, { id: 'f2', label: 'Terms of use', url: '#footer' }, { id: 'f3', label: 'United Kingdom', url: '#footer' }] }],
       theme: { draft: clone(theme), published: clone(theme), publishedAt: date(0) },
-      settings: { name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10 },
+      settings: { name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } },
       campaigns: [{ id: 'camp1', title: 'Cozy Favourites', channel: 'Email', status: 'Draft', subject: 'A softer side of comfort', content: 'Discover the new Cozy Favourites collection.', date: '' }],
       activity: [{ id: 'a1', title: 'Đã khởi tạo cửa hàng mẫu', detail: 'Mọi số liệu là dữ liệu minh họa cục bộ.', createdAt: date(0) }],
     };
@@ -86,7 +86,10 @@
     for (const theme of [data.theme?.draft, data.theme?.published]) {
       if (!theme || !/^#[\da-f]{6}$/i.test(theme.accent) || !/^#[\da-f]{6}$/i.test(theme.background) || !theme.heroTitle?.trim() || !theme.heroButton?.trim() || !['cozy', 'crocband', 'ninjago'].includes(theme.campaign)) throw new Error('Cấu hình theme không hợp lệ.');
     }
+    data.settings ||= {};
+    data.settings.payment = { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic', ...(data.settings.payment || {}) };
     if (!data.settings?.name?.trim() || data.settings.currency !== 'GBP' || !Number.isSafeInteger(data.settings.stockThreshold) || data.settings.stockThreshold < 0 || !data.menus.some(m => m.id === data.settings.mainMenuId) || !data.menus.some(m => m.id === data.settings.footerMenuId)) throw new Error('Cài đặt cửa hàng hoặc menu đang sử dụng không hợp lệ.');
+    if (data.settings.payment.provider !== 'stripe' || typeof data.settings.payment.enabled !== 'boolean' || !['test', 'live'].includes(data.settings.payment.mode) || !['automatic', 'card'].includes(data.settings.payment.methods)) throw new Error('Cấu hình Stripe không hợp lệ.');
     return data;
   }
   let state;

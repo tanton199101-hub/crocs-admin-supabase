@@ -16,6 +16,7 @@ For the theme preview and browser storage to work consistently between the admin
 2. Keep the publishable key in `supabase-config.js` (never use the secret/service-role key in browser code).
 3. `store_state` stores the validated Crocs Studio v1 JSON document; `store_events` records sync events. The hardening migration adds `store_members`, Auth-gated admin RPCs, optimistic version checks and a public catalogue projection that never includes customers, orders or draft admin data.
 4. Run `supabase/migrations/20261004010000_create_storefront_checkout.sql` to publish the active catalogue and enable the server-validated demo checkout. The RPC creates a `storefront_orders` row, decrements stock and mirrors a safe order summary into the admin state. It does not accept card data.
+5. For real Stripe Checkout, first apply `supabase/migrations/20261004030000_create_stripe_checkout.sql`. It adds private, short-lived checkout reservations, idempotent webhook events and Stripe payment/order fields. The migration deliberately grants the reservation/webhook RPCs only to `service_role`.
 
 The original migration is intentionally permissive for the early demo. Before using real data, run `supabase/migrations/20261004020000_harden_public_and_admin.sql`. The first authenticated user claims the default store as owner; later users must be added to `store_members`. Anonymous callers can use only the public catalogue and checkout RPCs. Admin writes use a version-checked RPC, so two tabs cannot silently overwrite one another.
 
@@ -24,6 +25,21 @@ The original migration is intentionally permissive for the early demo. Before us
 Run `npm install`, `npm test` and `npm run build` locally. Vercel uses the same build and deploys `dist/`; set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` in the Vercel project if you want the build to generate a config file from environment variables. The checked-in config already contains the project's publishable key, which is safe for browser use. Never add a secret/service-role key.
 
 The repository is `https://github.com/tanton199101-hub/crocs-admin-supabase` and the production deployment is `https://crocs-admin-supabase.vercel.app`.
+
+## Stripe Checkout setup
+
+The admin Settings → Thanh toán screen stores only the provider, Test/Live mode and payment-method preference in the private store state. It never accepts or displays secret values. Add the following server-side environment variables in Vercel, using Test mode first:
+
+```text
+SUPABASE_SERVICE_ROLE_KEY=...
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STOREFRONT_URL=https://crocs-admin-supabase.vercel.app
+STRIPE_ALLOW_LIVE=false
+```
+
+Create a Stripe webhook for `https://crocs-admin-supabase.vercel.app/api/stripe/webhook` and subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`. The endpoint verifies the raw Stripe signature and uses the webhook—not the return URL—as the source of truth for payment and order creation. Use Stripe’s `4242 4242 4242 4242` test card while `sk_test_...` is configured. Do not commit any secret or paste one into chat.
 
 ## Included
 
