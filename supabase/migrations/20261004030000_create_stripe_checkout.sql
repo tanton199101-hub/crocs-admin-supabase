@@ -254,8 +254,12 @@ as $$
 declare v_attempt public.stripe_checkout_attempts%rowtype;
 begin
   if p_session_id is null or p_session_id !~ '^cs_(test_|live_)?[A-Za-z0-9_]+' then raise exception using errcode = '22023', message = 'Stripe session is invalid.'; end if;
-  update public.stripe_checkout_attempts set stripe_session_id = p_session_id, updated_at = timezone('utc', now()) where id = p_attempt_id and status = 'reserved' returning * into v_attempt;
-  if v_attempt.id is null then raise exception using errcode = '40001', message = 'Checkout reservation has changed. Start again.'; end if;
+  select * into v_attempt from public.stripe_checkout_attempts where id = p_attempt_id for update;
+  if not found then raise exception using errcode = '40001', message = 'Checkout reservation has changed. Start again.'; end if;
+  if v_attempt.stripe_session_id is not null and v_attempt.stripe_session_id <> p_session_id then raise exception using errcode = '23505', message = 'Checkout session already exists.'; end if;
+  if v_attempt.stripe_session_id = p_session_id then return v_attempt; end if;
+  if v_attempt.status <> 'reserved' then raise exception using errcode = '40001', message = 'Checkout reservation has changed. Start again.'; end if;
+  update public.stripe_checkout_attempts set stripe_session_id = p_session_id, updated_at = timezone('utc', now()) where id = p_attempt_id returning * into v_attempt;
   return v_attempt;
 end;
 $$;

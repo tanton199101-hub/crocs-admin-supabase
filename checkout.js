@@ -135,7 +135,7 @@
         const customer = { email: String(fields.get('email') || '').trim(), name: String(fields.get('customerName') || '').trim(), phone: String(fields.get('phone') || '').trim(), address: String(fields.get('address') || '').trim(), city: String(fields.get('city') || '').trim(), postcode: String(fields.get('postcode') || '').trim() };
         if (stripeConfig.enabled) {
           if (!stripeConfig.ready) throw new Error('Stripe is temporarily unavailable. Please try again later.');
-          const requestId = root.crypto?.randomUUID?.() || `${Date.now().toString(16)}-${Math.random().toString(16).slice(2)}`;
+          const requestId = root.crypto?.randomUUID?.() || 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, char => { const random = Math.random() * 16 | 0; const value = char === 'x' ? random : random & 3 | 8; return value.toString(16); });
           const response = await fetch('/api/stripe/create-checkout-session', { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ requestId, customer, deliveryMethod, lines: linePayload(currentLines) }) });
           const result = await response.json().catch(() => ({}));
           if (!response.ok || !result.url) throw new Error(result.error || 'Stripe checkout could not be opened.');
