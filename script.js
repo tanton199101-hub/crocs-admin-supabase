@@ -166,12 +166,14 @@
     cart = lines.map(line => {
       const product = commerce.product(line.productId);
       const card = document.querySelector(`[data-product-id="${CSS.escape(line.productId)}"]`);
+      const variant = product?.variants?.find(item => item.id === line.variantId);
       return {
         productId: line.productId,
+        variantId: line.variantId || '',
         size: line.size,
         quantity: line.quantity,
-        name: product?.title || card?.querySelector('h3')?.textContent || 'Crocs product',
-        price: product?.price || Math.round(Number(card?.querySelector('.add-button')?.dataset.price || 0) * 100),
+        name: product ? `${product.title}${variant ? ` — ${commerce.variantTitle(product, variant)}` : ''}` : card?.querySelector('h3')?.textContent || 'Crocs product',
+        price: variant?.price || product?.price || Math.round(Number(card?.querySelector('.add-button')?.dataset.price || 0) * 100),
         image: product?.image || card?.querySelector('img')?.getAttribute('src') || 'assets/arrival-classic-clog-100.png'
       };
     });
@@ -195,7 +197,7 @@
       <div><strong>£${(item.price * item.quantity / 100).toFixed(2)}</strong><button class="remove-item" type="button" data-index="${index}" aria-label="Remove ${commerce?.escape?.(item.name) || item.name}">×</button></div></div>`).join('');
     cartItems.querySelectorAll('.remove-item').forEach((button) => button.addEventListener('click', () => {
       const index = Number(button.dataset.index); const removed = cart[index];
-      if (commerce && removed?.productId) commerce.update(removed.productId, removed.size, 0);
+      if (commerce && removed?.productId) commerce.update(removed.productId, removed.size, 0, removed.variantId);
       else cart.splice(index, 1);
       updateCart(); showToast(`${removed.name} removed from your bag`);
     }));
@@ -208,7 +210,8 @@
       const product = commerce.product(productId);
       if (!product) { showToast('This pair is not available in the live catalogue yet.'); return; }
       try {
-        commerce.add(productId, commerce.sizesFor(product)[0], 1);
+        const firstVariant = commerce.variantsFor(product)[0];
+        commerce.add(productId, firstVariant ? { variantId: firstVariant.id, size: commerce.variantSize(product, firstVariant) } : commerce.sizesFor(product)[0], 1);
         updateCart(); showToast(`${product.title} added to your bag`);
       } catch (error) { showToast(error.message); }
       return;

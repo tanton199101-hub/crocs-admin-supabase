@@ -53,8 +53,14 @@ as $$
         'stock', greatest(coalesce((product->>'stock')::integer, 0), 0),
         'status', 'Active',
         'image', product->>'image',
+        'imageAlt', product->>'imageAlt',
+        'brand', product->>'brand',
+        'slug', product->>'slug',
         'category', product->>'category',
         'description', product->>'description',
+        'seo', coalesce(product->'seo', '{}'::jsonb),
+        'options', coalesce(product->'options', '[]'::jsonb),
+        'variants', coalesce(product->'variants', '[]'::jsonb),
         'colour', product->>'colour',
         'sizes', product->'sizes'
       ) order by product->>'title')
@@ -96,16 +102,21 @@ declare
   v_line jsonb;
   v_order_lines jsonb := '[]'::jsonb;
   v_quantities jsonb := '{}'::jsonb;
+  v_variant_quantities jsonb := '{}'::jsonb;
   v_checked_lines jsonb := '[]'::jsonb;
   v_admin_items jsonb := '[]'::jsonb;
   v_admin_order jsonb;
   v_product_id text;
+  v_variant_id text;
   v_size text;
   v_category text;
   v_quantity integer;
   v_previous_quantity integer;
+  v_product_previous_quantity integer;
   v_stock integer;
   v_price integer;
+  v_variant jsonb;
+  v_variant_key text;
   v_subtotal integer := 0;
   v_shipping integer;
   v_total integer;
@@ -116,6 +127,8 @@ declare
   v_amount integer;
   v_new_products jsonb;
   v_candidate jsonb;
+  v_variant_item jsonb;
+  v_new_variants jsonb;
 begin
   if p_email is null or length(trim(p_email)) > 320 or trim(p_email) !~* '^[^\s@]+@[^\s@]+\.[^\s@]+$' then
     raise exception using errcode = '22023', message = 'Enter a valid email address.';
@@ -162,8 +175,9 @@ begin
       raise exception using errcode = '22023', message = 'A bag item is invalid.';
     end if;
     v_product_id := nullif(trim(v_line->>'productId'), '');
+    v_variant_id := nullif(trim(v_line->>'variantId'), '');
     v_size := nullif(trim(v_line->>'size'), '');
-    if v_product_id is null or v_size is null or length(v_size) > 20 or v_line->>'quantity' is null or (v_line->>'quantity') !~ '^[0-9]+$' then
+    if v_product_id is null or v_size is null or length(v_size) > 120 or v_line->>'quantity' is null or (v_line->>'quantity') !~ '^[0-9]+$' then
       raise exception using errcode = '22023', message = 'A bag item is invalid.';
     end if;
     v_quantity := (v_line->>'quantity')::integer;
@@ -172,7 +186,8 @@ begin
     end if;
     if exists (
       select 1 from jsonb_array_elements(v_checked_lines) as checked(line)
-      where checked.line->>'productId' = v_product_id and checked.line->>'size' = v_size
+      where checked.line->>'productId' = v_product_id
+        and coalesce(checked.line->>'variantId', checked.line->>'size') = coalesce(v_variant_id, v_size)
     ) then
       raise exception using errcode = '22023', message = 'A bag item is duplicated.';
     end if;
@@ -185,23 +200,45 @@ begin
     if v_product is null then
       raise exception using errcode = '22023', message = 'A product is no longer available.';
     end if;
-    v_category := coalesce(v_product->>'category', 'Clogs');
-    if jsonb_typeof(v_product->'sizes') = 'array' then
-      if not exists (select 1 from jsonb_array_elements_text(v_product->'sizes') as size(value) where size.value = v_size) then
+    v_product_previous_quantity := coalesce((v_quantities->>v_product_id)::integer, 0);
+    v_variant := null;
+    if jsonb_typeof(v_product->'variants') = 'array' and jsonb_array_length(v_product->'variants') > 0 then
+      if v_variant_id is null then
+        raise exception using errcode = '22023', message = 'Choose a product option.';
+      end if;
+      select value into v_variant
+      from jsonb_array_elements(v_product->'variants') as item(value)
+      where value->>'id' = v_variant_id and coalesce((value->>'enabled')::boolean, true)
+      limit 1;
+      if v_variant is null then
+        raise exception using errcode = '22023', message = 'This product option is no longer available.';
+      end if;
+      v_stock := greatest(coalesce((v_variant->>'stock')::integer, 0), 0);
+      v_price := greatest(coalesce((v_variant->>'price')::integer, 0), 0);
+      v_variant_key := v_product_id || ':' || v_variant_id;
+      v_previous_quantity := coalesce((v_variant_quantities->>v_variant_key)::integer, 0);
+    else
+      v_category := coalesce(v_product->>'category', 'Clogs');
+      if jsonb_typeof(v_product->'sizes') = 'array' then
+        if not exists (select 1 from jsonb_array_elements_text(v_product->'sizes') as size(value) where size.value = v_size) then
+          raise exception using errcode = '22023', message = 'Choose a valid size.';
+        end if;
+      elsif (v_category = 'Accessories' and v_size <> 'One size')
+         or (v_category = 'Kids' and v_size not in ('1','2','3','4','5','6'))
+         or (v_category not in ('Accessories','Kids') and v_size not in ('3','4','5','6','7','8','9','10','11','12')) then
         raise exception using errcode = '22023', message = 'Choose a valid size.';
       end if;
-    elsif (v_category = 'Accessories' and v_size <> 'One size')
-       or (v_category = 'Kids' and v_size not in ('1','2','3','4','5','6'))
-       or (v_category not in ('Accessories','Kids') and v_size not in ('3','4','5','6','7','8','9','10','11','12')) then
-      raise exception using errcode = '22023', message = 'Choose a valid size.';
+      v_stock := greatest(coalesce((v_product->>'stock')::integer, 0), 0);
+      v_price := greatest(coalesce((v_product->>'price')::integer, 0), 0);
+      v_previous_quantity := v_product_previous_quantity;
     end if;
-    v_stock := greatest(coalesce((v_product->>'stock')::integer, 0), 0);
-    v_price := greatest(coalesce((v_product->>'price')::integer, 0), 0);
-    v_previous_quantity := coalesce((v_quantities->>v_product_id)::integer, 0);
     if v_previous_quantity + v_quantity > v_stock then
       raise exception using errcode = '22023', message = 'There is not enough stock for this product.';
     end if;
-    v_quantities := jsonb_set(v_quantities, array[v_product_id], to_jsonb(v_previous_quantity + v_quantity), true);
+    v_quantities := jsonb_set(v_quantities, array[v_product_id], to_jsonb(v_product_previous_quantity + v_quantity), true);
+    if v_variant is not null then
+      v_variant_quantities := jsonb_set(v_variant_quantities, array[v_variant_key], to_jsonb(v_previous_quantity + v_quantity), true);
+    end if;
     v_subtotal := v_subtotal + v_price * v_quantity;
     v_order_lines := v_order_lines || jsonb_build_array(jsonb_build_object(
       'productId', v_product_id,
@@ -209,9 +246,11 @@ begin
       'image', v_product->>'image',
       'price', v_price,
       'quantity', v_quantity,
-      'size', v_size
+      'size', v_size,
+      'variantId', v_variant_id,
+      'variantTitle', case when v_variant is null then v_size else coalesce((select string_agg(value, ' / ' order by key) from jsonb_each_text(v_variant->'values')), v_variant_id) end
     ));
-    v_checked_lines := v_checked_lines || jsonb_build_array(jsonb_build_object('productId', v_product_id, 'size', v_size));
+    v_checked_lines := v_checked_lines || jsonb_build_array(jsonb_build_object('productId', v_product_id, 'size', v_size, 'variantId', v_variant_id));
   end loop;
 
   if v_subtotal < 0 or (select coalesce(sum((value->>'quantity')::integer), 0) from jsonb_array_elements(v_order_lines) as item(value)) > 20 then
@@ -237,6 +276,27 @@ begin
     for v_candidate in select value from jsonb_array_elements(v_products) as item(value) loop
       if v_candidate->>'id' = v_key then
         v_new_products := v_new_products || jsonb_build_array(jsonb_set(v_candidate, '{stock}', to_jsonb(greatest((v_candidate->>'stock')::integer - v_amount, 0)), true));
+      else
+        v_new_products := v_new_products || jsonb_build_array(v_candidate);
+      end if;
+    end loop;
+    v_products := v_new_products;
+  end loop;
+  -- Variant stock is decremented independently; the product stock above is
+  -- still updated as the aggregate available quantity for admin reporting.
+  for v_key, v_amount in select key, value::text::integer from jsonb_each(v_variant_quantities) loop
+    v_new_products := '[]'::jsonb;
+    for v_candidate in select value from jsonb_array_elements(v_products) as item(value) loop
+      if v_candidate->>'id' = split_part(v_key, ':', 1) then
+        v_new_variants := '[]'::jsonb;
+        for v_variant_item in select value from jsonb_array_elements(coalesce(v_candidate->'variants', '[]'::jsonb)) as item(value) loop
+          if v_variant_item->>'id' = split_part(v_key, ':', 2) then
+            v_new_variants := v_new_variants || jsonb_build_array(jsonb_set(v_variant_item, '{stock}', to_jsonb(greatest(coalesce((v_variant_item->>'stock')::integer, 0) - v_amount, 0)), true));
+          else
+            v_new_variants := v_new_variants || jsonb_build_array(v_variant_item);
+          end if;
+        end loop;
+        v_new_products := v_new_products || jsonb_build_array(jsonb_set(v_candidate, '{variants}', v_new_variants, true));
       else
         v_new_products := v_new_products || jsonb_build_array(v_candidate);
       end if;

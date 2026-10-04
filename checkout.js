@@ -6,7 +6,7 @@
   const main = document.querySelector('#checkoutMain');
   let deliveryMethod = 'standard';
 
-  const linePayload = lines => lines.map(line => ({ productId: line.productId, size: line.size, quantity: line.quantity }));
+  const linePayload = lines => lines.map(line => ({ productId: line.productId, variantId: line.variantId || undefined, size: line.size, quantity: line.quantity }));
 
   function renderEmpty() {
     main.setAttribute('aria-busy', 'false');
@@ -21,7 +21,7 @@
   }
 
   function summaryMarkup(quote) {
-    return `<aside class="checkout-summary" aria-labelledby="summaryTitle"><h2 id="summaryTitle">Your bag</h2><div class="checkout-lines">${quote.items.map(line => `<article class="checkout-line"><div class="checkout-line-image"><img src="${commerce.escape(commerce.image(line.product.image))}" alt="${commerce.escape(line.product.title)}"></div><div><h3>${commerce.escape(line.product.title)}</h3><p>Size ${commerce.escape(line.size)} · ${commerce.money(line.product.price)}</p><div class="line-actions"><span class="line-quantity"><button type="button" data-line-action="decrease" data-product-id="${commerce.escape(line.productId)}" data-size="${commerce.escape(line.size)}" aria-label="Decrease ${commerce.escape(line.product.title)}">−</button><span>${line.quantity}</span><button type="button" data-line-action="increase" data-product-id="${commerce.escape(line.productId)}" data-size="${commerce.escape(line.size)}" aria-label="Increase ${commerce.escape(line.product.title)}">+</button></span><button type="button" data-line-action="remove" data-product-id="${commerce.escape(line.productId)}" data-size="${commerce.escape(line.size)}">Remove</button></div></div><strong>${commerce.money(line.total)}</strong></article>`).join('')}</div><div class="summary-divider"></div><div class="summary-row"><span>Subtotal</span><strong>${commerce.money(quote.subtotal)}</strong></div><div class="summary-row"><span>${deliveryMethod === 'express' ? 'Express delivery' : 'Standard delivery'}</span><strong>${quote.shipping ? commerce.money(quote.shipping) : 'Free'}</strong></div><div class="summary-row summary-total"><span>Total</span><strong>${commerce.money(quote.total)}</strong></div></aside>`;
+    return `<aside class="checkout-summary" aria-labelledby="summaryTitle"><h2 id="summaryTitle">Your bag</h2><div class="checkout-lines">${quote.items.map(line => { const label = line.variantTitle || `Size ${line.size}`; return `<article class="checkout-line"><div class="checkout-line-image"><img src="${commerce.escape(commerce.image(line.product.image))}" alt="${commerce.escape(line.product.imageAlt || line.product.title)}"></div><div><h3>${commerce.escape(line.product.title)}</h3><p>${commerce.escape(label)} · ${commerce.money(line.unitPrice || line.product.price)}</p><div class="line-actions"><span class="line-quantity"><button type="button" data-line-action="decrease" data-product-id="${commerce.escape(line.productId)}" data-variant-id="${commerce.escape(line.variantId || '')}" data-size="${commerce.escape(line.size)}" aria-label="Decrease ${commerce.escape(line.product.title)}">−</button><span>${line.quantity}</span><button type="button" data-line-action="increase" data-product-id="${commerce.escape(line.productId)}" data-variant-id="${commerce.escape(line.variantId || '')}" data-size="${commerce.escape(line.size)}" aria-label="Increase ${commerce.escape(line.product.title)}">+</button></span><button type="button" data-line-action="remove" data-product-id="${commerce.escape(line.productId)}" data-variant-id="${commerce.escape(line.variantId || '')}" data-size="${commerce.escape(line.size)}">Remove</button></div></div><strong>${commerce.money(line.total)}</strong></article>`; }).join('')}</div><div class="summary-divider"></div><div class="summary-row"><span>Subtotal</span><strong>${commerce.money(quote.subtotal)}</strong></div><div class="summary-row"><span>${deliveryMethod === 'express' ? 'Express delivery' : 'Standard delivery'}</span><strong>${quote.shipping ? commerce.money(quote.shipping) : 'Free'}</strong></div><div class="summary-row summary-total"><span>Total</span><strong>${commerce.money(quote.total)}</strong></div></aside>`;
   }
 
   function formMarkup() {
@@ -52,11 +52,11 @@
       });
     }));
     main.querySelectorAll('[data-line-action]').forEach(button => button.addEventListener('click', () => {
-      const current = commerce.readCart().find(line => line.productId === button.dataset.productId && line.size === button.dataset.size);
+      const current = commerce.readCart().find(line => line.productId === button.dataset.productId && (button.dataset.variantId ? line.variantId === button.dataset.variantId : line.size === button.dataset.size));
       if (!current) return render();
       try {
-        if (button.dataset.lineAction === 'remove') commerce.update(current.productId, current.size, 0);
-        else commerce.update(current.productId, current.size, current.quantity + (button.dataset.lineAction === 'increase' ? 1 : -1));
+        if (button.dataset.lineAction === 'remove') commerce.update(current.productId, current.size, 0, current.variantId);
+        else commerce.update(current.productId, current.size, current.quantity + (button.dataset.lineAction === 'increase' ? 1 : -1), current.variantId);
         render();
       } catch (error) { ui?.toast(error.message); }
     }));

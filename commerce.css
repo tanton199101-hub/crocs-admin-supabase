@@ -69,8 +69,13 @@
 .product-meta-row span:first-child { color: var(--commerce-muted); }
 .commerce-form-label { display: block; margin: 24px 0 9px; font-size: 14px; font-weight: 800; }
 .size-grid { display: grid; grid-template-columns: repeat(5, minmax(48px, 1fr)); gap: 8px; }
+.variant-option-group { margin: 22px 0 0; padding: 0; border: 0; min-inline-size: 0; }
+.variant-option-group legend { margin-bottom: 9px; font-size: 13px; font-weight: 800; }
+.size-option.is-selected { background: var(--commerce-ink); color: #fff; border-color: var(--commerce-ink); }
+.size-option:disabled { opacity: .38; cursor: not-allowed; text-decoration: line-through; }
 .size-option { min-height: 46px; padding: 8px 6px; border: 1px solid #aeb4b8; border-radius: 7px; color: var(--commerce-ink); background: #fff; font-weight: 700; }
 .size-option:hover, .size-option[aria-pressed="true"] { border-color: var(--commerce-ink); box-shadow: inset 0 0 0 1px var(--commerce-ink); background: #f7f8f8; }
+.size-option.is-selected, .size-option.is-selected:hover { color: #fff; background: var(--commerce-ink); border-color: var(--commerce-ink); }
 .quantity-control { width: 132px; min-height: 46px; border: 1px solid #aeb4b8; border-radius: 7px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; }
 .quantity-control button { width: 42px; height: 44px; color: var(--commerce-ink); background: #fff; font-size: 22px; }
 .quantity-control button:hover { background: #f0f2f3; }

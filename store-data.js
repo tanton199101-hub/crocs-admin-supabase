@@ -22,7 +22,7 @@
       ['p7', 'Classic Lined Clog', '203591-206', 4999, 12, 'Active', 'icon-lined-206.png', 'Clogs'],
       ['p8', 'Sporty Shoe Tattoos', '100152-90H', 999, 0, 'Draft', 'jibbitz-sporty-90H.png', 'Accessories'],
     ];
-    const products = rows.map(([id, title, sku, price, stock, status, image, category]) => ({ id, title, sku, price, stock, status, image: `assets/${image}`, category, description: 'Lightweight comfort. Made for everyday adventures.', tags: ['Crocs'], updatedAt: date(0) }));
+    const products = rows.map(([id, title, sku, price, stock, status, image, category]) => ({ id, title, sku, price, stock, status, image: `assets/${image}`, imageAlt: `${title} product image`, brand: 'Crocs', category, description: 'Lightweight comfort. Made for everyday adventures.', tags: ['Crocs'], slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), seo: { title: '', description: '', noindex: false }, options: [], variants: [], updatedAt: date(0) }));
     const customers = [['c1', 'Olivia Grant', 'olivia@example.com', 'London'], ['c2', 'Noah Williams', 'noah@example.com', 'Manchester'], ['c3', 'Amelia Brown', 'amelia@example.com', 'Bristol'], ['c4', 'Charlie Evans', 'charlie@example.com', 'Leeds']].map(([id, name, email, city]) => ({ id, name, email, city, phone: '', note: 'Khách hàng mẫu để trải nghiệm quản trị.', marketing: false, createdAt: date(10) }));
     const orders = Array.from({ length: 18 }, (_, i) => {
       const product = products[i % 7];
@@ -45,9 +45,38 @@
       if (ids.some(value => typeof value !== 'string' || !value) || new Set(ids).size !== ids.length) throw new Error(`Mã ${key} không hợp lệ hoặc bị trùng.`);
     }
     data.products.forEach(p => {
+      // Backwards-compatible defaults for v1 records created before the
+      // variant/SEO editor was introduced.
+      p.options ||= [];
+      p.variants ||= [];
+      p.seo = { title: '', description: '', noindex: false, ...(p.seo || {}) };
+      p.brand ||= 'Crocs';
+      p.imageAlt ||= `${p.title} product image`;
+      if (!p.slug) p.slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       if (!p.title?.trim() || !p.sku?.trim() || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0 || !['Active', 'Draft', 'Archived'].includes(p.status) || !safeImage(p.image)) throw new Error('Sản phẩm cần tên, SKU, ảnh, giá và tồn kho hợp lệ.');
+      if (typeof p.brand !== 'string' || typeof p.imageAlt !== 'string' || typeof p.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug) || typeof p.seo.title !== 'string' || typeof p.seo.description !== 'string' || typeof p.seo.noindex !== 'boolean') throw new Error('Thông tin thương hiệu hoặc SEO sản phẩm không hợp lệ.');
+      if (!Array.isArray(p.options) || p.options.length > 3 || !Array.isArray(p.variants) || p.variants.length > 100 || (p.variants.length > 0 && p.options.length === 0)) throw new Error('Thuộc tính hoặc biến thể sản phẩm không hợp lệ.');
+      const optionIds = new Set(p.options.map(o => o.id));
+      const optionNames = new Set(p.options.map(o => String(o.name || '').trim().toLowerCase()));
+      if (optionIds.size !== p.options.length || optionNames.size !== p.options.length || p.options.some(o => !/^[a-zA-Z0-9_-]+$/.test(o.id) || !o.name || !Array.isArray(o.values) || !o.values.length || new Set(o.values.map(v => String(v).toLowerCase())).size !== o.values.length)) throw new Error('Thuộc tính sản phẩm không hợp lệ.');
+      const variantIds = new Set(), variantSkus = new Set([p.sku.toLowerCase()]), combinations = new Set();
+      p.variants.forEach(v => {
+        if (!v.id || variantIds.has(v.id) || !v.sku?.trim() || variantSkus.has(v.sku.toLowerCase()) || !v.values || Object.keys(v.values).length !== p.options.length || p.options.some(o => !o.values.includes(v.values[o.id])) || !Number.isSafeInteger(v.price) || v.price < 0 || (v.compareAt != null && (!Number.isSafeInteger(v.compareAt) || v.compareAt <= v.price)) || (v.cost != null && (!Number.isSafeInteger(v.cost) || v.cost < 0)) || !Number.isSafeInteger(v.stock) || v.stock < 0 || typeof v.enabled !== 'boolean') throw new Error('Biến thể sản phẩm không hợp lệ.');
+        const combination = p.options.map(o => `${o.id}:${String(v.values[o.id]).toLowerCase()}`).join('|');
+        if (combinations.has(combination)) throw new Error('Tổ hợp biến thể bị trùng.');
+        variantIds.add(v.id); variantSkus.add(v.sku.toLowerCase()); combinations.add(combination);
+      });
+      if (p.variants.length) {
+        const enabled = p.variants.filter(v => v.enabled);
+        const expectedPrice = enabled.length ? Math.min(...enabled.map(v => v.price)) : 0;
+        const expectedStock = enabled.reduce((sum, v) => sum + v.stock, 0);
+        if (p.price !== expectedPrice || p.stock !== expectedStock) throw new Error('Giá và tồn tổng phải khớp với biến thể đang bật.');
+      }
     });
-    if (new Set(data.products.map(p => p.sku.toLowerCase())).size !== data.products.length) throw new Error('SKU đã tồn tại. Hãy dùng mã khác.');
+    const allSkus = data.products.flatMap(p => [p.sku, ...(p.variants || []).map(v => v.sku)]).map(sku => String(sku).toLowerCase());
+    if (new Set(allSkus).size !== allSkus.length) throw new Error('SKU đã tồn tại. Hãy dùng mã khác.');
+    const slugs = data.products.map(p => p.slug).filter(Boolean);
+    if (new Set(slugs).size !== slugs.length) throw new Error('Đường dẫn sản phẩm bị trùng.');
     data.customers.forEach(c => { if (!c.name?.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(c.email)) throw new Error('Tên hoặc email khách hàng không hợp lệ.'); });
     data.collections.forEach(c => { if (!c.title?.trim() || !['Active', 'Draft'].includes(c.status) || !Array.isArray(c.productIds) || c.productIds.some(pid => !data.products.some(p => p.id === pid))) throw new Error('Bộ sưu tập không hợp lệ.'); });
     data.menus.forEach(m => { if (!m.title?.trim() || !Array.isArray(m.items) || m.items.some(item => !item.label?.trim() || !safeLink(item.url))) throw new Error('Menu cần tên và liên kết hợp lệ (#section hoặc https://…).'); });

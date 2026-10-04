@@ -31,11 +31,18 @@ The repository is `https://github.com/tanton199101-hub/crocs-admin-supabase` and
 - Campaign banners and horizontally scrollable product rails
 - Shopping bag, favourites and accessory tabs
 - Product detail pages with size/quantity selection and a mobile-first demo checkout
+- Full-page product workspace with up to three option axes and 100 generated variants per product
+- Variant-level SKU, sale/compare-at/cost price, barcode, stock and publish switches, plus bulk price/stock edits with undo
+- Product SEO fields, Google-style preview, content checklist, canonical/robots meta and ProductGroup JSON-LD on the storefront
 - Newsletter form feedback and keyboard Escape handling
 - Local campaign/product image assets for reliable rendering
 - Local TT Crocs and Karl ST font files for offline visual fidelity
 - Shopify-inspired admin workspace with dashboard, orders, product catalog, customers, theme, navigation, analytics, marketing and settings
 - Supabase REST sync with local fallback and an audit event table
+
+### Product editor workflow
+
+From Admin → Products → Add product, write the customer-facing content first, then add options such as `Colour`, `UK size` or `Material`. “Create / update combinations” preserves existing rows and only creates the new combinations. Select rows in the variant grid to set prices, apply percentage/delta adjustments, set inventory or toggle selling in one action. The SEO panel is an editorial checklist rather than a ranking score; fields are published to the storefront catalogue and structured data when the product is active.
 
 ## Scope
 
