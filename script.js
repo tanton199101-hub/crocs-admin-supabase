@@ -20,6 +20,7 @@
   const cartSummary = document.querySelector('#cartSummary');
   const cartSubtotal = document.querySelector('#cartSubtotal');
   const checkoutButton = document.querySelector('#checkoutButton');
+  const arrivalRail = document.querySelector('.arrival-rail');
   const commerce = window.CrocsCommerce;
   let cart = [];
   let toastTimer;
@@ -160,6 +161,18 @@
     showToast(term ? `Showing results for “${term}”` : 'Try searching for a clog, charm or slipper');
   });
 
+  const cardThemes = ['cream', 'blue', 'pink', 'yellow', 'mint', 'sand', 'lavender'];
+  const renderLiveCatalog = (products) => {
+    if (!arrivalRail || !Array.isArray(products) || !products.length || !commerce) return;
+    arrivalRail.innerHTML = products.filter(product => product.status === 'Active').slice(0, 8).map((product, index) => {
+      const variants = commerce.variantsFor(product);
+      const label = variants.length ? 'Choose options' : 'Add to bag';
+      const price = variants.length ? commerce.money(Math.min(...variants.map(item => item.price))) : commerce.money(product.price);
+      const action = variants.length ? ` data-requires-options="true"` : '';
+      return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><button class="wishlist" type="button" aria-label="Save ${commerce.escape(product.title)}">♡</button><a href="product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520" /></div><h3>${commerce.escape(product.title)}</h3><p class="price">${price}</p><button class="add-button" type="button" data-product-id="${commerce.escape(product.id)}" data-product="${commerce.escape(product.title)}" data-price="${(product.price / 100).toFixed(2)}"${action}>${label}</button></a></article>`;
+    }).join('');
+  };
+
   const hydrateCommerceCart = () => {
     if (!commerce) return;
     const lines = commerce.readCart();
@@ -203,12 +216,15 @@
     }));
   };
 
-  document.querySelectorAll('.add-button').forEach((button) => button.addEventListener('click', (event) => {
+  arrivalRail?.addEventListener('click', (event) => {
+    const button = event.target.closest('.add-button');
+    if (!button) return;
     event.preventDefault(); event.stopPropagation();
     if (commerce) {
       const productId = button.dataset.productId;
       const product = commerce.product(productId);
       if (!product) { showToast('This pair is not available in the live catalogue yet.'); return; }
+      if (button.dataset.requiresOptions === 'true') { window.location.href = `product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`; return; }
       try {
         const firstVariant = commerce.variantsFor(product)[0];
         commerce.add(productId, firstVariant ? { variantId: firstVariant.id, size: commerce.variantSize(product, firstVariant) } : commerce.sizesFor(product)[0], 1);
@@ -222,13 +238,15 @@
     const existing = cart.find((item) => item.name === name);
     if (existing) existing.quantity += 1; else cart.push({ name, price, image, quantity: 1 });
     updateCart(); showToast(`${name} added to your bag`);
-  }));
-  document.querySelectorAll('.wishlist').forEach((button) => button.addEventListener('click', (event) => {
+  });
+  arrivalRail?.addEventListener('click', (event) => {
+    const button = event.target.closest('.wishlist');
+    if (!button) return;
     event.preventDefault(); event.stopPropagation();
     const saved = button.classList.toggle('is-saved'); button.textContent = saved ? '♥' : '♡';
     button.setAttribute('aria-label', `${saved ? 'Remove' : 'Save'} ${button.closest('.product-card')?.querySelector('h3')?.textContent || 'product'}`);
     showToast(saved ? 'Saved to your favourites' : 'Removed from your favourites');
-  }));
+  });
 
   document.querySelectorAll('.rail-arrow').forEach((arrow) => arrow.addEventListener('click', () => {
     const rail = arrow.closest('.section')?.querySelector('[data-rail]'); if (!rail) return;
@@ -255,7 +273,7 @@
     else showToast('Demo only: checkout is not connected.');
   });
   window.addEventListener('crocs:bag', updateCart);
-  window.addEventListener('crocs:catalog', updateCart);
-  commerce?.ready?.then(updateCart).catch(() => updateCart());
+  window.addEventListener('crocs:catalog', event => { renderLiveCatalog(event.detail?.products); updateCart(); });
+  commerce?.ready?.then(() => { renderLiveCatalog(commerce.products); updateCart(); }).catch(() => updateCart());
   updateCart();
 })();

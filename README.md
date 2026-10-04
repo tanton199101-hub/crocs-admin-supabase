@@ -14,10 +14,10 @@ For the theme preview and browser storage to work consistently between the admin
 
 1. Run `supabase/migrations/20261004000000_create_crocs_backend.sql` in the Supabase SQL Editor.
 2. Keep the publishable key in `supabase-config.js` (never use the secret/service-role key in browser code).
-3. `store_state` stores the validated Crocs Studio v1 JSON document; `store_events` records sync events.
+3. `store_state` stores the validated Crocs Studio v1 JSON document; `store_events` records sync events. The hardening migration adds `store_members`, Auth-gated admin RPCs, optimistic version checks and a public catalogue projection that never includes customers, orders or draft admin data.
 4. Run `supabase/migrations/20261004010000_create_storefront_checkout.sql` to publish the active catalogue and enable the server-validated demo checkout. The RPC creates a `storefront_orders` row, decrements stock and mirrors a safe order summary into the admin state. It does not accept card data.
 
-The migration intentionally allows anonymous reads and writes so this static demo can work without a login. Before storing real customer or order data, add Supabase Auth and replace the demo RLS policies with authenticated/team policies.
+The original migration is intentionally permissive for the early demo. Before using real data, run `supabase/migrations/20261004020000_harden_public_and_admin.sql`. The first authenticated user claims the default store as owner; later users must be added to `store_members`. Anonymous callers can use only the public catalogue and checkout RPCs. Admin writes use a version-checked RPC, so two tabs cannot silently overwrite one another.
 
 ## GitHub and Vercel
 
@@ -38,7 +38,9 @@ The repository is `https://github.com/tanton199101-hub/crocs-admin-supabase` and
 - Local campaign/product image assets for reliable rendering
 - Local TT Crocs and Karl ST font files for offline visual fidelity
 - Shopify-inspired admin workspace with dashboard, orders, product catalog, customers, theme, navigation, analytics, marketing and settings
-- Supabase REST sync with local fallback and an audit event table
+- Supabase REST sync with local fallback, retry/backoff after outages and an audit event table
+- Auth-gated admin with owner/member roles, conflict recovery and a private admin state RPC
+- Public storefront projection, short-lived catalogue cache, immutable asset caching and hero-image preloading
 
 ### Product editor workflow
 

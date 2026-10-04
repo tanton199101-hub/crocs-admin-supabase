@@ -117,16 +117,40 @@
   const total = order => order.items.reduce((sum, item) => sum + item.price * item.quantity, 0) + order.shipping;
   function createOrder(data, customerId, lines, note = '', shipping = 0) {
     const customer = data.customers.find(c => c.id === customerId);
-    if (!customer || !lines.length) throw new Error('Chọn khách hàng và ít nhất một sản phẩm.');
-    const quantities = new Map();
-    lines.forEach(line => quantities.set(line.productId, (quantities.get(line.productId) || 0) + Number(line.quantity)));
-    const items = [...quantities].map(([pid, quantity]) => {
-      const product = data.products.find(p => p.id === pid && p.status === 'Active');
-      if (!product || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > product.stock) throw new Error(`Không đủ tồn kho hoặc số lượng không hợp lệ: ${product?.title || pid}.`);
-      return { productId: pid, title: product.title, image: product.image, price: product.price, quantity };
+    if (!customer || !Array.isArray(lines) || !lines.length) throw new Error('Chọn khách hàng và ít nhất một sản phẩm.');
+    const grouped = new Map();
+    lines.forEach(line => {
+      const productId = String(line.productId || '');
+      const variantId = String(line.variantId || '');
+      const key = `${productId}:${variantId}`;
+      const quantity = Number(line.quantity);
+      if (!Number.isSafeInteger(quantity) || quantity < 1) throw new Error('Số lượng sản phẩm không hợp lệ.');
+      grouped.set(key, { ...line, productId, variantId, quantity: (grouped.get(key)?.quantity || 0) + quantity });
+    });
+    const items = [...grouped.values()].map(line => {
+      const product = data.products.find(p => p.id === line.productId && p.status === 'Active');
+      if (!product) throw new Error(`Không tìm thấy sản phẩm đang bán: ${line.productId}.`);
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      if (variants.length) {
+        const variant = variants.find(item => item.id === line.variantId && item.enabled !== false);
+        if (!variant || line.quantity > variant.stock) throw new Error(`Không đủ tồn kho biến thể: ${product.title}.`);
+        const title = (product.options || []).map(option => variant.values?.[option.id]).filter(Boolean).join(' / ') || variant.sku;
+        return { productId: product.id, variantId: variant.id, variantTitle: title, title: product.title, image: product.image, price: variant.price, quantity: line.quantity };
+      }
+      if (line.quantity > product.stock) throw new Error(`Không đủ tồn kho hoặc số lượng không hợp lệ: ${product.title}.`);
+      return { productId: product.id, title: product.title, image: product.image, price: product.price, quantity: line.quantity };
     });
     const order = { id: id('order'), number: Math.max(1000, ...data.orders.map(o => o.number)) + 1, customerId, customerName: customer.name, customerEmail: customer.email, items, shipping, note, createdAt: new Date().toISOString(), payment: 'pending', fulfillment: 'unfulfilled', stockReserved: true, channel: 'Admin · local' };
-    items.forEach(item => { data.products.find(p => p.id === item.productId).stock -= item.quantity; });
+    items.forEach(item => {
+      const product = data.products.find(p => p.id === item.productId);
+      if (item.variantId) {
+        const variant = product.variants.find(candidate => candidate.id === item.variantId);
+        variant.stock -= item.quantity;
+        product.stock = product.variants.filter(candidate => candidate.enabled !== false).reduce((sum, candidate) => sum + candidate.stock, 0);
+        const active = product.variants.filter(candidate => candidate.enabled !== false);
+        product.price = active.length ? Math.min(...active.map(candidate => candidate.price)) : 0;
+      } else product.stock -= item.quantity;
+    });
     data.orders.unshift(order);
     return order;
   }
@@ -136,7 +160,15 @@
     if (action === 'pay' && order.payment === 'pending' && order.fulfillment !== 'cancelled') order.payment = 'paid';
     else if (action === 'fulfill' && order.payment === 'paid' && order.fulfillment === 'unfulfilled') order.fulfillment = 'fulfilled';
     else if (action === 'cancel' && order.fulfillment === 'unfulfilled') {
-      if (order.stockReserved) order.items.forEach(item => { const p = data.products.find(p => p.id === item.productId); if (p) p.stock += item.quantity; });
+      if (order.stockReserved) order.items.forEach(item => {
+        const p = data.products.find(p => p.id === item.productId);
+        if (!p) return;
+        if (item.variantId && Array.isArray(p.variants)) {
+          const variant = p.variants.find(candidate => candidate.id === item.variantId);
+          if (variant) variant.stock += item.quantity;
+          p.stock = p.variants.filter(candidate => candidate.enabled !== false).reduce((sum, candidate) => sum + candidate.stock, 0);
+        } else p.stock += item.quantity;
+      });
       order.stockReserved = false;
       order.fulfillment = 'cancelled';
     } else if (action === 'refund' && order.payment === 'paid') order.payment = 'refunded';

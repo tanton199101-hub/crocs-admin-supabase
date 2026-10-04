@@ -1,0 +1,42 @@
+.admin-auth-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: #18201b;
+  background: radial-gradient(circle at 15% 10%, rgba(128, 189, 18, .16), transparent 38%), #f5f7f4;
+}
+
+.admin-auth-card {
+  width: min(100%, 460px);
+  padding: clamp(24px, 5vw, 44px);
+  border: 1px solid #dfe4df;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 18px 60px rgba(24, 32, 27, .12);
+}
+
+.admin-auth-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 32px; }
+.admin-auth-brand img { width: 108px; filter: brightness(0) saturate(100%); }
+.admin-auth-brand span { color: #788078; font-size: 12px; }
+.admin-auth-card h1 { margin: 0 0 8px; font-size: clamp(28px, 5vw, 40px); line-height: 1; }
+.admin-auth-card > p { margin: 0 0 24px; color: #667066; }
+.admin-auth-form { display: grid; gap: 14px; }
+.admin-auth-form label { display: grid; gap: 7px; font-weight: 700; }
+.admin-auth-form input { min-height: 46px; padding: 10px 12px; border: 1px solid #cfd7cf; border-radius: 10px; color: inherit; background: #fff; }
+.admin-auth-form input:focus-visible { outline: 3px solid rgba(128, 189, 18, .28); outline-offset: 2px; border-color: #6d9f0e; }
+.admin-auth-submit { min-height: 46px; margin-top: 4px; border-radius: 10px; color: #13200e; background: #80bd12; font-weight: 800; }
+.admin-auth-submit:hover { background: #92ce22; }
+.admin-auth-switch { display: flex; gap: 8px; margin-top: 18px; color: #667066; font-size: 13px; }
+.admin-auth-switch button { padding: 0; color: #4e7900; background: transparent; font-weight: 800; }
+.admin-auth-message { min-height: 20px; margin-top: 14px; color: #b24f43; font-size: 13px; }
+.admin-auth-message.is-success { color: #39700e; }
+.admin-auth-note { margin-top: 22px !important; padding-top: 16px; border-top: 1px solid #edf0ed; color: #788078 !important; font-size: 12px; }
+
+html.admin-auth-required .admin-shell { display: none; }
+html.admin-auth-required body { background: #f5f7f4; }
+
+@media (max-width: 520px) {
+  .admin-auth-screen { align-items: start; padding: 16px; }
+  .admin-auth-card { margin-top: 8vh; padding: 24px 20px; }
+}

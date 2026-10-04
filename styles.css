@@ -181,6 +181,7 @@ main#top { display: flex; flex-direction: column; gap: 16px; }
 .text-link { color: var(--ink); font-size: 15px; font-weight: 900; text-decoration: underline; text-underline-offset: 4px; }
 .text-link span { margin-left: 6px; font-size: 20px; text-decoration: none; }
 .product-rail { display: flex; gap: 16px; overflow-x: auto; overscroll-behavior-inline: contain; scroll-snap-type: x proximity; padding: 3px 2px 12px; scrollbar-width: none; }
+.spotlight, .collabs, .club, .site-footer { content-visibility: auto; contain-intrinsic-size: 620px; }
 .product-rail::-webkit-scrollbar { display: none; }
 .icon-card { flex: 0 0 172px; scroll-snap-align: start; }
 .icon-card a { display: block; }

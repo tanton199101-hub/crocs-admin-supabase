@@ -5,6 +5,8 @@
 })(typeof window === 'undefined' ? globalThis : window, function (root) {
   'use strict';
   const CART_KEY = 'crocs-bag-v2';
+  const CATALOG_CACHE_KEY = 'crocs-catalog-v1';
+  const CATALOG_CACHE_TTL = 60 * 1000;
   const money = cents => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(cents / 100);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const image = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value) ? value : 'assets/arrival-classic-clog-100.png';
@@ -144,18 +146,39 @@
     if (!response.ok) throw new Error(json.message || 'The store could not process this request.');
     return json;
   }
+  function setCatalog(data, nextSource = 'supabase') {
+    if (!Array.isArray(data?.products)) throw new Error('The catalogue is unavailable.');
+    catalog = data.products.filter(p => p.status === 'Active').map(normalize);
+    source = nextSource;
+    problem = nextSource === 'cache' ? 'Showing a recent catalogue while we check live availability.' : '';
+    root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: data }));
+  }
+  function readCatalogCache() {
+    try {
+      const cached = JSON.parse(root.sessionStorage?.getItem(CATALOG_CACHE_KEY) || 'null');
+      if (!cached?.data || Date.now() - Number(cached.savedAt) > CATALOG_CACHE_TTL) return null;
+      return cached.data;
+    } catch { return null; }
+  }
+  function saveCatalogCache(data) {
+    try { root.sessionStorage?.setItem(CATALOG_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), data })); } catch { /* Cache is optional. */ }
+  }
   async function loadCatalog() {
+    const cached = readCatalogCache();
+    if (cached) {
+      try { setCatalog(cached, 'cache'); } catch { /* Ignore an invalid stale cache. */ }
+    }
     try {
       const data = await rpc('storefront_catalog_v1', {});
-      if (!Array.isArray(data?.products)) throw new Error('The catalogue is unavailable.');
-      catalog = data.products.filter(p => p.status === 'Active').map(normalize);
-      source = 'supabase'; problem = '';
-      root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: data }));
-    } catch { source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.'; }
+      setCatalog(data, 'supabase');
+      saveCatalogCache(data);
+    } catch {
+      if (!cached) { source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.'; }
+    }
     return catalog;
   }
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog,
+  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog,
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;

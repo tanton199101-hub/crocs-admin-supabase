@@ -2,11 +2,14 @@
   'use strict';
   const config = root.CrocsSupabaseConfig;
   if (!config?.url || !config?.publishableKey) return;
-  const endpoint = `${config.url.replace(/\/$/, '')}/rest/v1/store_state?id=eq.${encodeURIComponent(config.stateId || 'default')}&select=payload,updated_at`;
+  const endpoint = `${config.url.replace(/\/$/, '')}/rest/v1/rpc/storefront_theme_v1`;
   fetch(endpoint, {
-    headers: { apikey: config.publishableKey, Authorization: `Bearer ${config.publishableKey}` }
-  }).then(response => response.ok ? response.json() : []).then(rows => {
-    const theme = rows?.[0]?.payload?.theme?.published;
-    if (theme) root.dispatchEvent(new CustomEvent('crocs:remote-theme', { detail: { theme, updatedAt: rows[0].updated_at } }));
+    method: 'POST',
+    headers: { apikey: config.publishableKey, Authorization: `Bearer ${config.publishableKey}`, 'Content-Type': 'application/json' },
+    body: '{}'
+  }).then(response => response.ok ? response.json() : null).then(result => {
+    const payload = Array.isArray(result) ? result[0] : result;
+    const theme = payload?.theme;
+    if (theme) root.dispatchEvent(new CustomEvent('crocs:remote-theme', { detail: { theme } }));
   }).catch(error => console.warn('[CrocsBackend] Storefront fallback:', error));
 })(window);
