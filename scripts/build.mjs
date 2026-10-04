@@ -6,7 +6,7 @@ const root = resolve(import.meta.dirname, '..');
 const output = resolve(root, 'dist');
 await mkdir(output, { recursive: true });
 // Explicit allowlist: SQL, tests, credentials and git history never ship.
-for (const name of ['index.html', 'admin.html', 'styles.css', 'admin.css', 'script.js', 'admin.js', 'store-data.js', 'supabase-config.js', 'supabase-sync.js', 'supabase-storefront.js', 'assets']) {
+for (const name of ['index.html', 'admin.html', 'product.html', 'checkout.html', 'styles.css', 'admin.css', 'commerce.css', 'script.js', 'admin.js', 'commerce.js', 'commerce-ui.js', 'product.js', 'checkout.js', 'store-data.js', 'supabase-config.js', 'supabase-sync.js', 'supabase-storefront.js', 'assets']) {
   await cp(resolve(root, name), resolve(output, name), { recursive: true });
 }
 await build({

@@ -20,7 +20,8 @@
   const cartSummary = document.querySelector('#cartSummary');
   const cartSubtotal = document.querySelector('#cartSubtotal');
   const checkoutButton = document.querySelector('#checkoutButton');
-  const cart = [];
+  const commerce = window.CrocsCommerce;
+  let cart = [];
   let toastTimer;
   let lastOpener = null;
 
@@ -159,7 +160,25 @@
     showToast(term ? `Showing results for “${term}”` : 'Try searching for a clog, charm or slipper');
   });
 
+  const hydrateCommerceCart = () => {
+    if (!commerce) return;
+    const lines = commerce.readCart();
+    cart = lines.map(line => {
+      const product = commerce.product(line.productId);
+      const card = document.querySelector(`[data-product-id="${CSS.escape(line.productId)}"]`);
+      return {
+        productId: line.productId,
+        size: line.size,
+        quantity: line.quantity,
+        name: product?.title || card?.querySelector('h3')?.textContent || 'Crocs product',
+        price: product?.price || Math.round(Number(card?.querySelector('.add-button')?.dataset.price || 0) * 100),
+        image: product?.image || card?.querySelector('img')?.getAttribute('src') || 'assets/arrival-classic-clog-100.png'
+      };
+    });
+  };
+
   const updateCart = () => {
+    if (commerce) hydrateCommerceCart();
     const count = cart.reduce((total, item) => total + item.quantity, 0);
     const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
     cartCount.textContent = String(count);
@@ -168,21 +187,34 @@
     cartEmpty.hidden = count > 0;
     cartItems.hidden = count === 0;
     cartSummary.hidden = count === 0;
-    cartSubtotal.textContent = `£${subtotal.toFixed(2)}`;
+    cartSubtotal.textContent = commerce?.money ? commerce.money(subtotal) : `£${(subtotal / 100).toFixed(2)}`;
     if (!count) { cartItems.innerHTML = ''; return; }
     cartItems.innerHTML = cart.map((item, index) => `
-      <div class="cart-item"><div class="cart-item-image"><img src="${item.image}" alt="${item.name}" /></div>
-      <div><h3>${item.name}</h3><p>Quantity ${item.quantity}</p></div>
-      <div><strong>£${(item.price * item.quantity).toFixed(2)}</strong><button class="remove-item" type="button" data-index="${index}" aria-label="Remove ${item.name}">×</button></div></div>`).join('');
+      <div class="cart-item"><div class="cart-item-image"><img src="${commerce?.escape?.(item.image) || item.image}" alt="${commerce?.escape?.(item.name) || item.name}" /></div>
+      <div><h3>${commerce?.escape?.(item.name) || item.name}</h3><p>Size ${commerce?.escape?.(item.size) || item.size} · Quantity ${item.quantity}</p></div>
+      <div><strong>£${(item.price * item.quantity / 100).toFixed(2)}</strong><button class="remove-item" type="button" data-index="${index}" aria-label="Remove ${commerce?.escape?.(item.name) || item.name}">×</button></div></div>`).join('');
     cartItems.querySelectorAll('.remove-item').forEach((button) => button.addEventListener('click', () => {
-      const index = Number(button.dataset.index); const removed = cart[index]; cart.splice(index, 1); updateCart(); showToast(`${removed.name} removed from your bag`);
+      const index = Number(button.dataset.index); const removed = cart[index];
+      if (commerce && removed?.productId) commerce.update(removed.productId, removed.size, 0);
+      else cart.splice(index, 1);
+      updateCart(); showToast(`${removed.name} removed from your bag`);
     }));
   };
 
   document.querySelectorAll('.add-button').forEach((button) => button.addEventListener('click', (event) => {
     event.preventDefault(); event.stopPropagation();
+    if (commerce) {
+      const productId = button.dataset.productId;
+      const product = commerce.product(productId);
+      if (!product) { showToast('This pair is not available in the live catalogue yet.'); return; }
+      try {
+        commerce.add(productId, commerce.sizesFor(product)[0], 1);
+        updateCart(); showToast(`${product.title} added to your bag`);
+      } catch (error) { showToast(error.message); }
+      return;
+    }
     const name = button.dataset.product || 'Classic Clog';
-    const price = Number(button.dataset.price || 0);
+    const price = Math.round(Number(button.dataset.price || 0) * 100);
     const image = button.closest('.product-card')?.querySelector('img')?.src || '';
     const existing = cart.find((item) => item.name === name);
     if (existing) existing.quantity += 1; else cart.push({ name, price, image, quantity: 1 });
@@ -215,6 +247,12 @@
     event.preventDefault();
     showToast('Demo only: sign-in is not connected.');
   });
-  checkoutButton?.addEventListener('click', () => showToast('Demo only: checkout is not connected.'));
+  checkoutButton?.addEventListener('click', () => {
+    if (commerce) window.location.href = 'checkout.html';
+    else showToast('Demo only: checkout is not connected.');
+  });
+  window.addEventListener('crocs:bag', updateCart);
+  window.addEventListener('crocs:catalog', updateCart);
+  commerce?.ready?.then(updateCart).catch(() => updateCart());
   updateCart();
 })();

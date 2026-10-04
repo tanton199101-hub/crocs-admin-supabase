@@ -15,6 +15,7 @@ For the theme preview and browser storage to work consistently between the admin
 1. Run `supabase/migrations/20261004000000_create_crocs_backend.sql` in the Supabase SQL Editor.
 2. Keep the publishable key in `supabase-config.js` (never use the secret/service-role key in browser code).
 3. `store_state` stores the validated Crocs Studio v1 JSON document; `store_events` records sync events.
+4. Run `supabase/migrations/20261004010000_create_storefront_checkout.sql` to publish the active catalogue and enable the server-validated demo checkout. The RPC creates a `storefront_orders` row, decrements stock and mirrors a safe order summary into the admin state. It does not accept card data.
 
 The migration intentionally allows anonymous reads and writes so this static demo can work without a login. Before storing real customer or order data, add Supabase Auth and replace the demo RLS policies with authenticated/team policies.
 
@@ -29,6 +30,7 @@ The repository is `https://github.com/tanton199101-hub/crocs-admin-supabase` and
 - Responsive header, navigation drawer, search and account UI
 - Campaign banners and horizontally scrollable product rails
 - Shopping bag, favourites and accessory tabs
+- Product detail pages with size/quantity selection and a mobile-first demo checkout
 - Newsletter form feedback and keyboard Escape handling
 - Local campaign/product image assets for reliable rendering
 - Local TT Crocs and Karl ST font files for offline visual fidelity
