@@ -12,7 +12,7 @@ export default async function handler(req, res) {
     const active = readiness(payment, env, migration);
     if (!active.ready) throw new HttpError(503, active.message, active.reason);
     const client = privateDb();
-    reservation = await dbRpc(client, 'stripe_checkout_reserve_v1', { p_request_id: request.requestId, p_fingerprint: fingerprint(request, payment.mode), p_rate_key: rateKey(req), p_customer: request.customer, p_lines: request.lines, p_delivery_method: request.deliveryMethod, p_mode: payment.mode });
+    reservation = await dbRpc(client, 'stripe_checkout_reserve_v1', { p_request_id: request.requestId, p_fingerprint: fingerprint(request, payment.mode), p_rate_key: rateKey(req), p_customer: request.customer, p_lines: request.lines, p_delivery_method: request.deliveryMethod, p_mode: payment.mode, p_region_id: request.regionId || '' });
     if (['expired', 'failed', 'review'].includes(reservation.status)) throw new HttpError(409, 'This checkout has ended. Start a new checkout.', 'session_ended');
     const stripe = stripeClient();
     let session;

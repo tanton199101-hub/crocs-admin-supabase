@@ -54,6 +54,11 @@ export function normalizeRequest(body) {
   }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customer.email)) throw new HttpError(400, 'Enter a valid email address.');
   if (!['standard', 'express'].includes(body.deliveryMethod)) throw new HttpError(400, 'Choose a delivery option.');
+  const regionId = body.regionId == null || body.regionId === '' ? '' : String(body.regionId).trim().toLowerCase();
+  if (regionId && !/^[a-z0-9][a-z0-9_-]{1,31}$/.test(regionId)) throw new HttpError(400, 'Choose a valid shopping region.');
+  const language = body.language == null ? '' : String(body.language).trim().toLowerCase();
+  if (language && !['en', 'vi', 'fr', 'de', 'ja', 'ko'].includes(language)) throw new HttpError(400, 'Choose a valid language.');
+  customer.language = language;
   if (!Array.isArray(body.lines) || !body.lines.length || body.lines.length > 20) throw new HttpError(400, 'Add a product to your bag first.');
   const seen = new Set();
   let totalQuantity = 0;
@@ -66,15 +71,17 @@ export function normalizeRequest(body) {
     return clean;
   }).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
   if (totalQuantity > 20) throw new HttpError(400, 'Your bag is limited to 20 items.');
-  return { requestId: body.requestId.toLowerCase(), customer, deliveryMethod: body.deliveryMethod, lines };
+  return { requestId: body.requestId.toLowerCase(), customer, deliveryMethod: body.deliveryMethod, regionId, lines };
 }
 
 export function fingerprint(request, mode) {
-  return createHash('sha256').update(JSON.stringify({ customer: request.customer, lines: request.lines, deliveryMethod: request.deliveryMethod, mode })).digest('hex');
+  return createHash('sha256').update(JSON.stringify({ customer: request.customer, lines: request.lines, deliveryMethod: request.deliveryMethod, regionId: request.regionId || '', mode })).digest('hex');
 }
 
 export function checkoutParameters(reservation, origin, methods = 'automatic') {
-  if (!origin || !Array.isArray(reservation?.lines) || !reservation.lines.length || !Number.isSafeInteger(reservation.total) || reservation.total < 30 || reservation.currency !== 'gbp') throw new HttpError(409, 'The checkout amount is invalid. Please contact the store.', 'invalid_quote');
+  const currency = String(reservation?.currency || '').toLowerCase();
+  const supportedCurrencies = new Set(['gbp', 'usd', 'eur', 'vnd', 'jpy', 'aud', 'cad', 'sgd']);
+  if (!origin || !Array.isArray(reservation?.lines) || !reservation.lines.length || !Number.isSafeInteger(reservation.total) || reservation.total < 1 || !supportedCurrencies.has(currency)) throw new HttpError(409, 'The checkout amount is invalid. Please contact the store.', 'invalid_quote');
   const subtotal = reservation.lines.reduce((sum, line) => {
     if (!Number.isSafeInteger(line.price) || line.price < 0 || !Number.isSafeInteger(line.quantity) || line.quantity < 1) throw new HttpError(409, 'The checkout amount is invalid.');
     return sum + line.price * line.quantity;
@@ -86,14 +93,14 @@ export function checkoutParameters(reservation, origin, methods = 'automatic') {
     success_url: `${origin}/checkout.html?payment=success&session_id={CHECKOUT_SESSION_ID}`,
     cancel_url: `${origin}/checkout.html?payment=cancelled&session_id={CHECKOUT_SESSION_ID}`,
     expires_at: Math.floor(Date.parse(reservation.expires_at) / 1000),
-    line_items: reservation.lines.map(line => ({ quantity: line.quantity, price_data: { currency: 'gbp', unit_amount: line.price, product_data: { name: `${line.title}${line.variantTitle ? ` (${line.variantTitle})` : ''}`.slice(0, 250) } } })),
-    shipping_options: [{ shipping_rate_data: { type: 'fixed_amount', fixed_amount: { amount: reservation.shipping, currency: 'gbp' }, display_name: reservation.delivery_method === 'express' ? 'Express delivery' : 'Standard delivery' } }],
-    metadata, payment_intent_data: { metadata }, locale: 'en-GB',
+    line_items: reservation.lines.map(line => ({ quantity: line.quantity, price_data: { currency, unit_amount: line.price, product_data: { name: `${line.title}${line.variantTitle ? ` (${line.variantTitle})` : ''}`.slice(0, 250) } } })),
+    shipping_options: [{ shipping_rate_data: { type: 'fixed_amount', fixed_amount: { amount: reservation.shipping, currency }, display_name: reservation.delivery_method === 'express' ? 'Express delivery' : 'Standard delivery' } }],
+    metadata, payment_intent_data: { metadata }, locale: reservation.language || reservation.locale || 'auto',
     // Local checkout already collected the delivery address. No tax, discounts,
     // currency conversion or recovery links may change the reserved total.
   };
   if (methods === 'card') params.payment_method_types = ['card'];
-  if (reservation.shipping > 0) params.shipping_options = [{ shipping_rate_data: { type: 'fixed_amount', fixed_amount: { amount: reservation.shipping, currency: 'gbp' }, display_name: reservation.delivery_method === 'express' ? 'Express delivery' : 'Standard delivery' } }];
+  if (reservation.shipping > 0) params.shipping_options = [{ shipping_rate_data: { type: 'fixed_amount', fixed_amount: { amount: reservation.shipping, currency }, display_name: reservation.delivery_method === 'express' ? 'Express delivery' : 'Standard delivery' } }];
   else delete params.shipping_options;
   return params;
 }

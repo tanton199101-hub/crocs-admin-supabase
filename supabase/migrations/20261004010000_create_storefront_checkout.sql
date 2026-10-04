@@ -44,6 +44,15 @@ as $$
       'name', coalesce(state.payload->'settings'->>'name', 'Crocs UK'),
       'currency', coalesce(state.payload->'settings'->>'currency', 'GBP')
     ),
+    'localization', jsonb_build_object(
+      'currency', coalesce(state.payload->'settings'->>'currency', 'GBP'),
+      'defaultRegion', coalesce(state.payload->'settings'->>'defaultRegion', 'gb'),
+      'defaultLanguage', coalesce(state.payload->'settings'->>'defaultLanguage', 'en'),
+      'locale', coalesce(state.payload->'settings'->>'locale', 'en-GB'),
+      'autoDetectRegion', coalesce((state.payload->'settings'->>'autoDetectRegion')::boolean, true),
+      'regions', coalesce(state.payload->'settings'->'regions', '[]'::jsonb),
+      'languages', coalesce(state.payload->'settings'->'languages', '{}'::jsonb)
+    ),
     'products', coalesce((
       select jsonb_agg(jsonb_build_object(
         'id', product->>'id',

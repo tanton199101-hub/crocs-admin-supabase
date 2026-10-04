@@ -17,6 +17,8 @@ For the theme preview and browser storage to work consistently between the admin
 3. `store_state` stores the validated Crocs Studio v1 JSON document; `store_events` records sync events. The hardening migration adds `store_members`, Auth-gated admin RPCs, optimistic version checks and a public catalogue projection that never includes customers, orders or draft admin data.
 4. Run `supabase/migrations/20261004010000_create_storefront_checkout.sql` to publish the active catalogue and enable the server-validated demo checkout. The RPC creates a `storefront_orders` row, decrements stock and mirrors a safe order summary into the admin state. It does not accept card data.
 5. For real Stripe Checkout, first apply `supabase/migrations/20261004030000_create_stripe_checkout.sql`. It adds private, short-lived checkout reservations, idempotent webhook events and Stripe payment/order fields. The migration deliberately grants the reservation/webhook RPCs only to `service_role`.
+6. If the storefront RPC was already deployed, also apply `supabase/migrations/20261004040000_add_regional_catalog_config.sql` so public pages receive the saved region rules. Vercel’s `/api/geo` function reads `x-vercel-ip-country` (with browser-locale fallback locally) and never exposes the visitor IP itself.
+7. Apply `supabase/migrations/20261004050000_enable_regional_checkout.sql` after the regional catalog and Stripe migrations. It adds server-authoritative regional demo orders and Stripe reservations; the browser never submits a trusted price.
 
 The original migration is intentionally permissive for the early demo. Before using real data, run `supabase/migrations/20261004020000_harden_public_and_admin.sql`. The first authenticated user claims the default store as owner; later users must be added to `store_members`. Anonymous callers can use only the public catalogue and checkout RPCs. Admin writes use a version-checked RPC, so two tabs cannot silently overwrite one another.
 
@@ -55,6 +57,7 @@ Create a Stripe webhook for `https://crocs-admin-supabase.vercel.app/api/stripe/
 - Local TT Crocs and Karl ST font files for offline visual fidelity
 - Shopify-inspired admin workspace with dashboard, orders, product catalog, customers, theme, navigation, analytics, marketing and settings
 - Supabase REST sync with local fallback, retry/backoff after outages and an audit event table
+- IP-based regional storefronts with language/currency pickers, region-specific exchange rates, price multipliers and per-product price overrides configured in Admin → Settings → Khu vực & ngôn ngữ
 - Auth-gated admin with owner/member roles, conflict recovery and a private admin state RPC
 - Public storefront projection, short-lived catalogue cache, immutable asset caching and hero-image preloading
 

@@ -103,6 +103,8 @@
 
 .checkout-page { background: #f7f8f8; }
 .checkout-header { min-height: 76px; padding: 16px clamp(18px, 5vw, 72px); background: #fff; border-bottom: 1px solid var(--commerce-line); display: flex; align-items: center; justify-content: space-between; }
+.checkout-header > [data-regional-picker] { margin-left: auto; margin-right: 20px; }
+.checkout-header > [data-regional-picker] .regional-picker { margin-left: 0; }
 .checkout-header a { width: 132px; }
 .checkout-header img { width: 100%; height: auto; }
 .checkout-header span { display: inline-flex; align-items: center; gap: 7px; color: var(--commerce-muted); font-size: 13px; font-weight: 700; }
@@ -195,3 +197,6 @@
 @media (prefers-reduced-motion: reduce) {
   .commerce-primary, .commerce-toast { transition: none; }
 }
+
+.commerce-header-actions .regional-picker { margin-left: 0; }
+.commerce-header-actions .regional-picker select { background-color: #fff; }
