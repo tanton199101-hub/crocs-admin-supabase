@@ -7,7 +7,74 @@
   const KEY = 'crocs-studio-v1';
   const clone = value => JSON.parse(JSON.stringify(value));
   const id = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  const money = cents => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(cents / 100);
+  const CURRENCIES = Object.freeze({
+    GBP: { name: 'British Pound', symbol: '£', locale: 'en-GB', decimals: 2 },
+    USD: { name: 'US Dollar', symbol: '$', locale: 'en-US', decimals: 2 },
+    EUR: { name: 'Euro', symbol: '€', locale: 'de-DE', decimals: 2 },
+    VND: { name: 'Vietnamese Dong', symbol: '₫', locale: 'vi-VN', decimals: 0 },
+    JPY: { name: 'Japanese Yen', symbol: '¥', locale: 'ja-JP', decimals: 0 },
+    AUD: { name: 'Australian Dollar', symbol: 'A$', locale: 'en-AU', decimals: 2 },
+    CAD: { name: 'Canadian Dollar', symbol: 'CA$', locale: 'en-CA', decimals: 2 },
+    SGD: { name: 'Singapore Dollar', symbol: 'S$', locale: 'en-SG', decimals: 2 },
+  });
+  const LANGUAGES = Object.freeze({
+    en: { name: 'English', nativeName: 'English', locale: 'en-GB' },
+    vi: { name: 'Vietnamese', nativeName: 'Tiếng Việt', locale: 'vi-VN' },
+    fr: { name: 'French', nativeName: 'Français', locale: 'fr-FR' },
+    de: { name: 'German', nativeName: 'Deutsch', locale: 'de-DE' },
+    ja: { name: 'Japanese', nativeName: '日本語', locale: 'ja-JP' },
+    ko: { name: 'Korean', nativeName: '한국어', locale: 'ko-KR' },
+  });
+  const DEFAULT_LANGUAGES = {
+    en: { ...LANGUAGES.en, enabled: true },
+    vi: { ...LANGUAGES.vi, enabled: true },
+    fr: { ...LANGUAGES.fr, enabled: false },
+    de: { ...LANGUAGES.de, enabled: false },
+    ja: { ...LANGUAGES.ja, enabled: false },
+    ko: { ...LANGUAGES.ko, enabled: false },
+  };
+  const DEFAULT_REGIONS = [
+    { id: 'gb', name: 'United Kingdom', countries: ['GB', 'UK'], language: 'en', locale: 'en-GB', currency: 'GBP', exchangeRate: 1, priceMultiplier: 1, priceOverrides: {} },
+    { id: 'us', name: 'United States', countries: ['US'], language: 'en', locale: 'en-US', currency: 'USD', exchangeRate: 1.27, priceMultiplier: 1, priceOverrides: {} },
+    { id: 'eu', name: 'European Union', countries: ['AT', 'BE', 'BG', 'HR', 'CY', 'CZ', 'DK', 'EE', 'FI', 'FR', 'DE', 'GR', 'HU', 'IE', 'IT', 'LV', 'LT', 'LU', 'MT', 'NL', 'PL', 'PT', 'RO', 'SK', 'SI', 'ES', 'SE'], language: 'en', locale: 'en-IE', currency: 'EUR', exchangeRate: 1.17, priceMultiplier: 1, priceOverrides: {} },
+    { id: 'vn', name: 'Vietnam', countries: ['VN'], language: 'vi', locale: 'vi-VN', currency: 'VND', exchangeRate: 31500, priceMultiplier: 1, priceOverrides: {} },
+    { id: 'au', name: 'Australia', countries: ['AU'], language: 'en', locale: 'en-AU', currency: 'AUD', exchangeRate: 1.95, priceMultiplier: 1, priceOverrides: {} },
+  ];
+  const cloneDefaults = value => clone(value);
+  const money = (cents, currency = 'GBP', locale = CURRENCIES[currency]?.locale || 'en-GB') => {
+    const code = CURRENCIES[currency] ? currency : 'GBP';
+    return new Intl.NumberFormat(locale, { style: 'currency', currency: code }).format(Number(cents || 0) / (10 ** CURRENCIES[code].decimals));
+  };
+  function normalizeLocalization(settings) {
+    const target = settings || {};
+    target.defaultRegion ||= 'gb';
+    target.defaultLanguage ||= 'en';
+    target.locale ||= 'en-GB';
+    target.autoDetectRegion = target.autoDetectRegion !== false;
+    target.languages = { ...cloneDefaults(DEFAULT_LANGUAGES), ...(target.languages || {}) };
+    target.regions = Array.isArray(target.regions) && target.regions.length
+      ? target.regions
+      : cloneDefaults(DEFAULT_REGIONS);
+    target.regions = target.regions.map(region => ({
+      id: String(region.id || '').trim().toLowerCase(),
+      name: String(region.name || region.id || '').trim(),
+      countries: Array.isArray(region.countries) ? region.countries.map(country => String(country).trim().toUpperCase()).filter(Boolean) : [],
+      language: String(region.language || target.defaultLanguage || 'en').trim().toLowerCase(),
+      locale: String(region.locale || LANGUAGES[region.language]?.locale || target.locale || 'en-GB').trim(),
+      currency: String(region.currency || target.currency || 'GBP').trim().toUpperCase(),
+      exchangeRate: Number(region.exchangeRate ?? region.rate ?? 1),
+      priceMultiplier: Number(region.priceMultiplier ?? 1),
+      priceOverrides: region.priceOverrides && typeof region.priceOverrides === 'object' && !Array.isArray(region.priceOverrides) ? region.priceOverrides : {},
+    }));
+    const fallback = target.regions.find(region => region.id === target.defaultRegion) || target.regions[0];
+    if (fallback) {
+      target.defaultRegion = fallback.id;
+      target.defaultLanguage = target.defaultLanguage || fallback.language;
+      target.locale = target.locale || fallback.locale;
+      target.currency = target.currency || fallback.currency;
+    }
+    return target;
+  }
   const safeLink = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|index\.html(?:#[\w-]+)?)$/.test(value);
   const safeImage = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value);
   function seed() {
@@ -33,7 +100,7 @@
       collections: [{ id: 'col1', title: 'New arrivals', description: 'The latest comfort icons.', productIds: ['p1', 'p2', 'p4', 'p5', 'p6', 'p7'], status: 'Active' }, { id: 'col2', title: 'Cozy favourites', description: 'Made for colder days.', productIds: ['p1', 'p7'], status: 'Active' }, { id: 'col3', title: 'Little adventures', description: 'Big comfort for little feet.', productIds: ['p3'], status: 'Draft' }],
       menus: [{ id: 'main', title: 'Main menu', items: [{ id: 'm1', label: 'Sale', url: '#new-arrivals' }, { id: 'm2', label: 'Women', url: '#shop' }, { id: 'm3', label: 'Men', url: '#shop' }, { id: 'm4', label: 'Kids', url: '#shop' }, { id: 'm5', label: 'Jibbitz™ Charms', url: '#jibbitz' }, { id: 'm6', label: 'Crocs at Work™', url: '#shop' }, { id: 'm7', label: 'Bags & Accessories', url: '#shop' }, { id: 'm8', label: 'HeyDude', url: '#collabs' }] }, { id: 'footer', title: 'Footer menu', items: [{ id: 'f1', label: 'Privacy policy', url: '#footer' }, { id: 'f2', label: 'Terms of use', url: '#footer' }, { id: 'f3', label: 'United Kingdom', url: '#footer' }] }],
       theme: { draft: clone(theme), published: clone(theme), publishedAt: date(0) },
-      settings: { name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } },
+      settings: normalizeLocalization({ name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, defaultRegion: 'gb', defaultLanguage: 'en', locale: 'en-GB', autoDetectRegion: true, regions: cloneDefaults(DEFAULT_REGIONS), languages: cloneDefaults(DEFAULT_LANGUAGES), payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } }),
       campaigns: [{ id: 'camp1', title: 'Cozy Favourites', channel: 'Email', status: 'Draft', subject: 'A softer side of comfort', content: 'Discover the new Cozy Favourites collection.', date: '' }],
       activity: [{ id: 'a1', title: 'Đã khởi tạo cửa hàng mẫu', detail: 'Mọi số liệu là dữ liệu minh họa cục bộ.', createdAt: date(0) }],
     };
@@ -71,6 +138,13 @@
         const expectedPrice = enabled.length ? Math.min(...enabled.map(v => v.price)) : 0;
         const expectedStock = enabled.reduce((sum, v) => sum + v.stock, 0);
         if (p.price !== expectedPrice || p.stock !== expectedStock) throw new Error('Giá và tồn tổng phải khớp với biến thể đang bật.');
+        if (p.status === 'Active') {
+          if (!enabled.length) throw new Error('Sản phẩm đang bán cần ít nhất một biến thể được bật.');
+          if (enabled.some(v => v.price <= 0)) throw new Error('Mọi biến thể đang bật của sản phẩm đang bán cần có giá bán lớn hơn 0.');
+          if (expectedStock <= 0) throw new Error('Sản phẩm đang bán cần có ít nhất một biến thể còn tồn kho khả dụng.');
+        }
+      } else if (p.status === 'Active' && (p.price <= 0 || p.stock <= 0)) {
+        throw new Error('Sản phẩm đang bán cần có giá bán và tồn kho khả dụng lớn hơn 0.');
       }
     });
     const allSkus = data.products.flatMap(p => [p.sku, ...(p.variants || []).map(v => v.sku)]).map(sku => String(sku).toLowerCase());
@@ -87,8 +161,23 @@
       if (!theme || !/^#[\da-f]{6}$/i.test(theme.accent) || !/^#[\da-f]{6}$/i.test(theme.background) || !theme.heroTitle?.trim() || !theme.heroButton?.trim() || !['cozy', 'crocband', 'ninjago'].includes(theme.campaign)) throw new Error('Cấu hình theme không hợp lệ.');
     }
     data.settings ||= {};
+    normalizeLocalization(data.settings);
     data.settings.payment = { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic', ...(data.settings.payment || {}) };
-    if (!data.settings?.name?.trim() || data.settings.currency !== 'GBP' || !Number.isSafeInteger(data.settings.stockThreshold) || data.settings.stockThreshold < 0 || !data.menus.some(m => m.id === data.settings.mainMenuId) || !data.menus.some(m => m.id === data.settings.footerMenuId)) throw new Error('Cài đặt cửa hàng hoặc menu đang sử dụng không hợp lệ.');
+    const regionIds = new Set();
+    const languageIds = new Set(Object.keys(data.settings.languages || {}));
+    const regionsValid = Array.isArray(data.settings.regions) && data.settings.regions.length && data.settings.regions.every(region => {
+      const overrideValues = Object.values(region.priceOverrides || {});
+      const overridesValid = overrideValues.every(value => {
+        const amount = value && typeof value === 'object' ? (value.amount ?? value.price) : value;
+        return (typeof amount === 'number' || (typeof amount === 'string' && amount.trim() !== '')) && Number.isSafeInteger(Number(amount)) && Number(amount) >= 0;
+      });
+      const countries = Array.isArray(region.countries) && region.countries.length && region.countries.every(country => /^[A-Z]{2,3}$/.test(country));
+      return /^[a-z0-9][a-z0-9_-]{1,31}$/i.test(region.id) && !regionIds.has(region.id) && regionIds.add(region.id)
+        && Boolean(region.name?.trim()) && countries && languageIds.has(region.language) && data.settings.languages[region.language]?.enabled !== false && Boolean(CURRENCIES[region.currency])
+        && /^[\w-]+(?:\.[\w-]+)*$/.test(region.locale) && Number.isFinite(region.exchangeRate) && region.exchangeRate > 0 && region.exchangeRate <= 1000000
+        && Number.isFinite(region.priceMultiplier) && region.priceMultiplier > 0 && region.priceMultiplier <= 100 && overridesValid;
+    });
+    if (!data.settings?.name?.trim() || !CURRENCIES[data.settings.currency] || !regionsValid || !regionIds.has(data.settings.defaultRegion) || !languageIds.has(data.settings.defaultLanguage) || data.settings.languages[data.settings.defaultLanguage]?.enabled === false || !Number.isSafeInteger(data.settings.stockThreshold) || data.settings.stockThreshold < 0 || !data.menus.some(m => m.id === data.settings.mainMenuId) || !data.menus.some(m => m.id === data.settings.footerMenuId)) throw new Error('Cài đặt cửa hàng, khu vực hoặc menu đang sử dụng không hợp lệ.');
     if (data.settings.payment.provider !== 'stripe' || typeof data.settings.payment.enabled !== 'boolean' || !['test', 'live'].includes(data.settings.payment.mode) || !['automatic', 'card'].includes(data.settings.payment.methods)) throw new Error('Cấu hình Stripe không hợp lệ.');
     return data;
   }
@@ -178,5 +267,5 @@
     else throw new Error('Không thể thực hiện thao tác ở trạng thái hiện tại của đơn.');
   }
   root.addEventListener?.('storage', event => { if (event.key === KEY) { state = undefined; storageIssue = ''; read(); root.dispatchEvent?.(new Event('crocs:change')); } });
-  return { KEY, seed, validate, read, save, commit, id, money, total, safeLink, safeImage, createOrder, transitionOrder, get storageIssue() { read(); return storageIssue; } };
+  return { KEY, CURRENCIES, LANGUAGES, DEFAULT_REGIONS, DEFAULT_LANGUAGES, normalizeLocalization, seed, validate, read, save, commit, id, money, total, safeLink, safeImage, createOrder, transitionOrder, get storageIssue() { read(); return storageIssue; } };
 });

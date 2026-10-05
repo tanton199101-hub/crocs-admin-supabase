@@ -3,6 +3,8 @@
 
   const commerce = root.CrocsCommerce;
   const ui = root.CrocsCommerceUI;
+  const regional = root.CrocsRegional;
+  const t = (...args) => commerce?.t?.(...args) || args[1] || args[0];
   const main = document.querySelector('#productMain');
   const query = new URLSearchParams(root.location.search);
   const requestedId = query.get('id') || 'p1';
@@ -12,6 +14,9 @@
   let selectedValues = {};
 
   const renderMissing = (message = 'This product is not available right now.') => {
+    document.title = 'Product unavailable | Crocs Studio';
+    ensureMeta('description', message);
+    ensureMeta('robots', 'noindex, nofollow');
     main.setAttribute('aria-busy', 'false');
     main.innerHTML = `<section class="checkout-empty"><div><h1>We couldn’t find that pair</h1><p>${commerce.escape(message)}</p><a class="commerce-button-link" href="index.html#new-arrivals">Browse new arrivals</a></div></section>`;
   };
@@ -20,6 +25,18 @@
     let node = document.head.querySelector(`meta[name="${name}"]`);
     if (!node) { node = document.createElement('meta'); node.name = name; document.head.appendChild(node); }
     node.content = content;
+  }
+
+  function ensureProperty(property, content) {
+    let node = document.head.querySelector(`meta[property="${property}"]`);
+    if (!node) { node = document.createElement('meta'); node.setAttribute('property', property); document.head.appendChild(node); }
+    node.content = content;
+  }
+
+  function setCanonical(url) {
+    let link = document.head.querySelector('link[rel="canonical"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'canonical'; document.head.appendChild(link); }
+    link.href = url;
   }
 
   function absolute(url) {
@@ -32,14 +49,13 @@
     base.search = `?id=${encodeURIComponent(product.id)}`;
     const canonical = new URL(base.href);
     canonical.searchParams.set('slug', product.slug || product.id);
-    if (current?.id) canonical.searchParams.set('variant', current.id);
-    let link = document.head.querySelector('link[rel="canonical"]');
-    if (!link) { link = document.createElement('link'); link.rel = 'canonical'; document.head.appendChild(link); }
-    link.href = canonical.href;
     const description = product.seo?.description || product.description || `${product.title} from ${product.brand || 'Crocs'}.`;
     document.title = product.seo?.title || `${product.title} | Crocs Studio`;
+    setCanonical(canonical.href);
     ensureMeta('description', description.slice(0, 320));
-    ensureMeta('robots', product.seo?.noindex ? 'noindex,follow' : 'index,follow');
+    const isPreview = query.get('preview') === 'theme' || query.get('preview') === 'product';
+    const indexable = product.status === 'Active' && !product.seo?.noindex && !isPreview && product.id !== 'new';
+    ensureMeta('robots', indexable ? 'index,follow' : 'noindex,follow');
     const urlFor = variant => {
       const linkUrl = new URL(base.href);
       linkUrl.searchParams.set('slug', product.slug || product.id);
@@ -47,10 +63,23 @@
       return linkUrl.href;
     };
     const offer = variant => ({
-      '@type': 'Offer', url: urlFor(variant), priceCurrency: 'GBP', price: (variant.price / 100).toFixed(2),
+      '@type': 'Offer', url: urlFor(variant), priceCurrency: commerce.currency || 'GBP', price: (variant.price / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2),
       availability: variant.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition'
     });
     const imageUrl = absolute(commerce.image(product.image));
+    ensureProperty('og:type', 'product');
+    ensureProperty('og:site_name', 'Crocs UK');
+    ensureProperty('og:title', document.title);
+    ensureProperty('og:description', description.slice(0, 320));
+    ensureProperty('og:url', canonical.href);
+    ensureProperty('og:image', imageUrl);
+    ensureProperty('og:image:alt', product.imageAlt || product.title);
+    ensureProperty('product:price:amount', ((current?.price ?? product.price) / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2));
+    ensureProperty('product:price:currency', commerce.currency || 'GBP');
+    ensureMeta('twitter:card', 'summary_large_image');
+    ensureMeta('twitter:title', document.title);
+    ensureMeta('twitter:description', description.slice(0, 320));
+    ensureMeta('twitter:image', imageUrl);
     const variants = variantList.length ? variantList.map(v => ({
       '@type': 'Product', name: `${product.title} — ${commerce.variantTitle(product, v)}`, sku: v.sku || `${product.sku}-${v.id}`,
       image: [imageUrl], offers: offer(v), url: urlFor(v)
@@ -79,7 +108,7 @@
     return `${commerce.money(min)}${max > min ? ` – ${commerce.money(max)}` : ''}`;
   }
   function optionMarkup() {
-    return commerce.optionsFor(product).map(option => `<fieldset class="variant-option-group"><legend>${commerce.escape(option.name)}</legend><div class="size-grid" role="group" aria-label="Choose ${commerce.escape(option.name)}">${option.values.map(value => {
+    return commerce.optionsFor(product).map(option => `<fieldset class="variant-option-group"><legend>${commerce.escape(option.name)}</legend><div class="size-grid" role="group" aria-label="${t('selectSize', `Choose ${commerce.escape(option.name)}`)}">${option.values.map(value => {
       const values = { ...selectedValues, [option.id]: value };
       const variant = commerce.variantFor(product, { values });
       const disabled = !variant || variant.stock < 1;
@@ -92,7 +121,8 @@
     const variants = activeVariants();
     if (variants.length) {
       const requestedVariant = commerce.variantFor(product, query.get('variant') || '');
-      const fallback = requestedVariant || variants[0];
+      const selectedVariant = Object.keys(selectedValues).length ? commerce.variantFor(product, { values: selectedValues }) : null;
+      const fallback = selectedVariant || requestedVariant || variants[0];
       selectedValues = { ...(fallback?.values || {}) };
     } else {
       const sizes = commerce.sizesFor(product);
@@ -104,7 +134,7 @@
     updateStructuredData(variants, current);
     main.setAttribute('aria-busy', 'false');
     main.innerHTML = `
-      <div class="product-breadcrumbs"><a href="index.html">Home</a><span aria-hidden="true"> / </span><a href="index.html#new-arrivals">New arrivals</a><span aria-hidden="true"> / </span><span>${commerce.escape(product.title)}</span></div>
+      <div class="product-breadcrumbs"><a href="index.html">${t('home', 'Home')}</a><span aria-hidden="true"> / </span><a href="index.html#new-arrivals">${t('newArrivals', 'New arrivals')}</a><span aria-hidden="true"> / </span><span>${commerce.escape(product.title)}</span></div>
       <section class="product-detail" aria-labelledby="productTitle">
         <div class="product-gallery">
           <div class="product-hero-image"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" width="900" height="720"></div>
@@ -115,19 +145,19 @@
           <h1 id="productTitle">${commerce.escape(product.title)}</h1>
           <p class="product-price" aria-live="polite">${displayPrice(current)}</p>
           <p class="product-description">${commerce.escape(product.description || 'Lightweight comfort. Made for everyday adventures.')}</p>
-          <div class="product-meta" aria-label="Product details">
-            <div class="product-meta-row"><span>Selected</span><strong>${commerce.escape(current ? commerce.variantTitle(product, current) : product.colour || 'As pictured')}</strong></div>
-            <div class="product-meta-row"><span>Availability</span><strong>${current ? (current.stock > 0 ? `${current.stock} ready to ship` : 'Out of stock') : (product.stock > 0 ? `${product.stock} ready to ship` : 'Out of stock')}</strong></div>
+          <div class="product-meta" aria-label="${t('productDetails', 'Product details')}">
+            <div class="product-meta-row"><span>${t('selected', 'Selected')}</span><strong>${commerce.escape(current ? commerce.variantTitle(product, current) : product.colour || 'As pictured')}</strong></div>
+            <div class="product-meta-row"><span>${t('availability', 'Availability')}</span><strong>${current ? (current.stock > 0 ? `${current.stock} ready to ship` : t('outOfStock', 'Out of stock')) : (product.stock > 0 ? `${product.stock} ready to ship` : t('outOfStock', 'Out of stock'))}</strong></div>
           </div>
           <form id="productForm">
-            ${variants.length ? optionMarkup() : `<fieldset class="variant-option-group"><legend>UK size</legend><div class="size-grid" id="sizeOptions" role="group" aria-label="Choose a UK size">${sizeValues.map(size => `<button class="size-option${size === selectedSize ? ' is-selected' : ''}" type="button" data-size="${commerce.escape(size)}" aria-pressed="${size === selectedSize}">${commerce.escape(size)}</button>`).join('')}</div></fieldset>`}
-            <label class="commerce-form-label" for="quantityValue">Quantity</label>
+            ${variants.length ? optionMarkup() : `<fieldset class="variant-option-group"><legend>${t('selectSize', 'UK size')}</legend><div class="size-grid" id="sizeOptions" role="group" aria-label="${t('selectSize', 'Choose a UK size')}">${sizeValues.map(size => `<button class="size-option${size === selectedSize ? ' is-selected' : ''}" type="button" data-size="${commerce.escape(size)}" aria-pressed="${size === selectedSize}">${commerce.escape(size)}</button>`).join('')}</div></fieldset>`}
+            <label class="commerce-form-label" for="quantityValue">${t('quantity', 'Quantity')}</label>
             <div class="quantity-control" aria-label="Quantity selector">
               <button type="button" data-quantity="decrease" aria-label="Decrease quantity">−</button><span class="quantity-value" id="quantityValue">${quantity}</span><button type="button" data-quantity="increase" aria-label="Increase quantity">+</button>
             </div>
-            <button class="commerce-primary" type="submit" ${((current ? current.stock : product.stock) < 1 || (variants.length && !current)) ? 'disabled' : ''}>${(current ? current.stock : product.stock) < 1 ? 'Out of stock' : 'Add to bag'}</button>
+            <button class="commerce-primary" type="submit" ${((current ? current.stock : product.stock) < 1 || (variants.length && !current)) ? 'disabled' : ''}>${(current ? current.stock : product.stock) < 1 ? t('outOfStock', 'Out of stock') : t('addToBag', 'Add to bag')}</button>
           </form>
-          <p class="shipping-note">Free standard delivery on orders over £50. This storefront is a demo; no payment is taken.</p>
+          <p class="shipping-note">${t('freeDelivery', 'Free standard delivery on orders over {amount}. This storefront is a demo; no payment is taken.', { amount: commerce.money(regional?.convert?.(5000) || 5000) })}</p>
         </div>
       </section>
       ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">More comfort, same energy</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" loading="lazy"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
@@ -176,4 +206,8 @@
       render();
     } catch (error) { renderMissing(error.message); }
   })();
+  root.addEventListener('crocs:catalog', event => {
+    if (product && event.detail?.products) { product = event.detail.products.find(item => item.id === product.id) || product; render(); }
+  });
+  root.addEventListener('crocs:language-change', () => { if (product) render(); });
 })(window);

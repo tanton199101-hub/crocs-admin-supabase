@@ -22,6 +22,7 @@
   const checkoutButton = document.querySelector('#checkoutButton');
   const arrivalRail = document.querySelector('.arrival-rail');
   const commerce = window.CrocsCommerce;
+  const t = (...args) => commerce?.t?.(...args) || args[1] || args[0];
   let cart = [];
   let toastTimer;
   let lastOpener = null;
@@ -78,7 +79,7 @@
   window.addEventListener('storage', event => {
     if (event.key === 'crocs-studio-v1') loadPublishedTheme();
   });
-  window.addEventListener('crocs:remote-theme', event => applyTheme(event.detail?.theme));
+  window.addEventListener('crocs:remote-theme', event => { applyTheme(event.detail?.theme); window.CrocsRegional?.translateStatic?.(); });
   loadPublishedTheme();
 
   const announce = (message) => { if (liveRegion) liveRegion.textContent = message; };
@@ -166,10 +167,10 @@
     if (!arrivalRail || !Array.isArray(products) || !products.length || !commerce) return;
     arrivalRail.innerHTML = products.filter(product => product.status === 'Active').slice(0, 8).map((product, index) => {
       const variants = commerce.variantsFor(product);
-      const label = variants.length ? 'Choose options' : 'Add to bag';
+      const label = variants.length ? t('chooseOptions', 'Choose options') : t('addToBag', 'Add to bag');
       const price = variants.length ? commerce.money(Math.min(...variants.map(item => item.price))) : commerce.money(product.price);
       const action = variants.length ? ` data-requires-options="true"` : '';
-      return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><button class="wishlist" type="button" aria-label="Save ${commerce.escape(product.title)}">♡</button><a href="product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520" /></div><h3>${commerce.escape(product.title)}</h3><p class="price">${price}</p><button class="add-button" type="button" data-product-id="${commerce.escape(product.id)}" data-product="${commerce.escape(product.title)}" data-price="${(product.price / 100).toFixed(2)}"${action}>${label}</button></a></article>`;
+      return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><button class="wishlist" type="button" aria-label="Save ${commerce.escape(product.title)}">♡</button><a href="product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520" /></div><h3>${commerce.escape(product.title)}</h3><p class="price">${price}</p></a><button class="add-button" type="button" data-product-id="${commerce.escape(product.id)}" data-product="${commerce.escape(product.title)}" data-price="${(product.price / 100).toFixed(2)}"${action}>${label}</button></article>`;
     }).join('');
   };
 
@@ -198,7 +199,7 @@
     const subtotal = cart.reduce((total, item) => total + item.price * item.quantity, 0);
     cartCount.textContent = String(count);
     cartCount.classList.toggle('is-visible', count > 0);
-    cartButton?.setAttribute('aria-label', `Shopping bag, ${count} item${count === 1 ? '' : 's'}`);
+    cartButton?.setAttribute('aria-label', `${t('bag', 'Shopping bag')}, ${count} ${t('quantity', 'item')}${count === 1 ? '' : 's'}`);
     cartEmpty.hidden = count > 0;
     cartItems.hidden = count === 0;
     cartSummary.hidden = count === 0;
@@ -206,13 +207,13 @@
     if (!count) { cartItems.innerHTML = ''; return; }
     cartItems.innerHTML = cart.map((item, index) => `
       <div class="cart-item"><div class="cart-item-image"><img src="${commerce?.escape?.(item.image) || item.image}" alt="${commerce?.escape?.(item.name) || item.name}" /></div>
-      <div><h3>${commerce?.escape?.(item.name) || item.name}</h3><p>Size ${commerce?.escape?.(item.size) || item.size} · Quantity ${item.quantity}</p></div>
-      <div><strong>£${(item.price * item.quantity / 100).toFixed(2)}</strong><button class="remove-item" type="button" data-index="${index}" aria-label="Remove ${commerce?.escape?.(item.name) || item.name}">×</button></div></div>`).join('');
+       <div><h3>${commerce?.escape?.(item.name) || item.name}</h3><p>${t('selectSize', 'Size')} ${commerce?.escape?.(item.size) || item.size} · ${t('quantity', 'Quantity')} ${item.quantity}</p></div>
+       <div><strong>${commerce?.money ? commerce.money(item.price * item.quantity) : `£${(item.price * item.quantity / 100).toFixed(2)}`}</strong><button class="remove-item" type="button" data-index="${index}" aria-label="${t('remove', 'Remove')} ${commerce?.escape?.(item.name) || item.name}">×</button></div></div>`).join('');
     cartItems.querySelectorAll('.remove-item').forEach((button) => button.addEventListener('click', () => {
       const index = Number(button.dataset.index); const removed = cart[index];
       if (commerce && removed?.productId) commerce.update(removed.productId, removed.size, 0, removed.variantId);
       else cart.splice(index, 1);
-      updateCart(); showToast(`${removed.name} removed from your bag`);
+       updateCart(); showToast(`${removed.name} ${t('removedFromBag', 'removed from your bag')}`);
     }));
   };
 
@@ -223,12 +224,12 @@
     if (commerce) {
       const productId = button.dataset.productId;
       const product = commerce.product(productId);
-      if (!product) { showToast('This pair is not available in the live catalogue yet.'); return; }
+       if (!product) { showToast(t('notAvailable', 'This pair is not available in the live catalogue yet.')); return; }
       if (button.dataset.requiresOptions === 'true') { window.location.href = `product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`; return; }
       try {
         const firstVariant = commerce.variantsFor(product)[0];
         commerce.add(productId, firstVariant ? { variantId: firstVariant.id, size: commerce.variantSize(product, firstVariant) } : commerce.sizesFor(product)[0], 1);
-        updateCart(); showToast(`${product.title} added to your bag`);
+         updateCart(); showToast(`${product.title} ${t('addedToBag', 'added to your bag')}`);
       } catch (error) { showToast(error.message); }
       return;
     }
@@ -237,7 +238,7 @@
     const image = button.closest('.product-card')?.querySelector('img')?.src || '';
     const existing = cart.find((item) => item.name === name);
     if (existing) existing.quantity += 1; else cart.push({ name, price, image, quantity: 1 });
-    updateCart(); showToast(`${name} added to your bag`);
+     updateCart(); showToast(`${name} ${t('addedToBag', 'added to your bag')}`);
   });
   arrivalRail?.addEventListener('click', (event) => {
     const button = event.target.closest('.wishlist');
@@ -274,6 +275,8 @@
   });
   window.addEventListener('crocs:bag', updateCart);
   window.addEventListener('crocs:catalog', event => { renderLiveCatalog(event.detail?.products); updateCart(); });
-  commerce?.ready?.then(() => { renderLiveCatalog(commerce.products); updateCart(); }).catch(() => updateCart());
+  window.addEventListener('crocs:region-change', () => { renderLiveCatalog(commerce?.products); updateCart(); });
+   window.addEventListener('crocs:language-change', () => { renderLiveCatalog(commerce?.products); updateCart(); window.CrocsRegional?.translateStatic?.(); });
+  commerce?.ready?.then(() => { renderLiveCatalog(commerce.products); updateCart(); window.CrocsRegional?.translateStatic?.(); }).catch(() => { updateCart(); window.CrocsRegional?.translateStatic?.(); });
   updateCart();
 })();
