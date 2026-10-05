@@ -14,6 +14,9 @@
   let selectedValues = {};
 
   const renderMissing = (message = 'This product is not available right now.') => {
+    document.title = 'Product unavailable | Crocs Studio';
+    ensureMeta('description', message);
+    ensureMeta('robots', 'noindex, nofollow');
     main.setAttribute('aria-busy', 'false');
     main.innerHTML = `<section class="checkout-empty"><div><h1>We couldn’t find that pair</h1><p>${commerce.escape(message)}</p><a class="commerce-button-link" href="index.html#new-arrivals">Browse new arrivals</a></div></section>`;
   };
@@ -22,6 +25,18 @@
     let node = document.head.querySelector(`meta[name="${name}"]`);
     if (!node) { node = document.createElement('meta'); node.name = name; document.head.appendChild(node); }
     node.content = content;
+  }
+
+  function ensureProperty(property, content) {
+    let node = document.head.querySelector(`meta[property="${property}"]`);
+    if (!node) { node = document.createElement('meta'); node.setAttribute('property', property); document.head.appendChild(node); }
+    node.content = content;
+  }
+
+  function setCanonical(url) {
+    let link = document.head.querySelector('link[rel="canonical"]');
+    if (!link) { link = document.createElement('link'); link.rel = 'canonical'; document.head.appendChild(link); }
+    link.href = url;
   }
 
   function absolute(url) {
@@ -34,14 +49,13 @@
     base.search = `?id=${encodeURIComponent(product.id)}`;
     const canonical = new URL(base.href);
     canonical.searchParams.set('slug', product.slug || product.id);
-    if (current?.id) canonical.searchParams.set('variant', current.id);
-    let link = document.head.querySelector('link[rel="canonical"]');
-    if (!link) { link = document.createElement('link'); link.rel = 'canonical'; document.head.appendChild(link); }
-    link.href = canonical.href;
     const description = product.seo?.description || product.description || `${product.title} from ${product.brand || 'Crocs'}.`;
     document.title = product.seo?.title || `${product.title} | Crocs Studio`;
+    setCanonical(canonical.href);
     ensureMeta('description', description.slice(0, 320));
-    ensureMeta('robots', product.seo?.noindex ? 'noindex,follow' : 'index,follow');
+    const isPreview = query.get('preview') === 'theme' || query.get('preview') === 'product';
+    const indexable = product.status === 'Active' && !product.seo?.noindex && !isPreview && product.id !== 'new';
+    ensureMeta('robots', indexable ? 'index,follow' : 'noindex,follow');
     const urlFor = variant => {
       const linkUrl = new URL(base.href);
       linkUrl.searchParams.set('slug', product.slug || product.id);
@@ -53,6 +67,19 @@
       availability: variant.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition'
     });
     const imageUrl = absolute(commerce.image(product.image));
+    ensureProperty('og:type', 'product');
+    ensureProperty('og:site_name', 'Crocs UK');
+    ensureProperty('og:title', document.title);
+    ensureProperty('og:description', description.slice(0, 320));
+    ensureProperty('og:url', canonical.href);
+    ensureProperty('og:image', imageUrl);
+    ensureProperty('og:image:alt', product.imageAlt || product.title);
+    ensureProperty('product:price:amount', ((current?.price ?? product.price) / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2));
+    ensureProperty('product:price:currency', commerce.currency || 'GBP');
+    ensureMeta('twitter:card', 'summary_large_image');
+    ensureMeta('twitter:title', document.title);
+    ensureMeta('twitter:description', description.slice(0, 320));
+    ensureMeta('twitter:image', imageUrl);
     const variants = variantList.length ? variantList.map(v => ({
       '@type': 'Product', name: `${product.title} — ${commerce.variantTitle(product, v)}`, sku: v.sku || `${product.sku}-${v.id}`,
       image: [imageUrl], offers: offer(v), url: urlFor(v)

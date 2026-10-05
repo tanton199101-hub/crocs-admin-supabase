@@ -260,7 +260,7 @@ main#top { display: flex; flex-direction: column; gap: 16px; }
 .footer-kicker { font-weight: 900; font-size: 18px; }
 .footer-muted { margin-top: 3px; color: var(--muted); }
 .app-badges { display: flex; gap: 8px; margin-top: 16px; }
-.app-badges a { padding: 8px 12px; border-radius: 8px; color: #fff; background: var(--ink); font-size: 12px; font-weight: 800; }
+.app-badges :is(a, .app-badge) { padding: 8px 12px; border-radius: 8px; color: #fff; background: var(--ink); font-size: 12px; font-weight: 800; }
 .footer-account { text-align: right; }
 .footer-account p { margin-bottom: 9px; color: var(--muted); }
 .footer-grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1.2fr; gap: 34px; padding: 44px 0; }

@@ -219,18 +219,24 @@
   let configureSequence = Promise.resolve();
   async function applyConfiguration(input = {}) {
     config = normalizeConfig(input);
-    const queryValue = new URLSearchParams(root.location?.search || '').get('region') || new URLSearchParams(root.location?.search || '').get('country') || '';
+    const search = new URLSearchParams(root.location?.search || '');
+    const isThemePreview = search.get('preview') === 'theme';
+    const queryValue = search.get('region') || search.get('country') || '';
+    const queryLanguage = String(search.get('language') || '').toLowerCase();
     const queryRegion = queryValue ? resolveRegion(queryValue).id : '';
-    const savedRegion = getSaved(STORAGE_KEY);
+    // Theme previews must be deterministic. Do not let a shopper's saved
+    // region/language or IP detection leak into the admin iframe.
+    const savedRegion = isThemePreview ? '' : getSaved(STORAGE_KEY);
     const explicit = queryRegion || (savedRegion && config.regions.some(item => item.id === savedRegion) ? savedRegion : '');
     if (explicit) setCurrent(explicit, { persist: false, announce: false });
     else {
-      countryCode = config.autoDetectRegion ? await detectCountry() : '';
+      countryCode = isThemePreview ? '' : config.autoDetectRegion ? await detectCountry() : '';
       if (countryCode) saveValue(COUNTRY_KEY, countryCode);
       setCurrent(config.autoDetectRegion ? resolveRegion(queryRegion || countryCode) : config.defaultRegion, { persist: false, announce: false });
     }
-    const savedLanguage = getSaved('crocs-language-v1');
-    if (savedLanguage && enabledLanguage(savedLanguage)) language = savedLanguage;
+    const savedLanguage = isThemePreview ? '' : getSaved('crocs-language-v1');
+    if (queryLanguage && enabledLanguage(queryLanguage)) language = queryLanguage;
+    else if (savedLanguage && enabledLanguage(savedLanguage)) language = savedLanguage;
     configured = true;
     updateDocument();
     root.dispatchEvent?.(new CustomEvent('crocs:localization-ready', { detail: { region: clone(current), language, countryCode } }));

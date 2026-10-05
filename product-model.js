@@ -83,7 +83,17 @@
       });
       const totals = aggregate(product);
       if (totals.price !== product.price || totals.stock !== product.stock) throw new Error('Giá/tồn tổng phải được tính từ các biến thể đang bật.');
+      if (product.status === 'Active') {
+        const enabled = variants.filter(v => v.enabled);
+        if (!enabled.length) throw new Error('Sản phẩm đang bán cần ít nhất một biến thể được bật.');
+        if (enabled.some(v => v.price <= 0)) throw new Error('Mọi biến thể đang bật của sản phẩm đang bán cần có giá bán lớn hơn 0.');
+        if (totals.stock <= 0) throw new Error('Sản phẩm đang bán cần có ít nhất một biến thể còn tồn kho khả dụng.');
+      }
     } else pricing(product, product.title);
+    if (product.status === 'Active' && !variants.length) {
+      if (product.price <= 0) throw new Error('Sản phẩm đang bán cần có giá bán lớn hơn 0.');
+      if (product.stock <= 0) throw new Error('Sản phẩm đang bán cần có tồn kho khả dụng lớn hơn 0.');
+    }
     if (new Set(skus).size !== skus.length) throw new Error('SKU gốc và các SKU biến thể không được trùng nhau.');
     const others = all.filter(p => p.id !== product.id);
     const taken = new Set(others.flatMap(p => [p.sku, ...variantsOf(p).map(v => v.sku)]).map(norm));
