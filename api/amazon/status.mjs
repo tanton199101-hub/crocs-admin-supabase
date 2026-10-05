@@ -9,10 +9,11 @@ export default async function handler(req, res) {
     let stateChannel = null;
     try { stateChannel = (await readAdminState(req)).payload?.settings?.amazon || null; } catch { /* The table/RPC may not exist before migration. */ }
     const config = amazonEnvironment();
+    const channel = stateChannel ? { sellerId: stateChannel.sellerId || data?.seller_id || '', enabled: stateChannel.enabled === true, marketplaces: stateChannel.marketplaces || data?.marketplaces || [], updatedAt: data?.updated_at || null } : data ? { sellerId: data.seller_id, enabled: data.enabled, marketplaces: data.marketplaces || [], updatedAt: data.updated_at } : null;
     return send(res, 200, {
       environment: publicEnvironment(),
       configured: Boolean((!error && data) || stateChannel),
-      channel: data ? { sellerId: data.seller_id, enabled: data.enabled, marketplaces: data.marketplaces || [], updatedAt: data.updated_at } : stateChannel ? { sellerId: stateChannel.sellerId || '', enabled: stateChannel.enabled === true, marketplaces: stateChannel.marketplaces || [], updatedAt: null } : null,
+      channel,
       message: config.ready ? 'Amazon SP-API server credentials are ready.' : 'Configure Amazon credentials in Vercel before publishing listings.',
     });
   } catch (error) { return failure(res, error); }
