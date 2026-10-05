@@ -7,7 +7,9 @@
   const CART_KEY = 'crocs-bag-v2';
   const CATALOG_CACHE_KEY = 'crocs-catalog-v1';
   const CATALOG_CACHE_TTL = 60 * 1000;
-  const money = cents => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(cents / 100);
+  const regional = root.CrocsRegional;
+  const baseMoney = cents => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(cents / 100);
+  const money = cents => regional?.formatMoney ? regional.formatMoney(cents) : baseMoney(cents);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const image = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value) ? value : 'assets/arrival-classic-clog-100.png';
   const colourNames = { p1: 'White', p2: 'Lilac', p3: 'Multi', p4: 'Black', p5: 'Black', p6: 'Pink', p7: 'Espresso', p8: 'Multi' };
@@ -31,11 +33,21 @@
   }
   function normalize(p) {
     if (!p || typeof p.id !== 'string' || !p.title || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0) throw new Error('Invalid product data.');
-    const variants = Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, price: Number.isSafeInteger(v.price) ? v.price : p.price, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false })).filter(v => v.id) : [];
+    const basePrice = Number.isSafeInteger(p.basePrice) ? p.basePrice : p.price;
+    const variants = Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false })).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
-    const normalized = { ...p, image: image(p.image), imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
-    return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : p.price, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
+    const normalized = { ...p, basePrice, image: image(p.image), imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
+    return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
+  function localizeProduct(product) {
+    if (!regional?.priceFor) return product;
+    const basePrice = Number.isSafeInteger(product.basePrice) ? product.basePrice : product.price;
+    const baseVariants = Array.isArray(product.variants) ? product.variants : [];
+    const variants = baseVariants.map(variant => ({ ...variant, basePrice: Number.isSafeInteger(variant.basePrice) ? variant.basePrice : variant.price, price: regional.priceFor(Number.isSafeInteger(variant.basePrice) ? variant.basePrice : variant.price, product, variant) }));
+    const active = variants.filter(v => v.enabled !== false);
+    return { ...product, basePrice, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : regional.priceFor(basePrice, product), variants };
+  }
+  function localizeCatalog(products) { return products.map(localizeProduct); }
   const seeds = [
     ['p1','Classic Clog','10001-100',3499,8,'arrival-classic-clog-100.png','Clogs'],
     ['p2','Crocband™ Runner','20598-5AD',5999,64,'arrival-crocband-runner-5AD.png','Clogs'],
@@ -127,7 +139,10 @@
   }
   const shippingCost = (subtotal, method) => {
     if (!['standard','express'].includes(method)) throw new Error('Choose a delivery option.');
-    return method === 'express' ? 599 : subtotal >= 5000 ? 0 : 399;
+    const express = regional?.convert ? regional.convert(599) : 599;
+    const freeThreshold = regional?.convert ? regional.convert(5000) : 5000;
+    const standard = regional?.convert ? regional.convert(399) : 399;
+    return method === 'express' ? express : subtotal >= freeThreshold ? 0 : standard;
   };
   function quote(lines, method = 'standard', products = catalog) {
     const items = validateLines(lines, products);
@@ -146,12 +161,14 @@
     if (!response.ok) throw new Error(json.message || 'The store could not process this request.');
     return json;
   }
-  function setCatalog(data, nextSource = 'supabase') {
+  async function setCatalog(data, nextSource = 'supabase') {
     if (!Array.isArray(data?.products)) throw new Error('The catalogue is unavailable.');
-    catalog = data.products.filter(p => p.status === 'Active').map(normalize);
+    const localization = { ...(data.store?.localization || {}), ...(data.localization || {}), currency: data.localization?.currency || data.store?.currency || data.settings?.currency };
+    if (regional?.configure) await regional.configure(localization);
+    catalog = localizeCatalog(data.products.filter(p => p.status === 'Active').map(normalize));
     source = nextSource;
     problem = nextSource === 'cache' ? 'Showing a recent catalogue while we check live availability.' : '';
-    root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: data }));
+    root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { ...data, products: catalog, localization } }));
   }
   function readCatalogCache() {
     try {
@@ -166,19 +183,28 @@
   async function loadCatalog() {
     const cached = readCatalogCache();
     if (cached) {
-      try { setCatalog(cached, 'cache'); } catch { /* Ignore an invalid stale cache. */ }
+      try { await setCatalog(cached, 'cache'); } catch { /* Ignore an invalid stale cache. */ }
     }
     try {
       const data = await rpc('storefront_catalog_v1', {});
-      setCatalog(data, 'supabase');
+      await setCatalog(data, 'supabase');
       saveCatalogCache(data);
     } catch {
-      if (!cached) { source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.'; }
+      if (!cached) {
+        source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.';
+        if (regional?.ready) await regional.ready.catch(() => {});
+        catalog = localizeCatalog(catalog);
+        root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
+      }
     }
     return catalog;
   }
+  root.addEventListener?.('crocs:region-change', () => {
+    catalog = localizeCatalog(catalog);
+    root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
+  });
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog,
+  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'GBP'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;
