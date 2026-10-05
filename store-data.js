@@ -51,6 +51,23 @@
     target.defaultLanguage ||= 'en';
     target.locale ||= 'en-GB';
     target.autoDetectRegion = target.autoDetectRegion !== false;
+    target.amazon = {
+      enabled: false,
+      sellerId: '',
+      defaultMarketplaceId: '',
+      syncMode: 'manual',
+      productionDays: 3,
+      marketplaces: [],
+      connectionStatus: 'not_configured',
+      connectionMessage: '',
+      ...(target.amazon && typeof target.amazon === 'object' ? target.amazon : {}),
+    };
+    target.amazon.enabled = target.amazon.enabled === true;
+    target.amazon.sellerId = String(target.amazon.sellerId || '').trim();
+    target.amazon.defaultMarketplaceId = String(target.amazon.defaultMarketplaceId || '').trim();
+    target.amazon.syncMode = target.amazon.syncMode === 'automatic' ? 'automatic' : 'manual';
+    target.amazon.productionDays = Number.isInteger(target.amazon.productionDays) && target.amazon.productionDays > 0 ? target.amazon.productionDays : 3;
+    target.amazon.marketplaces = Array.isArray(target.amazon.marketplaces) ? target.amazon.marketplaces : [];
     target.languages = { ...cloneDefaults(DEFAULT_LANGUAGES), ...(target.languages || {}) };
     target.regions = Array.isArray(target.regions) && target.regions.length
       ? target.regions
@@ -89,7 +106,7 @@
       ['p7', 'Classic Lined Clog', '203591-206', 4999, 12, 'Active', 'icon-lined-206.png', 'Clogs'],
       ['p8', 'Sporty Shoe Tattoos', '100152-90H', 999, 0, 'Draft', 'jibbitz-sporty-90H.png', 'Accessories'],
     ];
-    const products = rows.map(([id, title, sku, price, stock, status, image, category]) => ({ id, title, sku, price, stock, status, image: `assets/${image}`, imageAlt: `${title} product image`, brand: 'Crocs', category, description: 'Lightweight comfort. Made for everyday adventures.', tags: ['Crocs'], slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), seo: { title: '', description: '', noindex: false }, options: [], variants: [], updatedAt: date(0) }));
+    const products = rows.map(([id, title, sku, price, stock, status, image, category]) => ({ id, title, sku, price, stock, status, image: `assets/${image}`, imageAlt: `${title} product image`, brand: 'Crocs', category, description: 'Lightweight comfort. Made for everyday adventures.', tags: ['Crocs'], slug: title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), seo: { title: '', description: '', noindex: false }, options: [], variants: [], amazon: { asin: '', prices: {} }, customization: { enabled: false, mode: 'personalize', version: 1, surfaces: [], productionDays: 3, proofRequired: false, instructions: '', syncState: 'draft', sellerCentralConfirmedAt: '' }, updatedAt: date(0) }));
     const customers = [['c1', 'Olivia Grant', 'olivia@example.com', 'London'], ['c2', 'Noah Williams', 'noah@example.com', 'Manchester'], ['c3', 'Amelia Brown', 'amelia@example.com', 'Bristol'], ['c4', 'Charlie Evans', 'charlie@example.com', 'Leeds']].map(([id, name, email, city]) => ({ id, name, email, city, phone: '', note: 'Khách hàng mẫu để trải nghiệm quản trị.', marketing: false, createdAt: date(10) }));
     const orders = Array.from({ length: 18 }, (_, i) => {
       const product = products[i % 7];
@@ -100,7 +117,7 @@
       collections: [{ id: 'col1', title: 'New arrivals', description: 'The latest comfort icons.', productIds: ['p1', 'p2', 'p4', 'p5', 'p6', 'p7'], status: 'Active' }, { id: 'col2', title: 'Cozy favourites', description: 'Made for colder days.', productIds: ['p1', 'p7'], status: 'Active' }, { id: 'col3', title: 'Little adventures', description: 'Big comfort for little feet.', productIds: ['p3'], status: 'Draft' }],
       menus: [{ id: 'main', title: 'Main menu', items: [{ id: 'm1', label: 'Sale', url: '#new-arrivals' }, { id: 'm2', label: 'Women', url: '#shop' }, { id: 'm3', label: 'Men', url: '#shop' }, { id: 'm4', label: 'Kids', url: '#shop' }, { id: 'm5', label: 'Jibbitz™ Charms', url: '#jibbitz' }, { id: 'm6', label: 'Crocs at Work™', url: '#shop' }, { id: 'm7', label: 'Bags & Accessories', url: '#shop' }, { id: 'm8', label: 'HeyDude', url: '#collabs' }] }, { id: 'footer', title: 'Footer menu', items: [{ id: 'f1', label: 'Privacy policy', url: '#footer' }, { id: 'f2', label: 'Terms of use', url: '#footer' }, { id: 'f3', label: 'United Kingdom', url: '#footer' }] }],
       theme: { draft: clone(theme), published: clone(theme), publishedAt: date(0) },
-      settings: normalizeLocalization({ name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, defaultRegion: 'gb', defaultLanguage: 'en', locale: 'en-GB', autoDetectRegion: true, regions: cloneDefaults(DEFAULT_REGIONS), languages: cloneDefaults(DEFAULT_LANGUAGES), payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } }),
+      settings: normalizeLocalization({ name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, defaultRegion: 'gb', defaultLanguage: 'en', locale: 'en-GB', autoDetectRegion: true, regions: cloneDefaults(DEFAULT_REGIONS), languages: cloneDefaults(DEFAULT_LANGUAGES), amazon: { enabled: false, sellerId: '', defaultMarketplaceId: '', syncMode: 'manual', productionDays: 3, marketplaces: [], connectionStatus: 'not_configured', connectionMessage: '' }, payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } }),
       campaigns: [{ id: 'camp1', title: 'Cozy Favourites', channel: 'Email', status: 'Draft', subject: 'A softer side of comfort', content: 'Discover the new Cozy Favourites collection.', date: '' }],
       activity: [{ id: 'a1', title: 'Đã khởi tạo cửa hàng mẫu', detail: 'Mọi số liệu là dữ liệu minh họa cục bộ.', createdAt: date(0) }],
     };
@@ -116,6 +133,18 @@
       // variant/SEO editor was introduced.
       p.options ||= [];
       p.variants ||= [];
+      p.amazon = { asin: '', prices: {}, ...(p.amazon && typeof p.amazon === 'object' ? p.amazon : {}) };
+      p.amazon.asin = String(p.amazon.asin || '').trim();
+      p.amazon.prices = p.amazon.prices && typeof p.amazon.prices === 'object' && !Array.isArray(p.amazon.prices) ? p.amazon.prices : {};
+      if (Object.values(p.amazon.prices).some(value => !Number.isSafeInteger(Number(value)) || Number(value) <= 0)) throw new Error('Giá Amazon theo marketplace phải là số nguyên dương.');
+      p.customization = { enabled: false, mode: 'personalize', version: 1, surfaces: [], productionDays: 3, proofRequired: false, instructions: '', syncState: 'draft', sellerCentralConfirmedAt: '', ...(p.customization && typeof p.customization === 'object' ? p.customization : {}) };
+      p.customization.enabled = p.customization.enabled === true;
+      p.customization.mode = ['personalize', 'configure', 'assemble'].includes(p.customization.mode) ? p.customization.mode : 'personalize';
+      p.customization.version = Number.isInteger(p.customization.version) && p.customization.version > 0 ? p.customization.version : 1;
+      p.customization.productionDays = Number.isInteger(p.customization.productionDays) && p.customization.productionDays > 0 && p.customization.productionDays <= 30 ? p.customization.productionDays : 3;
+      p.customization.proofRequired = p.customization.proofRequired === true;
+      p.customization.surfaces = Array.isArray(p.customization.surfaces) ? p.customization.surfaces : [];
+      if (typeof p.customization.instructions !== 'string' || typeof p.customization.sellerCentralConfirmedAt !== 'string') throw new Error('Cấu hình Amazon Custom không hợp lệ.');
       p.seo = { title: '', description: '', noindex: false, ...(p.seo || {}) };
       p.brand ||= 'Crocs';
       p.imageAlt ||= `${p.title} product image`;
@@ -162,6 +191,16 @@
     data.settings ||= {};
     normalizeLocalization(data.settings);
     data.settings.payment = { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic', ...(data.settings.payment || {}) };
+    data.settings.amazon = { enabled: false, sellerId: '', defaultMarketplaceId: '', syncMode: 'manual', productionDays: 3, marketplaces: [], connectionStatus: 'not_configured', connectionMessage: '', ...(data.settings.amazon || {}) };
+    if (typeof data.settings.amazon.enabled !== 'boolean' || !['manual', 'automatic'].includes(data.settings.amazon.syncMode) || !Number.isInteger(data.settings.amazon.productionDays) || data.settings.amazon.productionDays < 1 || data.settings.amazon.productionDays > 30 || !Array.isArray(data.settings.amazon.marketplaces)) throw new Error('Cấu hình Amazon Custom không hợp lệ.');
+    const amazonMarketplaceIds = new Set();
+    data.settings.amazon.marketplaces.forEach(marketplace => {
+      if (!marketplace || typeof marketplace !== 'object' || !String(marketplace.marketplaceId || '').trim() || amazonMarketplaceIds.has(String(marketplace.marketplaceId))) throw new Error('Marketplace Amazon bị thiếu hoặc trùng.');
+      amazonMarketplaceIds.add(String(marketplace.marketplaceId));
+      if (marketplace.enabled !== false && (!Number.isInteger(Number(marketplace.handlingTime)) || Number(marketplace.handlingTime) < 1 || Number(marketplace.handlingTime) > 30)) throw new Error('Thời gian xử lý Amazon phải từ 1 đến 30 ngày.');
+      if (marketplace.defaultProductType != null && !/^[A-Z0-9_.-]{1,40}$/.test(String(marketplace.defaultProductType))) throw new Error('Amazon product type không hợp lệ.');
+    });
+    if (data.settings.amazon.defaultMarketplaceId && !amazonMarketplaceIds.has(data.settings.amazon.defaultMarketplaceId)) throw new Error('Marketplace Amazon mặc định chưa được bật trong danh sách.');
     const regionIds = new Set();
     const languageIds = new Set(Object.keys(data.settings.languages || {}));
     const regionsValid = Array.isArray(data.settings.regions) && data.settings.regions.length && data.settings.regions.every(region => {

@@ -43,6 +43,20 @@ STRIPE_ALLOW_LIVE=false
 
 Create a Stripe webhook for `https://crocs-admin-supabase.vercel.app/api/stripe/webhook` and subscribe to `checkout.session.completed`, `checkout.session.async_payment_succeeded`, `checkout.session.async_payment_failed` and `checkout.session.expired`. The endpoint verifies the raw Stripe signature and uses the webhook—not the return URL—as the source of truth for payment and order creation. Use Stripe’s `4242 4242 4242 4242` test card while `sk_test_...` is configured. Do not commit any secret or paste one into chat.
 
+## Amazon Custom channel
+
+Amazon Custom is exposed as Admin → Amazon Custom. The Supabase store document remains the source of truth for product content, Amazon price-by-marketplace and customization profiles; Amazon Seller Central remains the authority for product-type approval and the final customization template. The channel always uses merchant-fulfilled inventory.
+
+Before opening the channel in production:
+
+1. Apply `supabase/migrations/20261005000000_add_amazon_channel.sql` after the admin hardening migration. It creates private listing/profile/job tables with RLS; only authenticated members can read them and only the server service role can write sync results.
+2. Add the server-only Amazon variables from `.env.example` to Vercel. Use an Amazon SP-API application with LWA refresh-token access and an IAM user/role permitted to call `execute-api`. Never put an LWA secret, refresh token or AWS key in `store_state`, browser storage or `dist/`.
+3. In Admin → Amazon Custom, add only marketplaces that are enabled in the seller account. Enter a separate minor-unit price for every marketplace—GBP must not be relabelled as USD—and choose the product type returned by Amazon’s Product Type Definitions API.
+4. Select a product, define up to five surfaces, fifteen customizations per surface and one hundred options in total, then save the profile. `Validate` is dry-run and blocks missing prices, invalid profiles and unconfirmed Seller Central templates. `Fetch definition` reads the selected product type from SP-API. `Publish ready` submits at most twenty listings per request through `/api/amazon/sync`.
+5. Keep `syncMode=manual` until a listing has been tested in Seller Central, a personalization order has been received, artwork/proof handling has been verified and merchant-fulfilled delivery has been reconciled. Automatic inventory/order workers are deliberately a later rollout step.
+
+The API signs SP-API requests server-side, caches LWA access tokens briefly, records listing revisions/issues in `amazon_listings` when the service-role key is available, and never logs credentials or customer customization content. Customer-entered text and artwork should be stored with the order (and, for artwork, in a private Supabase Storage bucket) rather than generating a new SKU for every order.
+
 ## Included
 
 - Responsive header, navigation drawer, search and account UI
