@@ -79,7 +79,7 @@ export function rateKey(req) {
 }
 export async function attemptBySession(sessionId) {
   if (!/^cs_(test_|live_)?[A-Za-z0-9_]{12,255}$/.test(sessionId || '')) throw new HttpError(400, 'Invalid checkout session.');
-  const { data, error } = await privateDb().from('stripe_checkout_attempts').select('id,order_id,status,stripe_session_id,mode').eq('stripe_session_id', sessionId).maybeSingle();
+  const { data, error } = await privateDb().from('stripe_checkout_attempts').select('id,order_id,status,stripe_session_id,mode,currency,region_id').eq('stripe_session_id', sessionId).maybeSingle();
   if (error) throw new HttpError(503, 'Payment confirmation is not available yet.');
   if (!data) throw new HttpError(404, 'The checkout session was not found.');
   return data;
