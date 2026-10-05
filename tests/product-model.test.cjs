@@ -32,3 +32,34 @@ test('bulk pricing rejects a compare-at price below the new sale price', () => {
   assert.throws(() => Products.bulk(product.variants, ids, 'price', '39.99'));
   assert.equal(Products.bulk(product.variants, ids, 'price-percent', '10')[0].price, 3849);
 });
+
+test('active variant products need a sellable enabled variant', () => {
+  const product = variantProduct();
+  product.status = 'Active';
+  assert.doesNotThrow(() => Products.validate(product, [product]));
+
+  product.variants[0].price = 0;
+  product.price = 0;
+  assert.throws(() => Products.validate(product, [product]), /giá bán lớn hơn 0/);
+
+  product.variants[0].price = 3499;
+  product.price = 3499;
+  product.variants.forEach(variant => { variant.stock = 0; });
+  product.stock = 0;
+  assert.throws(() => Products.validate(product, [product]), /tồn kho khả dụng/);
+});
+
+test('active products without variants need positive price and stock', () => {
+  const product = {
+    id: 'simple-active', title: 'Simple active product', sku: 'SIMPLE-ACTIVE', price: 0, stock: 4,
+    status: 'Active', image: 'assets/arrival-classic-clog-100.png', imageAlt: 'Simple active product',
+    brand: 'Crocs', category: 'Clogs', description: 'A simple active product.', slug: 'simple-active',
+    options: [], variants: [], seo: { title: '', description: '', noindex: false },
+  };
+  assert.throws(() => Products.validate(product, [product]), /giá bán lớn hơn 0/);
+  product.price = 3499;
+  product.stock = 0;
+  assert.throws(() => Products.validate(product, [product]), /tồn kho khả dụng lớn hơn 0/);
+  product.stock = 4;
+  assert.doesNotThrow(() => Products.validate(product, [product]));
+});

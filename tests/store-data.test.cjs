@@ -38,3 +38,12 @@ test('admin orders reserve and restore a specific variant', () => {
   assert.equal(product.variants[0].stock, 3);
   assert.equal(product.stock, 3);
 });
+
+test('store validation rejects an active product with no sellable inventory', () => {
+  const data = Store.seed();
+  const product = data.products[0];
+  product.status = 'Active';
+  product.price = 0;
+  product.stock = 0;
+  assert.throws(() => Store.validate(data), /giá bán và tồn kho khả dụng/);
+});
