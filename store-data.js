@@ -141,10 +141,9 @@
         if (p.status === 'Active') {
           if (!enabled.length) throw new Error('Sản phẩm đang bán cần ít nhất một biến thể được bật.');
           if (enabled.some(v => v.price <= 0)) throw new Error('Mọi biến thể đang bật của sản phẩm đang bán cần có giá bán lớn hơn 0.');
-          if (expectedStock <= 0) throw new Error('Sản phẩm đang bán cần có ít nhất một biến thể còn tồn kho khả dụng.');
         }
-      } else if (p.status === 'Active' && (p.price <= 0 || p.stock <= 0)) {
-        throw new Error('Sản phẩm đang bán cần có giá bán và tồn kho khả dụng lớn hơn 0.');
+      } else if (p.status === 'Active' && p.price <= 0) {
+        throw new Error('Sản phẩm đang bán cần có giá bán lớn hơn 0.');
       }
     });
     const allSkus = data.products.flatMap(p => [p.sku, ...(p.variants || []).map(v => v.sku)]).map(sku => String(sku).toLowerCase());

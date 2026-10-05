@@ -39,11 +39,24 @@ test('admin orders reserve and restore a specific variant', () => {
   assert.equal(product.stock, 3);
 });
 
-test('store validation rejects an active product with no sellable inventory', () => {
+test('store validation keeps an active product valid after it sells out', () => {
   const data = Store.seed();
   const product = data.products[0];
   product.status = 'Active';
   product.price = 0;
   product.stock = 0;
-  assert.throws(() => Store.validate(data), /giá bán và tồn kho khả dụng/);
+  assert.throws(() => Store.validate(data), /giá bán lớn hơn 0/);
+
+  product.price = 3499;
+  assert.doesNotThrow(() => Store.validate(data));
+});
+
+test('admin order can reserve the final unit without invalidating the store state', () => {
+  const data = Store.seed();
+  const product = data.products[0];
+  product.stock = 1;
+  const order = Store.createOrder(data, data.customers[0].id, [{ productId: product.id, quantity: 1 }]);
+  assert.equal(product.stock, 0);
+  assert.doesNotThrow(() => Store.validate(data));
+  assert.equal(order.items[0].quantity, 1);
 });
