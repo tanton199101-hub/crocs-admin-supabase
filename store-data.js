@@ -18,7 +18,7 @@
     SGD: { name: 'Singapore Dollar', symbol: 'S$', locale: 'en-SG', decimals: 2 },
   });
   const LANGUAGES = Object.freeze({
-    en: { name: 'English', nativeName: 'English', locale: 'en-GB' },
+    en: { name: 'English', nativeName: 'English', locale: 'en-US' },
     vi: { name: 'Vietnamese', nativeName: 'Tiếng Việt', locale: 'vi-VN' },
     fr: { name: 'French', nativeName: 'Français', locale: 'fr-FR' },
     de: { name: 'German', nativeName: 'Deutsch', locale: 'de-DE' },
@@ -41,15 +41,15 @@
     { id: 'au', name: 'Australia', countries: ['AU'], language: 'en', locale: 'en-AU', currency: 'AUD', exchangeRate: 1.95, priceMultiplier: 1, priceOverrides: {} },
   ];
   const cloneDefaults = value => clone(value);
-  const money = (cents, currency = 'GBP', locale = CURRENCIES[currency]?.locale || 'en-GB') => {
-    const code = CURRENCIES[currency] ? currency : 'GBP';
+  const money = (cents, currency = 'USD', locale = CURRENCIES[currency]?.locale || 'en-US') => {
+    const code = CURRENCIES[currency] ? currency : 'USD';
     return new Intl.NumberFormat(locale, { style: 'currency', currency: code }).format(Number(cents || 0) / (10 ** CURRENCIES[code].decimals));
   };
   function normalizeLocalization(settings) {
     const target = settings || {};
-    target.defaultRegion ||= 'gb';
+    target.defaultRegion ||= 'us';
     target.defaultLanguage ||= 'en';
-    target.locale ||= 'en-GB';
+    target.locale ||= 'en-US';
     target.autoDetectRegion = target.autoDetectRegion !== false;
     target.amazon = {
       enabled: false,
@@ -77,8 +77,8 @@
       name: String(region.name || region.id || '').trim(),
       countries: Array.isArray(region.countries) ? region.countries.map(country => String(country).trim().toUpperCase()).filter(Boolean) : [],
       language: String(region.language || target.defaultLanguage || 'en').trim().toLowerCase(),
-      locale: String(region.locale || LANGUAGES[region.language]?.locale || target.locale || 'en-GB').trim(),
-      currency: String(region.currency || target.currency || 'GBP').trim().toUpperCase(),
+      locale: String(region.locale || LANGUAGES[region.language]?.locale || target.locale || 'en-US').trim(),
+      currency: String(region.currency || target.currency || 'USD').trim().toUpperCase(),
       exchangeRate: Number(region.exchangeRate ?? region.rate ?? 1),
       priceMultiplier: Number(region.priceMultiplier ?? 1),
       priceOverrides: region.priceOverrides && typeof region.priceOverrides === 'object' && !Array.isArray(region.priceOverrides) ? region.priceOverrides : {},
@@ -117,7 +117,7 @@
       collections: [{ id: 'col1', title: 'New arrivals', description: 'The latest comfort icons.', productIds: ['p1', 'p2', 'p4', 'p5', 'p6', 'p7'], status: 'Active' }, { id: 'col2', title: 'Cozy favourites', description: 'Made for colder days.', productIds: ['p1', 'p7'], status: 'Active' }, { id: 'col3', title: 'Little adventures', description: 'Big comfort for little feet.', productIds: ['p3'], status: 'Draft' }],
       menus: [{ id: 'main', title: 'Main menu', items: [{ id: 'm1', label: 'Sale', url: '#new-arrivals' }, { id: 'm2', label: 'Women', url: '#shop' }, { id: 'm3', label: 'Men', url: '#shop' }, { id: 'm4', label: 'Kids', url: '#shop' }, { id: 'm5', label: 'Jibbitz™ Charms', url: '#jibbitz' }, { id: 'm6', label: 'Crocs at Work™', url: '#shop' }, { id: 'm7', label: 'Bags & Accessories', url: '#shop' }, { id: 'm8', label: 'HeyDude', url: '#collabs' }] }, { id: 'footer', title: 'Footer menu', items: [{ id: 'f1', label: 'Privacy policy', url: '#footer' }, { id: 'f2', label: 'Terms of use', url: '#footer' }, { id: 'f3', label: 'United Kingdom', url: '#footer' }] }],
       theme: { draft: clone(theme), published: clone(theme), publishedAt: date(0) },
-      settings: normalizeLocalization({ name: 'Crocs UK', email: 'hello@example.com', currency: 'GBP', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, defaultRegion: 'gb', defaultLanguage: 'en', locale: 'en-GB', autoDetectRegion: true, regions: cloneDefaults(DEFAULT_REGIONS), languages: cloneDefaults(DEFAULT_LANGUAGES), amazon: { enabled: false, sellerId: '', defaultMarketplaceId: '', syncMode: 'manual', productionDays: 3, marketplaces: [], connectionStatus: 'not_configured', connectionMessage: '' }, payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } }),
+      settings: normalizeLocalization({ name: 'Crocs UK', email: 'hello@example.com', currency: 'USD', timezone: 'Europe/London', mainMenuId: 'main', footerMenuId: 'footer', stockThreshold: 10, defaultRegion: 'us', defaultLanguage: 'en', locale: 'en-US', autoDetectRegion: true, regions: cloneDefaults(DEFAULT_REGIONS), languages: cloneDefaults(DEFAULT_LANGUAGES), amazon: { enabled: false, sellerId: '', defaultMarketplaceId: '', syncMode: 'manual', productionDays: 3, marketplaces: [], connectionStatus: 'not_configured', connectionMessage: '' }, payment: { provider: 'stripe', enabled: false, mode: 'test', methods: 'automatic' } }),
       campaigns: [{ id: 'camp1', title: 'Cozy Favourites', channel: 'Email', status: 'Draft', subject: 'A softer side of comfort', content: 'Discover the new Cozy Favourites collection.', date: '' }],
       activity: [{ id: 'a1', title: 'Đã khởi tạo cửa hàng mẫu', detail: 'Mọi số liệu là dữ liệu minh họa cục bộ.', createdAt: date(0) }],
     };

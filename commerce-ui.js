@@ -59,7 +59,7 @@
       mount.innerHTML = `
         <footer class="commerce-footer">
           <div><img src="assets/crocs-logo.svg" alt="Crocs" width="110" height="24"><p>Come as you are. Comfort for every version of you.</p></div>
-          <div class="commerce-footer-links"><a href="index.html#footer">${commerce.t('help', 'Help & FAQs')}</a><a href="index.html#footer">${commerce.t('privacy', 'Privacy')}</a><a href="index.html#footer">${commerce.escape(regional?.region?.name || 'United Kingdom')}</a></div>
+          <div class="commerce-footer-links"><a href="index.html#footer">${commerce.t('help', 'Help & FAQs')}</a><a href="index.html#footer">${commerce.t('privacy', 'Privacy')}</a><a href="index.html#footer">${commerce.escape(regional?.region?.name || 'United States')}</a></div>
         </footer>`;
     });
   }

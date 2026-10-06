@@ -18,7 +18,7 @@
     SGD: { name: 'Singapore Dollar', symbol: 'S$', locale: 'en-SG', decimals: 2 },
   };
   const LANGUAGES = {
-    en: { name: 'English', nativeName: 'English', locale: 'en-GB' },
+    en: { name: 'English', nativeName: 'English', locale: 'en-US' },
     vi: { name: 'Vietnamese', nativeName: 'Tiếng Việt', locale: 'vi-VN' },
     fr: { name: 'French', nativeName: 'Français', locale: 'fr-FR' },
     de: { name: 'German', nativeName: 'Deutsch', locale: 'de-DE' },
@@ -71,14 +71,14 @@
   const normalizeRegion = region => {
     const source = region || {};
     const language = String(source.language || 'en').toLowerCase();
-    const currency = String(source.currency || 'GBP').toUpperCase();
+    const currency = String(source.currency || 'USD').toUpperCase();
     return {
-      id: String(source.id || 'gb').trim().toLowerCase(),
-      name: String(source.name || source.id || 'United Kingdom').trim(),
+      id: String(source.id || 'us').trim().toLowerCase(),
+      name: String(source.name || source.id || 'United States').trim(),
       countries: Array.isArray(source.countries) ? source.countries.map(safeCode).filter(Boolean) : [],
       language: LANGUAGES[language] ? language : 'en',
-      locale: String(source.locale || LANGUAGES[language]?.locale || 'en-GB'),
-      currency: CURRENCIES[currency] ? currency : 'GBP',
+      locale: String(source.locale || LANGUAGES[language]?.locale || 'en-US'),
+      currency: CURRENCIES[currency] ? currency : 'USD',
       exchangeRate: Number.isFinite(Number(source.exchangeRate ?? source.rate)) && Number(source.exchangeRate ?? source.rate) > 0 ? Number(source.exchangeRate ?? source.rate) : 1,
       priceMultiplier: Number.isFinite(Number(source.priceMultiplier)) && Number(source.priceMultiplier) > 0 ? Number(source.priceMultiplier) : 1,
       priceOverrides: source.priceOverrides && typeof source.priceOverrides === 'object' && !Array.isArray(source.priceOverrides) ? source.priceOverrides : {},
@@ -88,10 +88,11 @@
     const source = input?.localization || input?.store?.localization || input?.settings?.localization || input?.settings || input || {};
     const rawRegions = Array.isArray(source.regions) && source.regions.length ? source.regions : DEFAULT_REGIONS;
     const regions = rawRegions.map(normalizeRegion);
-    const defaultRegion = regions.find(region => region.id === String(source.defaultRegion || '').toLowerCase()) || regions[0] || normalizeRegion(DEFAULT_REGIONS[0]);
+    const defaultRegionId = String(source.defaultRegion || 'us').toLowerCase();
+    const defaultRegion = regions.find(region => region.id === defaultRegionId) || regions[0] || normalizeRegion(DEFAULT_REGIONS[0]);
     const languages = { ...clone(DEFAULT_LANGUAGES), ...(source.languages || {}) };
-    const baseCurrency = CURRENCIES[String(source.currency || 'GBP').toUpperCase()] ? String(source.currency || 'GBP').toUpperCase() : 'GBP';
-    return { defaultRegion: defaultRegion.id, defaultLanguage: String(source.defaultLanguage || defaultRegion.language || 'en').toLowerCase(), locale: String(source.locale || defaultRegion.locale || 'en-GB'), currency: baseCurrency, autoDetectRegion: source.autoDetectRegion !== false, regions, languages };
+    const baseCurrency = CURRENCIES[String(source.currency || 'USD').toUpperCase()] ? String(source.currency || 'USD').toUpperCase() : 'USD';
+    return { defaultRegion: defaultRegion.id, defaultLanguage: String(source.defaultLanguage || defaultRegion.language || 'en').toLowerCase(), locale: String(source.locale || defaultRegion.locale || 'en-US'), currency: baseCurrency, autoDetectRegion: source.autoDetectRegion !== false, regions, languages };
   }
   function getSaved(key) { try { return root.localStorage?.getItem(key) || ''; } catch { return ''; } }
   function saveValue(key, value) { try { root.localStorage?.setItem(key, value); } catch { /* Optional preference only. */ } }
@@ -142,10 +143,10 @@
   }
   function formatMoney(minorUnits, opts = {}) {
     const active = region(opts.regionId);
-    const currencyCode = String(opts.currency || active.currency || 'GBP').toUpperCase();
-    const currency = CURRENCIES[currencyCode] || CURRENCIES.GBP;
+    const currencyCode = String(opts.currency || active.currency || 'USD').toUpperCase();
+    const currency = CURRENCIES[currencyCode] || CURRENCIES.USD;
     const locale = opts.locale || active.locale || currency.locale;
-    try { return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode in CURRENCIES ? currencyCode : 'GBP', currencyDisplay: opts.currencyDisplay || 'symbol' }).format(Number(minorUnits || 0) / (10 ** currency.decimals)); }
+    try { return new Intl.NumberFormat(locale, { style: 'currency', currency: currencyCode in CURRENCIES ? currencyCode : 'USD', currencyDisplay: opts.currencyDisplay || 'symbol' }).format(Number(minorUnits || 0) / (10 ** currency.decimals)); }
     catch { return `${currency.symbol}${(Number(minorUnits || 0) / (10 ** currency.decimals)).toFixed(currency.decimals)}`; }
   }
   function overrideFor(product, active, variant) {
@@ -159,8 +160,8 @@
     const active = region(regionId);
     const override = overrideFor(product, active, variant);
     if (override != null) return override;
-    const currency = CURRENCIES[active.currency] || CURRENCIES.GBP;
-    const baseCurrency = CURRENCIES[config.currency] || CURRENCIES.GBP;
+    const currency = CURRENCIES[active.currency] || CURRENCIES.USD;
+    const baseCurrency = CURRENCIES[config.currency] || CURRENCIES.USD;
     const baseMajor = Number(baseMinorUnits || 0) / (10 ** baseCurrency.decimals);
     return Math.min(2147483647, Math.max(0, Math.round(baseMajor * active.exchangeRate * active.priceMultiplier * (10 ** currency.decimals) + Number.EPSILON)));
   }

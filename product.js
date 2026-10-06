@@ -63,7 +63,7 @@
       return linkUrl.href;
     };
     const offer = variant => ({
-      '@type': 'Offer', url: urlFor(variant), priceCurrency: commerce.currency || 'GBP', price: (variant.price / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2),
+      '@type': 'Offer', url: urlFor(variant), priceCurrency: commerce.currency || 'USD', price: (variant.price / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2),
       availability: variant.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition'
     });
     const imageUrl = absolute(commerce.image(product.image));
@@ -74,8 +74,8 @@
     ensureProperty('og:url', canonical.href);
     ensureProperty('og:image', imageUrl);
     ensureProperty('og:image:alt', product.imageAlt || product.title);
-    ensureProperty('product:price:amount', ((current?.price ?? product.price) / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'GBP']?.decimals ?? 2));
-    ensureProperty('product:price:currency', commerce.currency || 'GBP');
+    ensureProperty('product:price:amount', ((current?.price ?? product.price) / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2));
+    ensureProperty('product:price:currency', commerce.currency || 'USD');
     ensureMeta('twitter:card', 'summary_large_image');
     ensureMeta('twitter:title', document.title);
     ensureMeta('twitter:description', description.slice(0, 320));
