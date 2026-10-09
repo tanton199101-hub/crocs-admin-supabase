@@ -11,7 +11,19 @@
   const baseMoney = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
   const money = cents => regional?.formatMoney ? regional.formatMoney(cents) : baseMoney(cents);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const image = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value) ? value : 'assets/arrival-classic-clog-100.png';
+  const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com']);
+  const image = value => {
+    const raw = String(value || '');
+    if (/^assets\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(raw) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(raw)) return raw;
+    try {
+      const parsed = new URL(raw, root.location?.origin || 'https://store.invalid');
+      if (parsed.origin === (root.location?.origin || 'https://store.invalid') && parsed.pathname === '/api/1688-image') {
+        const source = new URL(parsed.searchParams.get('url') || '');
+        return source.protocol === 'https:' && remoteImageHosts.has(source.hostname.toLowerCase()) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : 'assets/arrival-classic-clog-100.png';
+      }
+      return parsed.protocol === 'https:' && remoteImageHosts.has(parsed.hostname.toLowerCase()) ? parsed.href : 'assets/arrival-classic-clog-100.png';
+    } catch { return 'assets/arrival-classic-clog-100.png'; }
+  };
   const colourNames = { p1: 'White', p2: 'Lilac', p3: 'Multi', p4: 'Black', p5: 'Black', p6: 'Pink', p7: 'Espresso', p8: 'Multi' };
   const optionsFor = p => Array.isArray(p?.options) ? p.options : [];
   const variantsFor = p => Array.isArray(p?.variants) ? p.variants.filter(v => v && v.enabled !== false) : [];
@@ -36,7 +48,9 @@
     const basePrice = Number.isSafeInteger(p.basePrice) ? p.basePrice : p.price;
     const variants = Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false })).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
-    const normalized = { ...p, basePrice, image: image(p.image), imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
+    const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, 20) : [];
+    const detailImages = Array.isArray(p.detailImages) ? p.detailImages.map(image).filter(Boolean).slice(0, 40) : [];
+    const normalized = { ...p, basePrice, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
   function localizeProduct(product) {

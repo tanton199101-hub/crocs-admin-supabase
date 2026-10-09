@@ -4,7 +4,10 @@
   else root.CrocsProducts = api;
 })(typeof window === 'undefined' ? globalThis : window, function () {
   'use strict';
-  const MAX_VARIANTS = 100;
+  // Imported supplier matrices can legitimately exceed 100 combinations.
+  // Keep a bounded ceiling so the editor remains safe while preserving the
+  // verified 1688 SKU matrix (the largest current source matrix is 136).
+  const MAX_VARIANTS = 500;
   const MAX_AMOUNT = 100000000;
   const clone = value => JSON.parse(JSON.stringify(value));
   const slugify = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 100).replace(/-$/, '');
@@ -12,11 +15,13 @@
   const variantsOf = p => Array.isArray(p.variants) ? p.variants : [];
   const variantTitle = (p, v) => (p.options || []).map(o => v.values[o.id]).join(' / ');
   const key = values => JSON.stringify(Object.entries(values).map(([id, v]) => [id, norm(v)]).sort(([a], [b]) => a.localeCompare(b)));
-  const amount = (value, label = 'Giá') => {
+  const amount = (value, label = 'Giá', decimals = 2) => {
     const text = String(value).trim();
-    if (!/^\d+(\.\d{1,2})?$/.test(text)) throw new Error(`${label}: nhập số không âm, tối đa 2 chữ số thập phân.`);
-    const result = Math.round(Number(text) * 100);
-    if (!Number.isSafeInteger(result) || result > MAX_AMOUNT) throw new Error(`${label} vượt giới hạn £1.000.000.`);
+    const places = Number.isInteger(decimals) && decimals >= 0 && decimals <= 4 ? decimals : 2;
+    const pattern = places ? new RegExp(`^\\d+(\\.\\d{1,${places}})?$`) : /^\\d+$/;
+    if (!pattern.test(text)) throw new Error(`${label}: nhập số không âm${places ? `, tối đa ${places} chữ số thập phân` : ''}.`);
+    const result = Math.round(Number(text) * (10 ** places));
+    if (!Number.isSafeInteger(result) || result > MAX_AMOUNT) throw new Error(`${label} vượt giới hạn cho phép.`);
     return result;
   };
   const count = (value, label = 'Tồn kho') => {
@@ -102,7 +107,7 @@
     if (product.seo && (typeof product.seo.title !== 'string' || product.seo.title.length > 200 || typeof product.seo.description !== 'string' || product.seo.description.length > 500 || typeof product.seo.noindex !== 'boolean')) throw new Error('Dữ liệu SEO không hợp lệ.');
     return product;
   }
-  function bulk(variants, selectedIds, operation, value) {
+  function bulk(variants, selectedIds, operation, value, decimals = 2) {
     if (!selectedIds.length) throw new Error('Chọn ít nhất một biến thể.');
     const ids = new Set(selectedIds);
     const allowed = ['price', 'price-percent', 'price-delta', 'compareAt', 'stock', 'stock-delta', 'enabled'];
@@ -111,7 +116,7 @@
       if (!ids.has(v.id)) return clone(v);
       const next = clone(v);
       if (operation === 'enabled') next.enabled = value === 'true';
-      else if (operation === 'price' || operation === 'compareAt') next[operation] = operation === 'compareAt' && value === '' ? null : amount(value);
+      else if (operation === 'price' || operation === 'compareAt') next[operation] = operation === 'compareAt' && value === '' ? null : amount(value, 'Giá', decimals);
       else if (operation === 'stock') next.stock = count(value);
       else {
         if (!/^[+-]?\d+(\.\d{1,2})?$/.test(String(value).trim())) throw new Error('Nhập mức điều chỉnh hợp lệ, ví dụ 10 hoặc -10.');
@@ -119,7 +124,7 @@
         if (operation === 'stock-delta') {
           if (!Number.isInteger(change)) throw new Error('Mức điều chỉnh tồn phải là số nguyên.');
           next.stock += change;
-        } else next.price = operation === 'price-percent' ? Math.round(v.price * (1 + change / 100)) : v.price + Math.round(change * 100);
+        } else next.price = operation === 'price-percent' ? Math.round(v.price * (1 + change / 100)) : v.price + Math.round(change * (10 ** (Number.isInteger(decimals) && decimals >= 0 ? decimals : 2)));
       }
       if (!Number.isSafeInteger(next.price) || next.price < 0 || next.price > MAX_AMOUNT || !Number.isSafeInteger(next.stock) || next.stock < 0 || next.stock > 1000000) throw new Error('Điều chỉnh làm giá/tồn âm hoặc vượt giới hạn. Chưa áp dụng thay đổi.');
       if (next.compareAt != null && next.compareAt <= next.price) throw new Error('Giá bán mới không được bằng/vượt giá niêm yết. Hãy xóa hoặc tăng giá niêm yết trước.');

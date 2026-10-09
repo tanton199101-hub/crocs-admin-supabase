@@ -27,6 +27,16 @@
 .pe-media > img { width: 130px; height: 130px; background: #f3f5f2; object-fit: contain; border-radius: 8px; }
 .pe-media p { color: #657067; font-size: 12px; margin-top: 4px; }
 .pe-media input[type=file] { max-width: 100%; font-size: 12px; }
+.pe-media-library { margin-top: 20px; padding-top: 18px; border-top: 1px solid #e7ece7; }
+.pe-media-library-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12px; }
+.pe-media-library-heading span { color: #70806e; font-size: 11px; }
+.pe-media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 9px; margin-top: 12px; }
+.pe-media-grid figure { min-width: 0; margin: 0; }
+.pe-media-grid img { display: block; width: 100%; aspect-ratio: 1; object-fit: contain; border: 1px solid #dfe4df; border-radius: 7px; background: #f3f5f2; }
+.pe-media-grid figcaption { margin-top: 4px; color: #70806e; font-size: 10px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pe-detail-media { margin-top: 14px; font-size: 12px; }
+.pe-detail-media summary { color: #176c89; cursor: pointer; }
+.pe-warning { margin-top: 12px; padding: 9px 11px; border-left: 3px solid #c89635; color: #75633f; background: #fffaf0; font-size: 11px; line-height: 1.5; }
 .pe-card-title { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
 .pe-pill { border-radius: 6px; background: #edf3e5; color: #365f16; padding: 4px 8px; font-size: 11px; white-space: nowrap; }
 .pe-preset-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; margin-top: 20px; }

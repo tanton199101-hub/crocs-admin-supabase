@@ -5,6 +5,7 @@
 })(typeof window === 'undefined' ? globalThis : window, function (root) {
   'use strict';
   const KEY = 'crocs-studio-v1';
+  const MAX_VARIANTS = 500;
   const clone = value => JSON.parse(JSON.stringify(value));
   const id = prefix => `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   const CURRENCIES = Object.freeze({
@@ -93,7 +94,25 @@
     return target;
   }
   const safeLink = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|index\.html(?:#[\w-]+)?)$/.test(value);
-  const safeImage = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value);
+  const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com']);
+  const safeRemoteImage = value => {
+    try {
+      const url = new URL(String(value || ''));
+      return url.protocol === 'https:' && remoteImageHosts.has(url.hostname.toLowerCase());
+    } catch {
+      return false;
+    }
+  };
+  const safeProxyImage = value => {
+    try {
+      const url = new URL(String(value || ''), 'https://store.invalid');
+      if (url.origin !== 'https://store.invalid' || url.pathname !== '/api/1688-image') return false;
+      return safeRemoteImage(url.searchParams.get('url'));
+    } catch {
+      return false;
+    }
+  };
+  const safeImage = value => /^(assets\/[\w.-]+\.(png|jpe?g|webp|svg)|data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+)$/.test(value) || safeRemoteImage(value) || safeProxyImage(value);
   function seed() {
     const date = days => new Date(Date.now() - days * 86400000).toISOString();
     const rows = [
@@ -133,6 +152,9 @@
       // variant/SEO editor was introduced.
       p.options ||= [];
       p.variants ||= [];
+      p.gallery = Array.isArray(p.gallery) ? p.gallery : [];
+      p.detailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
+      p.attributes = Array.isArray(p.attributes) ? p.attributes : [];
       p.amazon = { asin: '', prices: {}, ...(p.amazon && typeof p.amazon === 'object' ? p.amazon : {}) };
       p.amazon.asin = String(p.amazon.asin || '').trim();
       p.amazon.prices = p.amazon.prices && typeof p.amazon.prices === 'object' && !Array.isArray(p.amazon.prices) ? p.amazon.prices : {};
@@ -150,8 +172,11 @@
       p.imageAlt ||= `${p.title} product image`;
       if (!p.slug) p.slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       if (!p.title?.trim() || !p.sku?.trim() || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0 || !['Active', 'Draft', 'Archived'].includes(p.status) || !safeImage(p.image)) throw new Error('Sản phẩm cần tên, SKU, ảnh, giá và tồn kho hợp lệ.');
+      if (p.gallery.length > 20 || p.gallery.some(image => !safeImage(image)) || p.detailImages.length > 40 || p.detailImages.some(image => !safeImage(image))) throw new Error('Gallery ảnh sản phẩm không hợp lệ.');
+      if (typeof p.description !== 'string' || p.description.length > 12000 || p.attributes.length > 80 || p.attributes.some(attribute => !attribute || typeof attribute !== 'object' || String(attribute.name || attribute.label || '').length > 160 || String(attribute.value || attribute.content || '').length > 500)) throw new Error('Mô tả hoặc thuộc tính sản phẩm không hợp lệ.');
+      if (p.descriptionHtml != null && (typeof p.descriptionHtml !== 'string' || p.descriptionHtml.length > 200000)) throw new Error('Mô tả HTML sản phẩm quá dài hoặc không hợp lệ.');
       if (typeof p.brand !== 'string' || typeof p.imageAlt !== 'string' || typeof p.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug) || typeof p.seo.title !== 'string' || typeof p.seo.description !== 'string' || typeof p.seo.noindex !== 'boolean') throw new Error('Thông tin thương hiệu hoặc SEO sản phẩm không hợp lệ.');
-      if (!Array.isArray(p.options) || p.options.length > 3 || !Array.isArray(p.variants) || p.variants.length > 100 || (p.variants.length > 0 && p.options.length === 0)) throw new Error('Thuộc tính hoặc biến thể sản phẩm không hợp lệ.');
+      if (!Array.isArray(p.options) || p.options.length > 3 || !Array.isArray(p.variants) || p.variants.length > MAX_VARIANTS || (p.variants.length > 0 && p.options.length === 0)) throw new Error('Thuộc tính hoặc biến thể sản phẩm không hợp lệ.');
       const optionIds = new Set(p.options.map(o => o.id));
       const optionNames = new Set(p.options.map(o => String(o.name || '').trim().toLowerCase()));
       if (optionIds.size !== p.options.length || optionNames.size !== p.options.length || p.options.some(o => !/^[a-zA-Z0-9_-]+$/.test(o.id) || !o.name || !Array.isArray(o.values) || !o.values.length || new Set(o.values.map(v => String(v).toLowerCase())).size !== o.values.length)) throw new Error('Thuộc tính sản phẩm không hợp lệ.');
@@ -221,6 +246,7 @@
   }
   let state;
   let storageIssue = '';
+  let storageVolatile = false;
   function read() {
     if (state) return clone(state);
     try { const raw = root.localStorage?.getItem(KEY); state = raw ? validate(JSON.parse(raw)) : seed(); }
@@ -229,10 +255,23 @@
   }
   function save(next) {
     validate(next);
-    if (storageIssue) throw new Error(storageIssue);
-    if (!root.localStorage) throw new Error('Trình duyệt không hỗ trợ lưu cục bộ. Hãy mở bằng localhost.');
-    try { root.localStorage.setItem(KEY, JSON.stringify(next)); }
-    catch { throw new Error('Chưa lưu được. Bộ nhớ trình duyệt bị chặn hoặc đã đầy; thử giảm dung lượng ảnh.'); }
+    // A full supplier catalog with verified SKU rows can exceed the browser's
+    // localStorage quota. Keep the validated state in memory and let the
+    // authenticated Supabase sync remain the durable source of truth instead
+    // of discarding an otherwise valid import.
+    if (!root.localStorage) {
+      storageVolatile = true;
+      storageIssue = 'Trình duyệt không có localStorage; dữ liệu sẽ được giữ trên máy chủ khi kết nối.';
+    } else {
+      try {
+        root.localStorage.setItem(KEY, JSON.stringify(next));
+        storageVolatile = false;
+        storageIssue = '';
+      } catch {
+        storageVolatile = true;
+        storageIssue = 'Catalog lớn hơn giới hạn localStorage; dữ liệu đang được giữ trong phiên và đồng bộ lên máy chủ.';
+      }
+    }
     state = clone(next);
     root.dispatchEvent?.(new Event('crocs:change'));
     return clone(state);
@@ -305,5 +344,5 @@
     else throw new Error('Không thể thực hiện thao tác ở trạng thái hiện tại của đơn.');
   }
   root.addEventListener?.('storage', event => { if (event.key === KEY) { state = undefined; storageIssue = ''; read(); root.dispatchEvent?.(new Event('crocs:change')); } });
-  return { KEY, CURRENCIES, LANGUAGES, DEFAULT_REGIONS, DEFAULT_LANGUAGES, normalizeLocalization, seed, validate, read, save, commit, id, money, total, safeLink, safeImage, createOrder, transitionOrder, get storageIssue() { read(); return storageIssue; } };
+  return { KEY, CURRENCIES, LANGUAGES, DEFAULT_REGIONS, DEFAULT_LANGUAGES, normalizeLocalization, seed, validate, read, save, commit, id, money, total, safeLink, safeImage, createOrder, transitionOrder, get storageIssue() { read(); return storageIssue; }, get storageVolatile() { return storageVolatile; } };
 });

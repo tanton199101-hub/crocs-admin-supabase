@@ -33,6 +33,11 @@
     const region = (data.settings.regions || []).find(item => item.id === order.regionId || item.id === order.region_id);
     return S.money(amount, String(order.currency || region?.currency || data.settings.currency || 'USD').toUpperCase(), order.locale || region?.locale || data.settings.locale || 'en-US');
   };
+  const baseCurrency = () => {
+    const code = String(data.settings.currency || 'USD').toUpperCase();
+    const meta = S.CURRENCIES?.[code] || { decimals: 2 };
+    return { code, decimals: Number.isInteger(meta.decimals) ? meta.decimals : 2 };
+  };
   const heading = (title, description, actions = '') => `<div class="view-heading"><div><p class="view-kicker">Crocs · Admin studio</p><h1>${title}</h1><p class="view-description">${description}</p></div><div class="heading-actions">${actions}</div></div>`;
   const empty = (message = 'Chưa có dữ liệu phù hợp. Thử đổi bộ lọc hoặc thêm mục mới.') => `<div class="empty-state"><span>◌</span><h3>Không tìm thấy kết quả</h3><p>${message}</p>${btn('Xóa bộ lọc', 'clear-filters')}</div>`;
   const thumb = product => `<span class="product-thumb product-thumb--cream"><img src="${esc(product.image)}" alt="" loading="lazy"></span>`;
@@ -168,9 +173,11 @@
   }
   function newOrder() {
     if (!data.customers.length || !data.products.some(p => p.status === 'Active' && p.stock > 0)) return toast('Cần khách hàng và sản phẩm đang bán còn hàng.');
-    formDialog('Tạo đơn hàng cục bộ', `${selectField('customerId', 'Khách hàng', data.customers.map(c => [c.id, `${c.name} · ${c.email}`]))}<fieldset class="order-lines"><legend>Sản phẩm</legend><div id="orderLines"></div>${btn('+ Thêm dòng', 'order-add-line')}</fieldset><p id="orderEstimate" class="order-estimate"></p>${field('shipping', 'Phí giao hàng (£)', '0.00', 'type="number" min="0" step="0.01" required')}${textField('note', 'Ghi chú')}<p class="local-note">Đơn mới ở trạng thái chờ thanh toán. Giá và tồn kho được xác nhận lại khi lưu.</p>`, (fd, form) => {
+    const currency = baseCurrency();
+    const factor = 10 ** currency.decimals;
+    formDialog('Tạo đơn hàng cục bộ', `${selectField('customerId', 'Khách hàng', data.customers.map(c => [c.id, `${c.name} · ${c.email}`]))}<fieldset class="order-lines"><legend>Sản phẩm</legend><div id="orderLines"></div>${btn('+ Thêm dòng', 'order-add-line')}</fieldset><p id="orderEstimate" class="order-estimate"></p>${field('shipping', `Phí giao hàng (${currency.code})`, '0.00', 'type="number" min="0" step="0.01" required')}${textField('note', 'Ghi chú')}<p class="local-note">Đơn mới ở trạng thái chờ thanh toán. Giá và tồn kho được xác nhận lại khi lưu.</p>`, (fd, form) => {
       const lines = $$('.order-line', form).map(row => ({ productId: $('[name=productId]', row).value, variantId: $('[name=variantId]', row)?.value || '', quantity: Number($('[name=quantity]', row).value) }));
-      commit(next => S.createOrder(next, fd.get('customerId'), lines, fd.get('note'), Math.round(Number(fd.get('shipping')) * 100)), 'Đã tạo đơn và giữ tồn kho');
+      commit(next => S.createOrder(next, fd.get('customerId'), lines, fd.get('note'), Math.round(Number(fd.get('shipping')) * factor)), 'Đã tạo đơn và giữ tồn kho');
     }, 'Tạo đơn');
     addOrderLine();
   }
@@ -220,7 +227,7 @@
   }
   function themeValues() { const fd = new FormData($('#themeForm')); const t = { ...data.theme.draft }; ['heroTitle', 'heroSubtitle', 'heroButton', 'announcement', 'campaign', 'accent', 'background', 'collectionId'].forEach(key => { t[key] = fd.get(key); }); ['showClassics', 'showArrivals', 'showCollabs', 'showClub'].forEach(key => { t[key] = fd.has(key); }); return t; }
   function sendPreview() { const frame = $('#storePreview'); if (frame && $('#themeForm')) frame.contentWindow.postMessage({ type: 'crocs:theme-preview', theme: themeValues() }, '*'); }
-  const currencyOptions = () => Object.entries(S.CURRENCIES || { GBP: { name: 'British Pound' } }).map(([code, item]) => [code, `${code} · ${item.name}`]);
+  const currencyOptions = () => Object.entries(S.CURRENCIES || { USD: { name: 'US Dollar' } }).map(([code, item]) => [code, `${code} · ${item.name}`]);
   const languageOptions = () => Object.entries(S.LANGUAGES || { en: { nativeName: 'English' } }).map(([code, item]) => [code, `${item.nativeName || item.name || code} (${code})`]);
   function regionCardMarkup(region, index = 0) {
     const item = region || { id: `region-${index + 1}`, name: '', countries: [], language: 'en', locale: 'en-US', currency: data.settings.currency || 'USD', exchangeRate: 1, priceMultiplier: 1, priceOverrides: {} };
@@ -399,19 +406,20 @@
   function csvCell(value) { let text = String(value ?? ''); if (/^[=+\-@\t\r]/.test(text)) text = `'${text}`; return `"${text.replace(/"/g, '""')}"`; }
   function exportCSV() {
     const source = route === 'orders' || route === 'analytics' ? data.orders : filtered(); let rows;
-    if (route === 'orders' || route === 'analytics') rows = [['Order', 'Customer', 'Date', 'Payment', 'Fulfillment', 'Total GBP'], ...source.map(o => [o.number, o.customerName, o.createdAt, o.payment, o.fulfillment, (S.total(o) / 100).toFixed(2)])];
+    const currency = baseCurrency(); const factor = 10 ** currency.decimals;
+    if (route === 'orders' || route === 'analytics') rows = [['Order', 'Customer', 'Date', 'Payment', 'Fulfillment', `Total ${currency.code}`], ...source.map(o => [o.number, o.customerName, o.createdAt, o.payment, o.fulfillment, (S.total(o) / factor).toFixed(currency.decimals)])];
     else if (route === 'customers') rows = [['Name', 'Email', 'City', 'Phone'], ...source.map(c => [c.name, c.email, c.city, c.phone])];
     else if (route === 'collections') rows = [['Title', 'Status', 'Product count'], ...source.map(c => [c.title, c.status, c.productIds.length])];
-    else rows = [['Product', 'SKU', 'Status', 'Stock', 'Price GBP'], ...source.map(p => [p.title, p.sku, p.status, p.stock, (p.price / 100).toFixed(2)])];
+    else rows = [['Product', 'SKU', 'Status', 'Stock', `Price ${currency.code}`], ...source.map(p => [p.title, p.sku, p.status, p.stock, (p.price / factor).toFixed(currency.decimals)])];
     download(`crocs-${route}.csv`, '\ufeff' + rows.map(row => row.map(csvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8'); toast('Đã tạo tệp CSV để tải xuống');
   }
   function importDialog(backup = false) {
     const copyHelp = backup
       ? 'Tệp sao lưu Crocs Studio v1. Thao tác thay thế dữ liệu cục bộ sau xác nhận.'
       : 'Mảng JSON gồm nội dung, SEO, options/variants và giá theo khu vực. SKU hoặc offer 1688 trùng sẽ được cập nhật.';
-    formDialog(backup ? 'Khôi phục dữ liệu' : 'Nhập sản phẩm JSON', `<p class="local-note">${copyHelp}</p>${field('file', 'Chọn tệp JSON (tối đa 8 MB)', '', 'type="file" accept=".json,application/json" required')}${!backup ? btn('Tải mẫu JSON', 'product-template') : ''}`, async fd => {
+    formDialog(backup ? 'Khôi phục dữ liệu' : 'Nhập sản phẩm JSON', `<p class="local-note">${copyHelp}</p>${field('file', 'Chọn tệp JSON (tối đa 64 MB)', '', 'type="file" accept=".json,application/json" required')}${!backup ? btn('Tải mẫu JSON', 'product-template') : ''}`, async fd => {
       const file = fd.get('file');
-      if (!file || file.size > 8 * 1024 * 1024) throw new Error('Chọn tệp JSON tối đa 8 MB.');
+      if (!file || file.size > 64 * 1024 * 1024) throw new Error('Chọn tệp JSON tối đa 64 MB.');
       let parsed;
       try { parsed = JSON.parse(await file.text()); } catch { throw new Error('Không đọc được JSON. Kiểm tra định dạng tệp.'); }
       if (backup) {

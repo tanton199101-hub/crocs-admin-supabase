@@ -12,6 +12,7 @@
   let quantity = 1;
   let selectedSize = '';
   let selectedValues = {};
+  let selectedMediaIndex = 0;
 
   const renderMissing = (message = 'This product is not available right now.') => {
     document.title = 'Product unavailable | Crocs Studio';
@@ -66,7 +67,8 @@
       '@type': 'Offer', url: urlFor(variant), priceCurrency: commerce.currency || 'USD', price: (variant.price / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2),
       availability: variant.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition'
     });
-    const imageUrl = absolute(commerce.image(product.image));
+    const media = mediaFor(product);
+    const imageUrl = absolute(media[0] || commerce.image(product.image));
     ensureProperty('og:type', 'product');
     ensureProperty('og:site_name', 'Crocs UK');
     ensureProperty('og:title', document.title);
@@ -82,14 +84,14 @@
     ensureMeta('twitter:image', imageUrl);
     const variants = variantList.length ? variantList.map(v => ({
       '@type': 'Product', name: `${product.title} — ${commerce.variantTitle(product, v)}`, sku: v.sku || `${product.sku}-${v.id}`,
-      image: [imageUrl], offers: offer(v), url: urlFor(v)
+       image: media.map(absolute), offers: offer(v), url: urlFor(v)
     })) : [];
     const schema = variantList.length ? {
       '@context': 'https://schema.org', '@type': 'ProductGroup', '@id': `${base.href}#product-group`, name: product.title,
-      description, image: [imageUrl], brand: { '@type': 'Brand', name: product.brand || 'Crocs' }, productGroupID: product.sku || product.id,
+       description, image: media.map(absolute), brand: { '@type': 'Brand', name: product.brand || 'Crocs' }, productGroupID: product.sku || product.id,
       variesBy: commerce.optionsFor(product).map(option => `https://schema.org/${/size/i.test(option.name) ? 'size' : /colou?r/i.test(option.name) ? 'color' : 'additionalProperty'}`), hasVariant: variants
     } : {
-      '@context': 'https://schema.org', '@type': 'Product', name: product.title, description, image: [imageUrl], sku: product.sku || product.id,
+      '@context': 'https://schema.org', '@type': 'Product', name: product.title, description, image: media.map(absolute), sku: product.sku || product.id,
       brand: { '@type': 'Brand', name: product.brand || 'Crocs' }, offers: offer({ id: '', price: product.price, stock: product.stock })
     };
     let script = document.head.querySelector('#productStructuredData');
@@ -99,6 +101,25 @@
 
   function activeVariants() { return commerce.variantsFor(product); }
   function currentVariant() { return activeVariants().length ? commerce.variantFor(product, { values: selectedValues }) : null; }
+  function mediaFor(item) {
+    const values = [item?.image, ...(Array.isArray(item?.gallery) ? item.gallery : [])]
+      .map(value => commerce.image(value)).filter(Boolean);
+    return [...new Set(values)];
+  }
+  function attributeMarkup(item) {
+    const attributes = Array.isArray(item?.attributes) ? item.attributes : [];
+    if (!attributes.length) return '';
+    return `<dl class="product-attributes">${attributes.map(attribute => {
+      const name = attribute?.name || attribute?.label || attribute?.key || '';
+      const value = attribute?.value || attribute?.content || attribute?.text || '';
+      return name && value ? `<div><dt>${commerce.escape(name)}</dt><dd>${commerce.escape(value)}</dd></div>` : '';
+    }).join('')}</dl>`;
+  }
+  function descriptionMarkup(item) {
+    const text = String(item?.description || '').trim();
+    if (!text) return '';
+    return text.split(/\n{2,}|\r?\n/).filter(Boolean).map(part => `<p>${commerce.escape(part.trim())}</p>`).join('');
+  }
   function displayPrice(current) {
     if (current) return commerce.money(current.price);
     const variants = activeVariants();
@@ -130,6 +151,10 @@
     }
     const current = currentVariant();
     const sizeValues = commerce.sizesFor(product);
+    const media = mediaFor(product);
+    selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
+    const heroImage = media[selectedMediaIndex] || commerce.image(product.image);
+    const detailImages = [...new Set((Array.isArray(product.detailImages) ? product.detailImages : []).map(value => commerce.image(value)).filter(Boolean))];
     const related = commerce.products.filter(item => item.id !== product.id && item.status === 'Active' && item.category === product.category).slice(0, 4);
     updateStructuredData(variants, current);
     main.setAttribute('aria-busy', 'false');
@@ -137,8 +162,9 @@
       <div class="product-breadcrumbs"><a href="index.html">${t('home', 'Home')}</a><span aria-hidden="true"> / </span><a href="index.html#new-arrivals">${t('newArrivals', 'New arrivals')}</a><span aria-hidden="true"> / </span><span>${commerce.escape(product.title)}</span></div>
       <section class="product-detail" aria-labelledby="productTitle">
         <div class="product-gallery">
-          <div class="product-hero-image"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" width="900" height="720"></div>
-          <p class="product-gallery-note">Product code ${commerce.escape(current?.sku || product.sku || product.id)} · Images shown for illustration.</p>
+          <div class="product-hero-image"><img id="productHeroImage" src="${commerce.escape(heroImage)}" alt="${commerce.escape(product.imageAlt || product.title)}" width="900" height="720"></div>
+          ${media.length > 1 ? `<div class="product-thumbnails" role="list" aria-label="Product images">${media.map((src, index) => `<button type="button" class="product-thumbnail${index === selectedMediaIndex ? ' is-selected' : ''}" data-gallery-index="${index}" aria-label="View product image ${index + 1}" aria-pressed="${index === selectedMediaIndex}"><img src="${commerce.escape(src)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+          <p class="product-gallery-note">Product code ${commerce.escape(current?.sku || product.sku || product.id)}${media.length > 1 ? ` · ${media.length} ảnh sản phẩm` : ''}</p>
         </div>
         <div class="product-copy">
           <p class="product-kicker">${commerce.escape(product.brand || product.category || 'Crocs comfort')}</p>
@@ -160,6 +186,7 @@
           <p class="shipping-note">${t('freeDelivery', 'Free standard delivery on orders over {amount}. This storefront is a demo; no payment is taken.', { amount: commerce.money(regional?.convert?.(5000) || 5000) })}</p>
         </div>
       </section>
+      ${descriptionMarkup(product) || detailImages.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${detailImages.length ? `<div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — detail ${index + 1}" loading="lazy">`).join('')}</div>` : ''}</section>` : ''}
       ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">More comfort, same energy</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" loading="lazy"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
     bind();
   }
@@ -172,6 +199,13 @@
     updateStructuredData(activeVariants(), variant);
   }
   function bind() {
+    main.querySelectorAll('[data-gallery-index]').forEach(button => button.addEventListener('click', () => {
+      selectedMediaIndex = Number(button.dataset.galleryIndex) || 0;
+      const hero = main.querySelector('#productHeroImage');
+      const source = mediaFor(product)[selectedMediaIndex];
+      if (hero && source) hero.src = source;
+      main.querySelectorAll('[data-gallery-index]').forEach(item => { const active = item === button; item.classList.toggle('is-selected', active); item.setAttribute('aria-pressed', String(active)); });
+    }));
     main.querySelectorAll('[data-option-id]').forEach(button => button.addEventListener('click', () => {
       selectedValues[button.dataset.optionId] = button.dataset.optionValue;
       const variant = currentVariant();

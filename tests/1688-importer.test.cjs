@@ -71,3 +71,88 @@ test('1688 fallback translation never leaves Chinese characters in a Vietnamese 
   assert.equal(/[\u3400-\u9fff]/.test(title), false);
   assert.match(title, /trẻ em|múa|trang phục|Sản phẩm/);
 });
+
+test('1688 detail parser keeps gallery/detail images and maps SKU specs to options', () => {
+  const description = 'var offer_details={"content":"<h1>Thông tin</h1><p>Vải mềm &amp; thoáng</p><img src=\"https://cbu01.alicdn.com/img/ibank/main.jpg\"><img data-lazyload-src=\"//cbu01.alicdn.com/img/ibank/detail.jpg\">"};';
+  const parsedDescription = Importer.parseDescriptionDocument(description);
+  assert.match(parsedDescription.text, /Vải mềm/);
+  assert.equal(parsedDescription.images.length, 2);
+  const parsed = Importer.detailPayload({
+    offerModel: { offerDetail: { subject: 'Áo biểu diễn', skuProps: [{ prop: '颜色', value: [{ name: 'Đỏ' }] }, { prop: '尺码', value: [{ name: 'S' }] }] } },
+    dataModel: { mainPrice: { fields: { finalPriceModel: { tradeWithoutPromotion: { skuMapOriginal: [{ skuId: 'sku-1', specAttrs: '颜色:Đỏ;尺码:S', price: '12.50', canBookCount: 4 }] } } } } },
+  });
+  assert.deepEqual(parsed.options.map(item => item.name), ['Màu sắc', 'Kích thước']);
+  assert.deepEqual(parsed.variants[0].values, { 'option-1': 'Đỏ', 'option-2': 'S' });
+  const product = Importer.toProduct({ offerId: '123456789', sku: 'DETAIL-01', titleVietnamese: 'Áo biểu diễn', exchangeRateCnyBase: .13, exchangeRateCnyVnd: 3800, priceMultiplier: 2, options: parsed.options, variants: parsed.variants, gallery: ['https://cbu01.alicdn.com/img/ibank/main.jpg'], detailImages: parsedDescription.images, description: parsedDescription.text });
+  assert.match(product.image, /^\/api\/1688-image\?/);
+  assert.equal(product.gallery.length, 1);
+  assert.equal(product.detailImages.length, 2);
+  assert.equal(product.variants[0].regionalPrices.vn, 95000);
+  const data = Store.seed(); data.products[0] = { ...product, id: data.products[0].id };
+  assert.doesNotThrow(() => Store.validate(data));
+});
+
+test('1688 detail parser accepts the current desktop window.context shape', () => {
+  const offer = {
+    offerId: '1081098810208',
+    subject: '儿童演出服',
+    detailUrl: 'https://itemcdn.tmall.com/1688offer/example-detail',
+    imageList: [{ fullPathImageURI: 'https://cbu01.alicdn.com/img/ibank/main.jpg' }],
+    skuProps: [
+      { prop: 'Color', value: [{ name: 'Top + Pants' }, { name: 'Gray skirt' }] },
+      { prop: 'Suitable for height', value: [{ name: '110' }, { name: '120' }] },
+    ],
+    featureAttributes: [{ name: 'Brand', value: 'Other' }],
+  };
+  const skuMapOriginal = [
+    { skuId: 101, specAttrs: 'Top + Pants&gt;110', price: '67.00', canBookCount: 500 },
+    { skuId: 102, specAttrs: 'Gray skirt&gt;120', price: '33.00', canBookCount: 488 },
+  ];
+  const parsed = Importer.detailPayload({ result: {
+    global: { globalData: { model: { offerDetail: offer } } },
+    data: {
+      Root: { fields: { dataJson: { skuModel: { skuInfoMapOriginal: skuMapOriginal } } } },
+      mainPrice: { fields: { finalPriceModel: { tradeWithoutPromotion: { skuMapOriginal } } } },
+    },
+  } });
+  assert.equal(parsed.offerId, '1081098810208');
+  assert.equal(parsed.gallery.length, 1);
+  assert.deepEqual(parsed.options.map(item => item.name), ['Màu sắc', 'Chiều cao']);
+  assert.deepEqual(parsed.variants[0].values, { color: 'Top + Pants', 'suitable-for-height': '110' });
+  assert.equal(parsed.variants[1].stock, 488);
+  assert.equal(parsed.attributes[0].name, 'Brand');
+  assert.equal(parsed.descriptionUrl, 'https://itemcdn.tmall.com/1688offer/example-detail');
+});
+
+test('enrichment never replaces a verified product with empty/CAPTCHA data', () => {
+  const product = Importer.toProduct({ offerId: '123456789', sku: 'SAFE-01', titleVietnamese: 'Sản phẩm thật', gallery: ['https://cbu01.alicdn.com/img/ibank/real.jpg'], description: 'Mô tả đã được kiểm tra và giữ nguyên.' });
+  const merged = Importer.mergeEnrichment(product, { detailStatus: 'blocked_or_empty', gallery: [], description: '' });
+  assert.equal(merged.image, product.image);
+  assert.equal(merged.description, product.description);
+  assert.equal(merged.source.detailStatus, 'blocked_or_empty');
+});
+
+test('enrichment converts verified CNY SKU prices using the product source rates', () => {
+  const product = Importer.productFromOffer({
+    id: '123456790',
+    subject: 'Áo có biến thể',
+    offerPrice: '10',
+    offerImages: [{ imageURI: 'img/ibank/example.jpg' }],
+  }, {
+    titleVi: 'Áo có biến thể',
+    exchangeRateCnyVnd: 3800,
+    exchangeRateCnyBase: 0.13,
+    baseCurrency: 'USD',
+    baseCurrencyDecimals: 2,
+    priceMultiplier: 2,
+    regionId: 'vn',
+  });
+  const merged = Importer.mergeEnrichment(product, {
+    options: [{ id: 'size', name: 'Kích thước', values: ['S'] }],
+    variants: [{ id: 'sku-s', sku: 'REMOTE-S', values: { size: 'S' }, priceCny: 12.5, stock: 3, enabled: true }],
+  });
+  assert.equal(merged.variants[0].price, 163);
+  assert.equal(merged.variants[0].regionalPrices.vn, 95000);
+  assert.equal(merged.price, 163);
+  assert.equal(merged.stock, 3);
+});

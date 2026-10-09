@@ -4,9 +4,8 @@
  *
  * The generated file is intentionally a draft import. Product prices keep a
  * base-currency amount for the existing catalog and store the requested VND
- * amount as a `regionalPrices.vn` override. This means the USD/EUR catalog is
- * not accidentally replaced by a VND number while Vietnam sees CNY × rate ×
- * multiplier.
+ * amount as a `regionalPrices.vn` override. This keeps the default storefront
+ * currency in USD while Vietnam sees CNY × rate × multiplier.
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -46,7 +45,7 @@ const output = path.resolve(arg('output', DEFAULT_OUTPUT));
 const cacheFile = path.resolve(arg('translation-cache', `${output}.translations.json`));
 const multiplier = numberArg('multiplier', 2);
 const explicitVndRate = numberArg('exchange-rate', 0);
-const baseCurrency = String(arg('base-currency', 'EUR')).toUpperCase();
+const baseCurrency = String(arg('base-currency', 'USD')).toUpperCase();
 const baseDecimals = ['VND', 'JPY'].includes(baseCurrency) ? 0 : 2;
 const shopUrl = arg('shop-url', SHOP_URL);
 const memberId = arg('member-id', MEMBER_ID);
@@ -108,7 +107,7 @@ const metadata = {
   source: '1688', shopUrl, shopMemberId: memberId, shopName: SHOP_NAME, offerCount: catalog.total,
   importedAt: new Date().toISOString(), sourceCurrency: 'CNY', targetCurrency: 'VND', baseCurrency,
   exchangeRateCnyVnd, exchangeRateCnyBase, priceMultiplier: multiplier, status: 'Draft',
-  imagePolicy: 'fallback-local-image; source.imageUrl retained for licensed hosting review',
+  imagePolicy: '1688 CDN images are stored through the same-origin allowlisted proxy',
   translationProvider: 'Google Translate public endpoint with deterministic fallback',
 };
 await fs.writeFile(output, JSON.stringify(products, null, 2), 'utf8');
