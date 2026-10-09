@@ -18,6 +18,88 @@
     };
   }
   const clone = value => JSON.parse(JSON.stringify(value));
+  // A verified 1688 catalog can contain more than one hundred thousand SKU
+  // rows.  Sending the expanded object through PostgREST exceeds the hosted
+  // request limit (and localStorage is even smaller).  Keep the in-memory
+  // model unchanged, but use a compact, lossless wire representation for
+  // products with the standard 1688 variant shape.  The server stores this
+  // representation in JSONB; decode it immediately after every admin read so
+  // the rest of the app continues to work with normal variants.
+  const VARIANT_ENCODING = 'crocs-1688-v3';
+  function canPackVariants(product) {
+    return Array.isArray(product?.variants) && product.variants.length > 0
+      && Array.isArray(product.options) && product.options.length > 0
+      && product.variants.every(variant => {
+        if (!variant || variant.id !== variant.sku || typeof variant.sku !== 'string') return false;
+        if (variant.compareAt != null || variant.cost != null || variant.barcode) return false;
+        return product.options.every(option => option.values?.includes(variant.values?.[option.id]));
+      });
+  }
+  function packVariants(product) {
+    if (!canPackVariants(product)) return product;
+    const options = product.options;
+    const regions = [...new Set(product.variants.flatMap(variant => Object.keys(variant.regionalPrices || {})))];
+    const rows = product.variants.map(variant => [
+      variant.sku,
+      ...options.map(option => option.values.indexOf(variant.values[option.id])),
+      variant.price,
+      variant.stock,
+      ...regions.map(region => variant.regionalPrices?.[region] ?? null),
+      variant.enabled === false ? 0 : 1,
+    ]);
+    const packed = { ...product, variantEncoding: VARIANT_ENCODING, variantRegions: regions, variantsPacked: rows };
+    delete packed.variants;
+    return packed;
+  }
+  function unpackVariants(product) {
+    if (product?.variantEncoding !== VARIANT_ENCODING || !Array.isArray(product.variantsPacked)) return product;
+    const options = Array.isArray(product.options) ? product.options : [];
+    const regions = Array.isArray(product.variantRegions) ? product.variantRegions : [];
+    const optionCount = options.length;
+    const priceIndex = 1 + optionCount;
+    const stockIndex = priceIndex + 1;
+    const regionIndex = stockIndex + 1;
+    const flagIndex = regionIndex + regions.length;
+    const variants = product.variantsPacked.map(row => {
+      if (!Array.isArray(row) || typeof row[0] !== 'string') return null;
+      const sku = row[0];
+      const values = Object.fromEntries(options.map((option, index) => {
+        const value = option.values?.[Number(row[1 + index])];
+        return value == null ? null : [option.id, value];
+      }).filter(Boolean));
+      const regionalPrices = Object.fromEntries(regions.map((region, index) => {
+        const value = row[regionIndex + index];
+        return value == null ? null : [region, Number(value)];
+      }).filter(Boolean));
+      return {
+        id: sku,
+        values,
+        sku,
+        price: Number(row[priceIndex] || 0),
+        compareAt: null,
+        cost: null,
+        stock: Number(row[stockIndex] || 0),
+        enabled: row[flagIndex] !== 0,
+        barcode: '',
+        ...(Object.keys(regionalPrices).length ? { regionalPrices } : {}),
+      };
+    }).filter(Boolean);
+    const expanded = { ...product, variants };
+    delete expanded.variantEncoding;
+    delete expanded.variantRegions;
+    delete expanded.variantsPacked;
+    return expanded;
+  }
+  const encodePayload = payload => {
+    const encoded = clone(payload);
+    if (Array.isArray(encoded?.products)) encoded.products = encoded.products.map(packVariants);
+    return encoded;
+  };
+  const decodePayload = payload => {
+    const decoded = clone(payload);
+    if (Array.isArray(decoded?.products)) decoded.products = decoded.products.map(unpackVariants);
+    return decoded;
+  };
   let syncTimer;
   let retryTimer;
   let syncInFlight = Promise.resolve();
@@ -96,6 +178,7 @@
       const row = Array.isArray(response) ? response[0] : response;
       if (!row?.payload) return null;
       this.serverVersion = Number(row.version || 0);
+      row.payload = decodePayload(row.payload);
       return row;
     },
     async putState(payload, detail = 'state.sync') {
@@ -105,7 +188,7 @@
       }
       const response = await this.rpc('admin_state_update_v1', {
         p_state_id: stateId,
-        p_payload: clone(payload),
+        p_payload: encodePayload(payload),
         p_expected_version: this.serverVersion,
         p_event_type: detail.slice(0, 120)
       });
