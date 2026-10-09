@@ -405,7 +405,41 @@
     else rows = [['Product', 'SKU', 'Status', 'Stock', 'Price GBP'], ...source.map(p => [p.title, p.sku, p.status, p.stock, (p.price / 100).toFixed(2)])];
     download(`crocs-${route}.csv`, '\ufeff' + rows.map(row => row.map(csvCell).join(',')).join('\r\n'), 'text/csv;charset=utf-8'); toast('Đã tạo tệp CSV để tải xuống');
   }
-  function importDialog(backup = false) { formDialog(backup ? 'Khôi phục dữ liệu' : 'Nhập sản phẩm JSON', `<p class="local-note">${backup ? 'Tệp sao lưu Crocs Studio v1. Thao tác thay thế dữ liệu cục bộ sau xác nhận.' : 'Mảng JSON gồm nội dung, SEO và options/variants. Giá lưu bằng pence; SKU trùng sẽ được cập nhật.'}</p>${field('file', 'Chọn tệp JSON (tối đa 2 MB)', '', 'type="file" accept=".json,application/json" required')}${!backup ? btn('Tải mẫu JSON', 'product-template') : ''}`, async fd => { const file = fd.get('file'); if (!file || file.size > 2 * 1024 * 1024) throw new Error('Chọn tệp JSON tối đa 2 MB.'); let parsed; try { parsed = JSON.parse(await file.text()); } catch { throw new Error('Không đọc được JSON. Kiểm tra định dạng tệp.'); } if (backup) { S.validate(parsed); if (!confirm('Thay thế toàn bộ dữ liệu trên trình duyệt bằng bản sao lưu này?')) return; data = S.save(parsed); menuDraft = null; render(); toast('Đã khôi phục bản sao lưu'); } else { if (!Array.isArray(parsed) || !parsed.length || parsed.length > 500) throw new Error('Tệp cần là mảng từ 1 đến 500 sản phẩm.'); if (!confirm(`Nhập ${parsed.length} sản phẩm? Các SKU trùng sẽ được cập nhật.`)) return; commit(next => parsed.forEach(p => { const existing = next.products.find(item => item.sku.toLowerCase() === String(p.sku).toLowerCase()); const item = { ...(existing || {}), id: existing?.id || S.id('product'), title: String(p.title || '').trim(), sku: String(p.sku || '').trim(), price: p.price, stock: p.stock, status: p.status || 'Draft', image: p.image || 'assets/arrival-classic-clog-100.png', imageAlt: p.imageAlt || `${p.title || 'Sản phẩm'} product image`, brand: p.brand || 'Crocs', category: p.category || 'Clogs', description: p.description || '', tags: Array.isArray(p.tags) ? p.tags.map(String) : [], slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: Array.isArray(p.options) ? p.options : [], variants: Array.isArray(p.variants) ? p.variants : [], source: p.source && typeof p.source === 'object' ? p.source : existing?.source, updatedAt: new Date().toISOString() }; if (existing) next.products[next.products.indexOf(existing)] = item; else next.products.unshift(item); }), `Đã nhập ${parsed.length} sản phẩm`); } }, backup ? 'Kiểm tra & khôi phục' : 'Kiểm tra & nhập'); }
+  function importDialog(backup = false) {
+    const copyHelp = backup
+      ? 'Tệp sao lưu Crocs Studio v1. Thao tác thay thế dữ liệu cục bộ sau xác nhận.'
+      : 'Mảng JSON gồm nội dung, SEO, options/variants và giá theo khu vực. SKU hoặc offer 1688 trùng sẽ được cập nhật.';
+    formDialog(backup ? 'Khôi phục dữ liệu' : 'Nhập sản phẩm JSON', `<p class="local-note">${copyHelp}</p>${field('file', 'Chọn tệp JSON (tối đa 8 MB)', '', 'type="file" accept=".json,application/json" required')}${!backup ? btn('Tải mẫu JSON', 'product-template') : ''}`, async fd => {
+      const file = fd.get('file');
+      if (!file || file.size > 8 * 1024 * 1024) throw new Error('Chọn tệp JSON tối đa 8 MB.');
+      let parsed;
+      try { parsed = JSON.parse(await file.text()); } catch { throw new Error('Không đọc được JSON. Kiểm tra định dạng tệp.'); }
+      if (backup) {
+        S.validate(parsed);
+        if (!confirm('Thay thế toàn bộ dữ liệu trên trình duyệt bằng bản sao lưu này?')) return;
+        data = S.save(parsed); menuDraft = null; render(); toast('Đã khôi phục bản sao lưu');
+        return;
+      }
+      if (!Array.isArray(parsed) || !parsed.length || parsed.length > 2000) throw new Error('Tệp cần là mảng từ 1 đến 2.000 sản phẩm.');
+      if (!confirm(`Nhập ${parsed.length} sản phẩm? Các SKU hoặc mã offer 1688 trùng sẽ được cập nhật.`)) return;
+      commit(next => parsed.forEach(p => {
+        const incomingSku = String(p?.sku || '').trim();
+        const incomingOffer = String(p?.source?.offerId || '').trim();
+        const existing = next.products.find(item => item.sku.toLowerCase() === incomingSku.toLowerCase() || incomingOffer && item.source?.platform === '1688' && item.source.offerId === incomingOffer);
+        const item = {
+          ...(existing || {}), ...p,
+          id: existing?.id || p.id || S.id('product'),
+          title: String(p.title || '').trim(), titleLanguage: String(p.titleLanguage || p.source?.titleLanguage || 'vi').trim().toLowerCase(),
+          sku: incomingSku, price: Number.isSafeInteger(Number(p.price)) ? Number(p.price) : 0, stock: Number.isSafeInteger(Number(p.stock)) ? Number(p.stock) : 0,
+          status: p.status || 'Draft', image: p.image || 'assets/arrival-classic-clog-100.png', imageAlt: p.imageAlt || `${p.title || 'Sản phẩm'} — ảnh sản phẩm`,
+          brand: p.brand || 'Crocs', category: p.category || 'Clogs', description: p.description || '', tags: Array.isArray(p.tags) ? p.tags.map(String) : [], slug: p.slug || '',
+          seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: Array.isArray(p.options) ? p.options : [], variants: Array.isArray(p.variants) ? p.variants : [],
+          source: p.source && typeof p.source === 'object' ? p.source : existing?.source, updatedAt: new Date().toISOString(),
+        };
+        if (existing) next.products[next.products.indexOf(existing)] = item; else next.products.unshift(item);
+      }), `Đã nhập ${parsed.length} sản phẩm`);
+    }, backup ? 'Kiểm tra & khôi phục' : 'Kiểm tra & nhập');
+  }
   function searchDialog() { infoDialog('Tìm trong quản trị', `${field('adminQuery', 'Tên sản phẩm, khách hàng hoặc mã đơn', '', 'type="search" placeholder="Classic, #1048, Olivia…"')}<div id="searchResults" class="search-results"></div>`); const input = $('[name=adminQuery]', dialog); input.focus(); const update = () => { const term = input.value.toLowerCase().replace(/^#/, ''); const results = [...Object.entries(labels).map(([id, title]) => ({ id, title, kind: 'nav', sub: 'Màn hình quản trị' })), ...data.products.map(p => ({ id: p.id, title: p.title, kind: 'product', sub: p.sku })), ...data.customers.map(c => ({ id: c.id, title: c.name, kind: 'customer', sub: c.email })), ...data.orders.map(o => ({ id: o.id, title: `#${o.number}`, kind: 'order', sub: o.customerName }))].filter(r => `${r.title} ${r.sub}`.toLowerCase().includes(term)).slice(0, 12); $('#searchResults').innerHTML = results.map(r => `<button data-action="search-result" data-kind="${r.kind}" data-id="${esc(r.id)}"><strong>${esc(r.title)}</strong><small>${esc(r.sub)}</small><span>↗</span></button>`).join('') || '<p>Không có kết quả phù hợp.</p>'; }; input.oninput = update; update(); }
   const actions = {
     'add-product': () => productEditor(), 'edit-product': el => productEditor(el.dataset.id), 'import-1688': import1688Dialog, 'add-collection': () => collectionEditor(), 'edit-collection': el => collectionEditor(el.dataset.id), 'inventory-adjust': el => inventoryEditor(el.dataset.id), 'new-order': newOrder, 'order-detail': el => orderDetail(el.dataset.id), 'add-customer': () => customerEditor(), 'edit-customer': el => customerEditor(el.dataset.id), 'create-campaign': () => campaignEditor(), 'edit-campaign': el => campaignEditor(el.dataset.id), 'close-dialog': () => dialog.close(), 'focus-search': searchDialog, 'export': exportCSV,

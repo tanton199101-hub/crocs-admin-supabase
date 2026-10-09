@@ -43,3 +43,31 @@ test('1688 upsert is idempotent by SKU or source offer id', () => {
   assert.equal(updated.product.id, undefined);
   assert.equal(updated.product.title, 'Updated title');
 });
+
+test('1688 shop pricing stores a VND regional override without changing the base currency', () => {
+  assert.equal(Importer.priceCnyToVnd(33, 3875.968992, 2), 255814);
+  const product = Importer.productFromOffer({
+    id: '1081098810208',
+    memberId: Importer.DEFAULT_SHOP_MEMBER_ID,
+    subject: '儿童演出服幼儿园毕业班服',
+    offerPrice: '33.00',
+    offerImages: [{ imageURI: 'img/ibank/example.jpg' }],
+  }, {
+    titleVi: 'Trang phục biểu diễn trẻ em',
+    exchangeRateCnyVnd: 3875.968992,
+    exchangeRateCnyBase: 0.132932,
+    baseCurrencyDecimals: 2,
+  });
+  assert.equal(product.status, 'Draft');
+  assert.equal(product.titleLanguage, 'vi');
+  assert.equal(product.price, 439);
+  assert.equal(product.regionalPrices.vn, 255814);
+  assert.equal(product.source.targetPriceVnd, 255814);
+  assert.equal(product.source.imageUrl, 'https://cbu01.alicdn.com/img/ibank/example.jpg');
+});
+
+test('1688 fallback translation never leaves Chinese characters in a Vietnamese title', () => {
+  const title = Importer.fallbackVietnameseTitle({ sourceTitle: '儿童舞蹈服装未知词', offerId: '123456789' });
+  assert.equal(/[\u3400-\u9fff]/.test(title), false);
+  assert.match(title, /trẻ em|múa|trang phục|Sản phẩm/);
+});

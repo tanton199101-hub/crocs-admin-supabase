@@ -57,6 +57,18 @@ Before opening the channel in production:
 
 The API signs SP-API requests server-side, caches LWA access tokens briefly, records listing revisions/issues in `amazon_listings` when the service-role key is available, and never logs credentials or customer customization content. Customer-entered text and artwork should be stored with the order (and, for artwork, in a private Supabase Storage bucket) rather than generating a new SKU for every order.
 
+## 1688 shop catalog import
+
+`scripts/import-1688-shop.mjs` imports a complete 1688 shop catalog through the public MTop offer-list API. It paginates until the server-reported total, retries transient/token failures, translates Chinese titles to Vietnamese, and writes an idempotent JSON file for Admin → Products → Nhập JSON. The importer keeps every item in `Draft`, uses `1688-{offerId}` as the stable SKU, and stores the source offer/image URL in `source` for later licensing and image hosting review.
+
+For a CNY shop where the Vietnam selling price is twice the converted source price:
+
+```text
+node scripts/import-1688-shop.mjs --shop-url "https://shop1481820794169.1688.com/" --member-id "b2b-305059698170e97" --multiplier 2 --output "1688-shop-import.json"
+```
+
+The generated products keep a base-currency amount in `price` and the exact Vietnamese selling amount in `regionalPrices.vn` (`CNY × exchangeRateCnyVnd × multiplier`, rounded to whole VND). The exchange-rate snapshot and import metadata are written beside the JSON file. Do not publish the drafts until stock, variants, image rights and supplier terms have been checked.
+
 ## Included
 
 - Responsive header, navigation drawer, search and account UI
