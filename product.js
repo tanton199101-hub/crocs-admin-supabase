@@ -236,7 +236,7 @@
   (async () => {
     try {
       await commerce.ready;
-      product = commerce.product(requestedId);
+      product = await commerce.loadProduct(requestedId);
       render();
     } catch (error) { renderMissing(error.message); }
   })();

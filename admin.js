@@ -107,11 +107,57 @@
     return { slice, footer: `<div class="table-pagination"><span>${rows.length ? `${(page - 1) * pageSize + 1}–${Math.min(page * pageSize, rows.length)}` : '0'} / ${rows.length} kết quả</span><div>${btn('←', 'page', `data-delta="-1" aria-label="Trang trước" ${page === 1 ? 'disabled' : ''}`)}<span>${page}/${count}</span>${btn('→', 'page', `data-delta="1" aria-label="Trang sau" ${page === count ? 'disabled' : ''}`)}</div></div>` };
   }
   const rowSelect = id => `<input type="checkbox" data-select="${esc(id)}" aria-label="Chọn ${esc(id)}" ${selected.has(id) ? 'checked' : ''}>`;
+  function importedCollectionKey(product) {
+    const title = String(product?.title || '').toLocaleLowerCase();
+    if (/(váy|đầm|chân váy|裙)/i.test(title)) return 'dresses';
+    if (/(áo|sơ mi|t-shirt|áo khoác|đồng phục|上衣)/i.test(title)) return 'tops';
+    if (/(quần|legging|short|裤)/i.test(title)) return 'bottoms';
+    if (/(múa|nhảy|jazz|biểu diễn|sân khấu|cổ vũ|hợp xướng|trang phục)/i.test(title)) return 'performance';
+    if (/(phụ kiện|mũ|tất|giày|túi|accessor)/i.test(title)) return 'accessories';
+    return '1688-all';
+  }
+  function activate1688Catalog(target = data) {
+    const groups = [
+      ['1688-all', 'Tất cả sản phẩm 1688', 'Toàn bộ sản phẩm đã đồng bộ từ shop 1688.'],
+      ['performance', 'Trang phục biểu diễn', 'Múa, nhảy, jazz, sân khấu và các bộ biểu diễn cho bé.'],
+      ['dresses', 'Váy & đầm trẻ em', 'Các mẫu váy, đầm và chân váy đã đồng bộ.'],
+      ['tops', 'Áo & đồng phục', 'Áo, áo khoác, áo biểu diễn và đồng phục.'],
+      ['bottoms', 'Quần & bộ mặc', 'Quần, legging, short và các bộ mặc hằng ngày.'],
+      ['accessories', 'Phụ kiện thời trang', 'Mũ, túi, tất, giày và phụ kiện từ shop 1688.'],
+    ];
+    const imported = target.products.filter(product => product.source?.platform === '1688');
+    if (!imported.length) throw new Error('Chưa có sản phẩm 1688 trong catalog.');
+    const eligible = imported.filter(product => {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      const enabled = variants.filter(variant => variant.enabled !== false);
+      return variants.length ? enabled.length > 0 && enabled.every(variant => Number.isSafeInteger(variant.price) && variant.price > 0) : Number.isSafeInteger(product.price) && product.price > 0;
+    });
+    const activeIds = new Set(eligible.map(product => product.id));
+    target.products.forEach(product => { if (activeIds.has(product.id)) { product.status = 'Active'; product.seo = { ...(product.seo || {}), noindex: false }; } });
+    const importedIds = eligible.map(product => product.id);
+    groups.forEach(([key, title, description]) => {
+      const ids = key === '1688-all' ? importedIds : imported.filter(product => activeIds.has(product.id) && importedCollectionKey(product) === key).map(product => product.id);
+      const id = `col-1688-${key}`;
+      const existing = target.collections.find(collection => collection.id === id);
+      const value = { ...(existing || {}), id, title, description, productIds: ids, status: 'Active' };
+      if (existing) Object.assign(existing, value); else target.collections.push(value);
+    });
+    const mainMenu = target.menus.find(menu => menu.id === target.settings.mainMenuId) || target.menus.find(menu => menu.id === 'main') || target.menus[0];
+    if (mainMenu) {
+      mainMenu.title = 'Danh mục sản phẩm';
+      mainMenu.items = groups.map(([key, title], index) => ({ id: `1688-menu-${key}`, label: title, url: `#collection-col-1688-${key}` }));
+      mainMenu.items.push({ id: '1688-menu-all', label: 'Xem toàn bộ catalog', url: '#catalog' });
+    }
+    const footer = target.menus.find(menu => menu.id === target.settings.footerMenuId) || target.menus.find(menu => menu.id === 'footer');
+    if (footer) footer.items = [{ id: 'footer-catalog', label: 'Catalog 1688', url: '#catalog' }, ...(footer.items || []).filter(item => item.id !== 'footer-catalog')];
+    const skipped = imported.length - eligible.length;
+    return { imported: imported.length, eligible: eligible.length, skipped };
+  }
   function renderProducts() {
     const rows = filtered(); const { slice, footer } = paginate(rows);
     const health = window.CrocsProducts?.health?.(data.products, data.settings.stockThreshold) || { variants: 0, low: [], seo: [] };
     const summary = [['Đang bán', data.products.filter(p => p.status === 'Active').length, 'summary-symbol--green', '◒'], ['SKU biến thể', health.variants, 'summary-symbol--blue', '⌁'], ['Cần SEO', health.seo.length, 'summary-symbol--yellow', '!'], ['Sắp hết hàng', health.low.length, 'summary-symbol--purple', '↘'], ['Bộ sưu tập', data.collections.length, 'summary-symbol--green', '○']];
-    return heading('Sản phẩm', 'Từ nội dung, biến thể đến SEO — một catalog có thể vận hành, không chỉ là danh sách.', `${btn('Nhập 1688', 'import-1688')}${btn('Nhập JSON', 'import-products')}${btn('Thêm sản phẩm', 'add-product', '', 'green')}`) + `<div class="product-summary">${summary.map(([label, value, symbol, glyph]) => `<article><span class="summary-symbol ${symbol}">${glyph}</span><div><strong>${value}</strong><span>${label}</span></div></article>`).join('')}</div><div class="catalog-health"><button type="button" data-action="add-product">+ Tạo sản phẩm có biến thể</button><button type="button" data-action="seo-products">${health.seo.length ? `${health.seo.length} sản phẩm cần hoàn thiện SEO` : 'SEO catalog đã ổn'}</button><button type="button" data-action="low-variant-stock">${health.low.length ? `${health.low.length} dòng variant sắp hết` : 'Tồn variant ổn định'}</button></div><section class="panel management-panel">${toolbar('products')}<div class="bulk-bar" ${selected.size ? '' : 'hidden'}>${selected.size} đã chọn ${btn('Lưu trữ đã chọn', 'archive-selected')}</div>${slice.length ? table(['<input type="checkbox" data-select-page aria-label="Chọn cả trang">', 'Sản phẩm', 'Trạng thái', 'Tồn kho', 'Danh mục', 'Giá từ', ''], slice.map(p => `<tr><td>${rowSelect(p.id)}</td><td><button class="product-cell" data-action="edit-product" data-id="${esc(p.id)}">${thumb(p)}<span><strong>${esc(p.title)}</strong><small>${esc(p.sku)}${p.variants?.length ? ` · ${p.variants.length} biến thể` : ''}</small></span></button></td><td>${status(p.status)}</td><td><strong class="${p.stock <= data.settings.stockThreshold ? 'inventory-low' : ''}">${p.stock}</strong></td><td>${esc(p.category)}</td><td><strong>${S.money(p.price)}</strong></td><td>${btn('Sửa', 'edit-product', `data-id="${esc(p.id)}"`)}</td></tr>`)) : empty()}${footer}</section>`;
+    return heading('Sản phẩm', 'Từ nội dung, biến thể đến SEO — một catalog có thể vận hành, không chỉ là danh sách.', `${btn('Nhập 1688', 'import-1688')}${btn('Nhập JSON', 'import-products')}${btn('Công khai catalog 1688', 'activate-1688', '', 'green')}${btn('Thêm sản phẩm', 'add-product', '', 'green')}`) + `<div class="product-summary">${summary.map(([label, value, symbol, glyph]) => `<article><span class="summary-symbol ${symbol}">${glyph}</span><div><strong>${value}</strong><span>${label}</span></div></article>`).join('')}</div><div class="catalog-health"><button type="button" data-action="add-product">+ Tạo sản phẩm có biến thể</button><button type="button" data-action="seo-products">${health.seo.length ? `${health.seo.length} sản phẩm cần hoàn thiện SEO` : 'SEO catalog đã ổn'}</button><button type="button" data-action="low-variant-stock">${health.low.length ? `${health.low.length} dòng variant sắp hết` : 'Tồn variant ổn định'}</button></div><section class="panel management-panel">${toolbar('products')}<div class="bulk-bar" ${selected.size ? '' : 'hidden'}>${selected.size} đã chọn ${btn('Lưu trữ đã chọn', 'archive-selected')}</div>${slice.length ? table(['<input type="checkbox" data-select-page aria-label="Chọn cả trang">', 'Sản phẩm', 'Trạng thái', 'Tồn kho', 'Danh mục', 'Giá từ', ''], slice.map(p => { const variants = Array.isArray(p.variants) ? p.variants.length : 0; const gallery = Array.isArray(p.gallery) ? p.gallery.length : (p.image ? 1 : 0); const details = Array.isArray(p.detailImages) ? p.detailImages.length : 0; const detailStatus = p.source?.detailStatus === 'blocked_or_empty' || p.source?.detailStatus === 'captcha' ? ' · chi tiết chờ 1688' : ''; return `<tr><td>${rowSelect(p.id)}</td><td><button class="product-cell" data-action="edit-product" data-id="${esc(p.id)}">${thumb(p)}<span><strong>${esc(p.title)}</strong><small>${esc(p.sku)} · ${variants} biến thể · ${gallery} ảnh chính${details ? ` · ${details} ảnh chi tiết` : ''}${detailStatus}</small></span></button></td><td>${status(p.status)}</td><td><strong class="${p.stock <= data.settings.stockThreshold ? 'inventory-low' : ''}">${p.stock}</strong></td><td>${esc(p.category)}</td><td><strong>${S.money(p.price)}</strong></td><td>${btn('Sửa', 'edit-product', `data-id="${esc(p.id)}"`)}</td></tr>`; })) : empty()}${footer}</section>`;
   }
   function productEditor(id = '') {
     const p = data.products.find(product => product.id === id) || {
@@ -450,6 +496,7 @@
   }
   function searchDialog() { infoDialog('Tìm trong quản trị', `${field('adminQuery', 'Tên sản phẩm, khách hàng hoặc mã đơn', '', 'type="search" placeholder="Classic, #1048, Olivia…"')}<div id="searchResults" class="search-results"></div>`); const input = $('[name=adminQuery]', dialog); input.focus(); const update = () => { const term = input.value.toLowerCase().replace(/^#/, ''); const results = [...Object.entries(labels).map(([id, title]) => ({ id, title, kind: 'nav', sub: 'Màn hình quản trị' })), ...data.products.map(p => ({ id: p.id, title: p.title, kind: 'product', sub: p.sku })), ...data.customers.map(c => ({ id: c.id, title: c.name, kind: 'customer', sub: c.email })), ...data.orders.map(o => ({ id: o.id, title: `#${o.number}`, kind: 'order', sub: o.customerName }))].filter(r => `${r.title} ${r.sub}`.toLowerCase().includes(term)).slice(0, 12); $('#searchResults').innerHTML = results.map(r => `<button data-action="search-result" data-kind="${r.kind}" data-id="${esc(r.id)}"><strong>${esc(r.title)}</strong><small>${esc(r.sub)}</small><span>↗</span></button>`).join('') || '<p>Không có kết quả phù hợp.</p>'; }; input.oninput = update; update(); }
   const actions = {
+    'activate-1688': () => { const imported = data.products.filter(product => product.source?.platform === '1688').length; if (!imported) return toast('Chưa có sản phẩm 1688 trong catalog.'); if (!confirm(`Công khai ${imported} sản phẩm 1688 và tạo bộ sưu tập/menu trên storefront?`)) return; let result = { imported, eligible: 0, skipped: imported }; commit(next => { result = activate1688Catalog(next); }, 'Đã cập nhật trạng thái và catalog/menu 1688'); toast(`Đã công khai ${result.eligible}/${result.imported} sản phẩm 1688${result.skipped ? ` · ${result.skipped} sản phẩm vẫn là bản nháp do chưa có giá hợp lệ` : ''}.`); },
     'add-product': () => productEditor(), 'edit-product': el => productEditor(el.dataset.id), 'import-1688': import1688Dialog, 'add-collection': () => collectionEditor(), 'edit-collection': el => collectionEditor(el.dataset.id), 'inventory-adjust': el => inventoryEditor(el.dataset.id), 'new-order': newOrder, 'order-detail': el => orderDetail(el.dataset.id), 'add-customer': () => customerEditor(), 'edit-customer': el => customerEditor(el.dataset.id), 'create-campaign': () => campaignEditor(), 'edit-campaign': el => campaignEditor(el.dataset.id), 'close-dialog': () => dialog.close(), 'focus-search': searchDialog, 'export': exportCSV,
     'clear-filters': () => { query = statusFilter = stockFilter = ''; period = 'all'; page = 1; selected.clear(); render(); }, 'page': el => { page += Number(el.dataset.delta); selected.clear(); render(); },
     'archive-product': el => { if (confirm('Lưu trữ sản phẩm? Sản phẩm sẽ không còn hiển thị trên storefront.')) { commit(next => { next.products.find(p => p.id === el.dataset.id).status = 'Archived'; }, 'Đã lưu trữ sản phẩm'); dialog.close(); } }, 'archive-selected': () => { if (selected.size && confirm(`Lưu trữ ${selected.size} sản phẩm đã chọn?`)) { commit(next => next.products.forEach(p => { if (selected.has(p.id)) p.status = 'Archived'; }), 'Đã lưu trữ các sản phẩm'); selected.clear(); } }, 'delete-product': el => { if (!confirm('Xóa vĩnh viễn sản phẩm chưa có đơn hàng này?')) return; commit(next => { if (next.orders.some(o => o.items.some(i => i.productId === el.dataset.id))) throw new Error('Sản phẩm có lịch sử đơn hàng, hãy lưu trữ thay vì xóa.'); next.products = next.products.filter(p => p.id !== el.dataset.id); next.collections.forEach(c => { c.productIds = c.productIds.filter(id => id !== el.dataset.id); }); }, 'Đã xóa sản phẩm'); dialog.close(); }, 'delete-collection': el => { if (data.theme.published.collectionId === el.dataset.id || data.theme.draft.collectionId === el.dataset.id) throw new Error('Bộ sưu tập đang được dùng trong theme. Hãy chọn bộ sưu tập khác trước.'); if (confirm('Xóa bộ sưu tập? Sản phẩm bên trong được giữ lại.')) { commit(next => { next.collections = next.collections.filter(c => c.id !== el.dataset.id); }, 'Đã xóa bộ sưu tập'); dialog.close(); } },

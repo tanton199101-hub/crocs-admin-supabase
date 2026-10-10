@@ -65,7 +65,18 @@
     }
     function mediaMarkup() {
       const gallery = mediaList(), details = detailMediaList();
-      return `<div class="pe-media-library"><div class="pe-media-library-heading"><strong>Thư viện ảnh đã đồng bộ</strong><span>${gallery.length} ảnh chính · ${details.length} ảnh mô tả chi tiết</span></div>${gallery.length ? `<div class="pe-media-grid">${gallery.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>${index === 0 ? 'Ảnh đại diện' : `Ảnh ${index + 1}`}</figcaption></figure>`).join('')}</div>` : '<p class="pe-help">Chưa có gallery từ 1688.</p>'}${details.length ? `<details class="pe-detail-media"><summary>Xem ${details.length} ảnh trong mô tả chi tiết</summary><div class="pe-media-grid">${details.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>Chi tiết ${index + 1}</figcaption></figure>`).join('')}</div></details>` : ''}${draft.source?.detailStatus === 'blocked_or_empty' ? '<p class="pe-warning">1688 chưa trả dữ liệu chi tiết (có thể đang yêu cầu CAPTCHA). Không tạo biến thể giả.</p>' : ''}</div>`;
+      const sourceStatus = String(draft.source?.detailStatus || '').toLowerCase();
+      const statusCopy = {
+        available: 'Đã nhận mô tả chi tiết và ảnh từ nguồn 1688.',
+        sku_available: 'Đã nhận SKU, tồn kho và thuộc tính xác minh; phần mô tả hình ảnh đang chờ nguồn 1688.',
+        mobile_available: 'Đã nhận dữ liệu trang mobile 1688; hãy kiểm tra phần mô tả chi tiết.',
+        gallery_available: 'Đã nhận gallery từ catalog shop; chưa có dữ liệu mô tả chi tiết.',
+        gallery_fallback: 'Đang dùng ảnh offer đã lưu; chưa có dữ liệu mô tả chi tiết.',
+        blocked_or_empty: '1688 đang yêu cầu CAPTCHA hoặc trả nội dung rỗng cho phần mô tả chi tiết.',
+        captcha: '1688 đang yêu cầu CAPTCHA; hệ thống không tự tạo dữ liệu thay thế.',
+      }[sourceStatus];
+      const descriptionState = String(draft.description || '').trim() ? 'Có mô tả văn bản' : 'Chưa có mô tả văn bản';
+      return `<div class="pe-media-library"><div class="pe-media-library-heading"><strong>Thư viện ảnh đã đồng bộ</strong><span>${gallery.length} ảnh chính · ${details.length} ảnh mô tả chi tiết · ${descriptionState}</span></div>${statusCopy ? `<p class="${['blocked_or_empty', 'captcha'].includes(sourceStatus) ? 'pe-warning' : 'pe-help'}">${esc(statusCopy)}</p>` : ''}${gallery.length ? `<div class="pe-media-grid">${gallery.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>${index === 0 ? 'Ảnh đại diện' : `Ảnh ${index + 1}`}</figcaption></figure>`).join('')}</div>` : '<p class="pe-help">Chưa có gallery từ 1688.</p>'}${details.length ? `<details class="pe-detail-media" open><summary>Xem ${details.length} ảnh trong mô tả chi tiết</summary><div class="pe-media-grid">${details.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>Chi tiết ${index + 1}</figcaption></figure>`).join('')}</div></details>` : ''}</div>`;
     }
     function variantMarkup(v) {
       const title = M.variantTitle(draft, v);

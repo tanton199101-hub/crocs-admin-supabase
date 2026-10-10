@@ -182,7 +182,7 @@
   }
 
   (async () => {
-    try { await commerce.ready; await loadStripeConfig(); if (await renderStripeReturn()) return; viewReady = true; render(); }
+    try { await commerce.ready; await commerce.ensureCartProducts(); await loadStripeConfig(); if (await renderStripeReturn()) return; viewReady = true; render(); }
     catch (error) { main.setAttribute('aria-busy', 'false'); main.innerHTML = `<section class="checkout-empty"><div><h1>Checkout is unavailable</h1><p>${commerce.escape(error.message)}</p><a class="commerce-button-link" href="index.html">Return to the store</a></div></section>`; }
   })();
   root.addEventListener('crocs:catalog', render);

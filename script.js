@@ -21,11 +21,19 @@
   const cartSubtotal = document.querySelector('#cartSubtotal');
   const checkoutButton = document.querySelector('#checkoutButton');
   const arrivalRail = document.querySelector('.arrival-rail');
+  const catalogGrid = document.querySelector('#catalogProductGrid');
+  const catalogFilters = document.querySelector('#catalogFilters');
+  const catalogCount = document.querySelector('#catalogCount');
+  const catalogTitle = document.querySelector('#catalogTitle');
+  const catalogLoadMore = document.querySelector('#catalogLoadMore');
   const commerce = window.CrocsCommerce;
   const t = (...args) => commerce?.t?.(...args) || args[1] || args[0];
   let cart = [];
   let toastTimer;
   let lastOpener = null;
+  let publicCollections = [];
+  let activeCollectionId = '';
+  let visibleCatalogProducts = 24;
 
   const syncScrolledState = () => body.classList.toggle('has-scrolled', window.scrollY > 8);
   window.addEventListener('scroll', syncScrolledState, { passive: true });
@@ -139,9 +147,25 @@
   });
   document.querySelectorAll('[data-close-drawer], #drawerBackdrop').forEach((el) => el.addEventListener('click', closeDrawers));
   document.querySelectorAll('.drawer-nav a, .drawer-links a').forEach((link) => link.addEventListener('click', closeDrawers));
+  menuDrawer?.addEventListener('click', event => { if (event.target.closest('a')) closeDrawers(); });
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') { closeDrawers(); closeSearch(); }
   });
+
+  const safeMenuHref = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|index\.html(?:#[\w-]+)?)$/.test(String(value || '')) ? String(value) : '#catalog';
+  function renderNavigation(menus) {
+    const list = Array.isArray(menus) ? menus : [];
+    const mainMenu = list.find(menu => menu.id === 'main') || list[0];
+    if (mainMenu?.items?.length) {
+      const desktop = document.querySelector('.desktop-nav');
+      const drawer = document.querySelector('.drawer-nav');
+      if (desktop) desktop.innerHTML = mainMenu.items.map((item, index) => `<a${index === 0 ? ' class="sale-link"' : ''} href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)}</a>`).join('');
+      if (drawer) drawer.innerHTML = mainMenu.items.map(item => `<a href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)} <span>›</span></a>`).join('');
+    }
+    const footerMenu = list.find(menu => menu.id === 'footer');
+    const legal = document.querySelector('.footer-bottom .legal');
+    if (footerMenu?.items?.length && legal) legal.innerHTML = `${footerMenu.items.map(item => `<a href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)}</a>`).join('')}<span>© 2026 ${commerce.escape(document.querySelector('.brand')?.textContent?.trim() || 'Store')}</span>`;
+  }
 
   const openSearch = () => {
     closeDrawers();
@@ -167,12 +191,59 @@
     if (!arrivalRail || !Array.isArray(products) || !products.length || !commerce) return;
     arrivalRail.innerHTML = products.filter(product => product.status === 'Active').slice(0, 8).map((product, index) => {
       const variants = commerce.variantsFor(product);
-      const label = variants.length ? t('chooseOptions', 'Choose options') : t('addToBag', 'Add to bag');
+      const requiresOptions = product.hasVariants === true || variants.length > 0;
+      const label = requiresOptions ? t('chooseOptions', 'Choose options') : t('addToBag', 'Add to bag');
       const price = variants.length ? commerce.money(Math.min(...variants.map(item => item.price))) : commerce.money(product.price);
-      const action = variants.length ? ` data-requires-options="true"` : '';
+      const action = requiresOptions ? ` data-requires-options="true"` : '';
       return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><button class="wishlist" type="button" aria-label="Save ${commerce.escape(product.title)}">♡</button><a href="product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520" /></div><h3>${commerce.escape(product.title)}</h3><p class="price">${price}</p></a><button class="add-button" type="button" data-product-id="${commerce.escape(product.id)}" data-product="${commerce.escape(product.title)}" data-price="${(product.price / 100).toFixed(2)}"${action}>${label}</button></article>`;
     }).join('');
   };
+
+  function catalogCard(product, index) {
+    const url = `product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`;
+    const optionLabel = product.hasVariants ? 'Xem các lựa chọn' : 'Xem sản phẩm';
+    return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><a href="${url}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520"></div><h3>${commerce.escape(product.title)}</h3><p class="price">${commerce.money(product.price)}</p></a><a class="add-button" href="${url}">${optionLabel}</a></article>`;
+  }
+
+  function collectionFromHash() {
+    const value = decodeURIComponent(window.location.hash || '');
+    return value.startsWith('#collection-') ? value.slice('#collection-'.length) : '';
+  }
+
+  function renderCatalogBrowser(products = commerce?.products || []) {
+    if (!catalogGrid || !catalogFilters || !catalogCount || !catalogTitle || !commerce) return;
+    const active = (Array.isArray(products) ? products : []).filter(product => product.status === 'Active');
+    const requested = collectionFromHash();
+    if (requested && publicCollections.some(collection => collection.id === requested)) activeCollectionId = requested;
+    else if (requested) activeCollectionId = '';
+    const collection = publicCollections.find(item => item.id === activeCollectionId);
+    const ids = collection ? new Set(collection.productIds || []) : null;
+    const filtered = ids ? active.filter(product => ids.has(product.id)) : active;
+    catalogTitle.textContent = collection?.title || 'Tất cả sản phẩm';
+    catalogCount.textContent = `${filtered.length.toLocaleString('vi-VN')} sản phẩm đang bán`;
+    catalogFilters.innerHTML = [`<button class="catalog-filter${activeCollectionId ? '' : ' is-active'}" type="button" data-collection="">Tất cả</button>`, ...publicCollections.map(item => `<button class="catalog-filter${item.id === activeCollectionId ? ' is-active' : ''}" type="button" data-collection="${commerce.escape(item.id)}">${commerce.escape(item.title)} <span>${(item.productIds || []).length}</span></button>`)].join('');
+    const shown = filtered.slice(0, visibleCatalogProducts);
+    catalogGrid.innerHTML = shown.length ? shown.map(catalogCard).join('') : '<p class="catalog-empty">Bộ sưu tập này chưa có sản phẩm đang bán.</p>';
+    catalogLoadMore.hidden = shown.length >= filtered.length;
+  }
+
+  catalogFilters?.addEventListener('click', event => {
+    const button = event.target.closest('[data-collection]');
+    if (!button) return;
+    activeCollectionId = button.dataset.collection || '';
+    visibleCatalogProducts = 24;
+    window.location.hash = activeCollectionId ? `collection-${activeCollectionId}` : 'catalog';
+    renderCatalogBrowser();
+  });
+  catalogLoadMore?.addEventListener('click', () => { visibleCatalogProducts += 24; renderCatalogBrowser(); });
+  window.addEventListener('hashchange', () => {
+    if ((window.location.hash || '').startsWith('#collection-') || window.location.hash === '#catalog') {
+      if (window.location.hash === '#catalog') activeCollectionId = '';
+      visibleCatalogProducts = 24;
+      renderCatalogBrowser();
+      document.querySelector('#catalog')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
 
   const hydrateCommerceCart = () => {
     if (!commerce) return;
@@ -274,9 +345,9 @@
     else showToast('Demo only: checkout is not connected.');
   });
   window.addEventListener('crocs:bag', updateCart);
-  window.addEventListener('crocs:catalog', event => { renderLiveCatalog(event.detail?.products); updateCart(); });
-  window.addEventListener('crocs:region-change', () => { renderLiveCatalog(commerce?.products); updateCart(); });
-   window.addEventListener('crocs:language-change', () => { renderLiveCatalog(commerce?.products); updateCart(); window.CrocsRegional?.translateStatic?.(); });
-  commerce?.ready?.then(() => { renderLiveCatalog(commerce.products); updateCart(); window.CrocsRegional?.translateStatic?.(); }).catch(() => { updateCart(); window.CrocsRegional?.translateStatic?.(); });
+  window.addEventListener('crocs:catalog', event => { publicCollections = Array.isArray(event.detail?.collections) ? event.detail.collections.filter(item => item.status === 'Active') : []; renderNavigation(event.detail?.menus); renderLiveCatalog(event.detail?.products); renderCatalogBrowser(event.detail?.products); updateCart(); });
+  window.addEventListener('crocs:region-change', () => { renderLiveCatalog(commerce?.products); renderCatalogBrowser(commerce?.products); updateCart(); });
+   window.addEventListener('crocs:language-change', () => { renderLiveCatalog(commerce?.products); renderCatalogBrowser(commerce?.products); updateCart(); window.CrocsRegional?.translateStatic?.(); });
+  commerce?.ready?.then(async () => { await commerce.ensureCartProducts().catch(() => {}); renderLiveCatalog(commerce.products); renderCatalogBrowser(commerce.products); updateCart(); window.CrocsRegional?.translateStatic?.(); }).catch(() => { updateCart(); window.CrocsRegional?.translateStatic?.(); });
   updateCart();
 })();

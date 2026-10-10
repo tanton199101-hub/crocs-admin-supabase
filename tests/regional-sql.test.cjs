@@ -89,3 +89,37 @@ test('regional helper and Stripe reservation are not executable by anonymous sho
   assert.equal(result.rows[0].quote, false);
   assert.equal(result.rows[0].reserve, false);
 });
+
+test('public catalog keeps packed 1688 products light and expands one product on demand', async () => {
+  const data = await seed();
+  const packed = {
+    id: 'product-1688-packed', title: 'Trang phục biểu diễn trẻ em', sku: '1688-TEST',
+    price: 1250, stock: 7, status: 'Active', image: 'assets/arrival-classic-clog-100.png',
+    imageAlt: 'Ảnh sản phẩm', brand: 'Nhà cung cấp 1688', category: 'Thời trang trẻ em',
+    slug: 'trang-phuc-bieu-dien-tre-em', description: 'Mô tả đã được xác minh từ nguồn.',
+    gallery: ['assets/arrival-classic-clog-100.png'], detailImages: ['assets/icon-lined-206.png'],
+    attributes: [{ name: 'Chất liệu', value: 'Cotton' }], seo: { title: '', description: '', noindex: true },
+    options: [{ id: 'colour', name: 'Màu sắc', values: ['Đỏ', 'Xanh'] }, { id: 'size', name: 'Kích thước', values: ['S', 'M'] }],
+    variantEncoding: 'crocs-1688-v3', variantRegions: ['vn'],
+    variantsPacked: [
+      ['1688-TEST-RED-S', 0, 0, 1250, 5, 760000, 1],
+      ['1688-TEST-BLUE-M', 1, 1, 1350, 2, 820000, 1],
+    ],
+  };
+  data.products.push(packed);
+  await db.query(`update public.store_state set payload = $1 where id = 'default'`, [JSON.stringify(data)]);
+
+  const catalog = (await db.query(`select public.storefront_catalog_v1() as value`)).rows[0].value;
+  const summary = catalog.products.find(product => product.id === packed.id);
+  assert.equal(summary.hasVariants, true);
+  assert.equal(summary.variants, undefined);
+  assert.equal(summary.gallery, undefined);
+
+  const detail = (await db.query(`select public.storefront_product_v1($1) as value`, [packed.id])).rows[0].value;
+  assert.equal(detail.gallery.length, 1);
+  assert.equal(detail.detailImages.length, 1);
+  assert.equal(detail.attributes[0].value, 'Cotton');
+  assert.equal(detail.variants.length, 2);
+  assert.deepEqual(detail.variants[0].values, { size: 'S', colour: 'Đỏ' });
+  assert.equal(detail.variants[0].regionalPrices.vn, 760000);
+});

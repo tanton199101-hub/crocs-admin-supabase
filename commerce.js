@@ -50,7 +50,7 @@
     const active = variants.filter(v => v.enabled);
     const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, 20) : [];
     const detailImages = Array.isArray(p.detailImages) ? p.detailImages.map(image).filter(Boolean).slice(0, 40) : [];
-    const normalized = { ...p, basePrice, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
+    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
   function localizeProduct(product) {
@@ -213,12 +213,41 @@
     }
     return catalog;
   }
+  const detailRequests = new Map();
+  async function loadProduct(id) {
+    const productId = String(id || '').trim();
+    if (!productId) throw new Error('The product reference is invalid.');
+    const current = catalog.find(item => item.id === productId);
+    if (current?._detailLoaded) return current;
+    if (detailRequests.has(productId)) return detailRequests.get(productId);
+    const request = rpc('storefront_product_v1', { p_product_id: productId }).then(payload => {
+      const value = Array.isArray(payload) ? payload[0] : payload;
+      if (!value?.id || value.status !== 'Active') throw new Error('This product is not available right now.');
+      const detail = localizeProduct(normalize({ ...value, _detailLoaded: true }));
+      const index = catalog.findIndex(item => item.id === productId);
+      if (index >= 0) catalog[index] = detail; else catalog.push(detail);
+      return detail;
+    }).finally(() => detailRequests.delete(productId));
+    detailRequests.set(productId, request);
+    return request;
+  }
+  async function loadProducts(ids) {
+    const unique = [...new Set((Array.isArray(ids) ? ids : []).map(id => String(id || '').trim()).filter(Boolean))];
+    return Promise.all(unique.map(loadProduct));
+  }
+  async function ensureCartProducts(lines = readCart()) {
+    const missing = (Array.isArray(lines) ? lines : [])
+      .filter(line => !catalog.find(item => item.id === line.productId)?._detailLoaded)
+      .map(line => line.productId);
+    if (missing.length) await loadProducts(missing);
+    return catalog;
+  }
   root.addEventListener?.('crocs:region-change', () => {
     catalog = localizeCatalog(catalog);
     root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
   });
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
+  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;
