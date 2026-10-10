@@ -90,6 +90,11 @@
 .product-detail-media-heading strong { color: var(--commerce-ink); font-size: 16px; }
 .product-detail-images { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; align-content: start; }
 .product-detail-images img { width: 100%; aspect-ratio: 3 / 4; object-fit: contain; border-radius: 12px; background: var(--commerce-lilac); }
+.product-video-media { margin-top: 34px; padding-top: 24px; border-top: 1px solid var(--commerce-line); }
+.product-video-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-top: 14px; }
+.product-video-list figure { margin: 0; }
+.product-video-list video { display: block; width: 100%; aspect-ratio: 9 / 16; max-height: 560px; border-radius: 16px; background: #101214; object-fit: contain; }
+.product-video-list figcaption { margin-top: 7px; color: var(--commerce-muted); font-size: 12px; }
 .product-meta { display: grid; gap: 9px; margin-top: 22px; padding: 18px 0; border-top: 1px solid var(--commerce-line); border-bottom: 1px solid var(--commerce-line); }
 .product-meta-row { display: flex; justify-content: space-between; gap: 20px; font-size: 14px; }
 .product-meta-row span:first-child { color: var(--commerce-muted); }
@@ -216,6 +221,7 @@
   .product-gallery-status { margin-top: 7px; }
   .product-copy h1 { font-size: 42px; }
   .product-detail-images { grid-template-columns: 1fr; }
+  .product-video-list { grid-template-columns: 1fr; }
   .product-detail-media-heading { align-items: flex-start; flex-direction: column; gap: 4px; }
   .size-grid { grid-template-columns: repeat(4, minmax(52px, 1fr)); }
   .commerce-footer { display: grid; padding-top: 32px; }
@@ -234,3 +240,22 @@
 
 .commerce-header-actions .regional-picker { margin-left: 0; }
 .commerce-header-actions .regional-picker select { background-color: #fff; }
+
+/* Smart 3:4 media fit. Wide and square source art fills the frame while
+   cropping only the sides; tall source art remains contained so its top and
+   bottom are never lost. The default rules above keep images safe before
+   their intrinsic dimensions are available. */
+img[data-smart-fit].is-smart-cover {
+  object-fit: cover !important;
+  object-position: center center;
+}
+img[data-smart-fit].is-smart-contain {
+  object-fit: contain !important;
+  object-position: center center;
+}
+
+.product-information,
+.related-products {
+  content-visibility: auto;
+  contain-intrinsic-size: 560px;
+}

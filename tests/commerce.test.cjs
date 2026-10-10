@@ -17,3 +17,13 @@ test('variant line quotes the variant price and stock', () => {
   assert.equal(quote.items[0].variantTitle, 'Đen / 5');
   assert.equal(quote.subtotal, 2400);
 });
+
+test('commerce normalizes verified 1688 product videos through the same-origin proxy', () => {
+  const product = Commerce.normalize({
+    id: 'media', title: 'Video product', sku: 'MEDIA', price: 1000, stock: 1,
+    status: 'Active', image: 'assets/arrival-classic-clog-100.png',
+    videos: ['/api/1688-video?url=https%3A%2F%2Fcloud.video.taobao.com%2Fplay%2Fu%2F1%2Fp%2F2%2Fe%2F6%2Ft%2F1%2F2.mp4'],
+  });
+  assert.equal(product.videos.length, 1);
+  assert.match(product.videos[0], /^\/api\/1688-video\?/);
+});

@@ -41,6 +41,7 @@ const products = sourceProducts.map(product => is1688(product)
     return Importer.mergeEnrichment(product, {
       gallery: override.gallery,
       detailImages: override.detailImages,
+      videos: override.videos,
       descriptionHtml: override.descriptionHtml,
       description: override.description,
       descriptionUrl: override.descriptionUrl,
@@ -91,7 +92,8 @@ function projection(product, chunk) {
     status: 'Active',
     image: value.image || '',
     gallery: Array.isArray(value.gallery) ? value.gallery : [],
-    detailImages: Array.isArray(value.detailImages) ? value.detailImages : [],
+      detailImages: Array.isArray(value.detailImages) ? value.detailImages : [],
+    videos: Array.isArray(value.videos) ? value.videos : [],
     imageAlt: value.imageAlt || value.title,
     brand: value.brand || 'Nhà cung cấp 1688',
     slug: value.slug || value.id,

@@ -98,6 +98,7 @@ test('public catalog keeps packed 1688 products light and expands one product on
     imageAlt: 'Ảnh sản phẩm', brand: 'Nhà cung cấp 1688', category: 'Thời trang trẻ em',
     slug: 'trang-phuc-bieu-dien-tre-em', description: 'Mô tả đã được xác minh từ nguồn.',
     gallery: ['assets/arrival-classic-clog-100.png'], detailImages: ['assets/icon-lined-206.png'],
+    videos: ['/api/1688-video?url=https%3A%2F%2Fcloud.video.taobao.com%2Fplay%2Fu%2F1%2Fp%2F2%2Fe%2F6%2Ft%2F1%2F2.mp4'],
     attributes: [{ name: 'Chất liệu', value: 'Cotton' }], seo: { title: '', description: '', noindex: true },
     options: [{ id: 'colour', name: 'Màu sắc', values: ['Đỏ', 'Xanh'] }, { id: 'size', name: 'Kích thước', values: ['S', 'M'] }],
     variantEncoding: 'crocs-1688-v3', variantRegions: ['vn'],
@@ -118,6 +119,7 @@ test('public catalog keeps packed 1688 products light and expands one product on
   const detail = (await db.query(`select public.storefront_product_v1($1) as value`, [packed.id])).rows[0].value;
   assert.equal(detail.gallery.length, 1);
   assert.equal(detail.detailImages.length, 1);
+  assert.equal(detail.videos.length, 1);
   assert.equal(detail.attributes[0].value, 'Cotton');
   assert.equal(detail.variants.length, 2);
   assert.deepEqual(detail.variants[0].values, { size: 'S', colour: 'Đỏ' });

@@ -201,14 +201,15 @@
       const label = requiresOptions ? t('chooseOptions', 'Choose options') : t('addToBag', 'Add to bag');
       const price = variants.length ? commerce.money(Math.min(...variants.map(item => item.price))) : commerce.money(product.price);
       const action = requiresOptions ? ` data-requires-options="true"` : '';
-      return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><button class="wishlist" type="button" aria-label="Save ${commerce.escape(product.title)}">♡</button><a href="product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520" /></div><h3>${commerce.escape(product.title)}</h3><p class="price">${price}</p></a><button class="add-button" type="button" data-product-id="${commerce.escape(product.id)}" data-product="${commerce.escape(product.title)}" data-price="${(product.price / 100).toFixed(2)}"${action}>${label}</button></article>`;
+      return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><button class="wishlist" type="button" aria-label="Save ${commerce.escape(product.title)}">♡</button><a href="product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img data-smart-fit src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" decoding="async" width="520" height="693" /></div><h3>${commerce.escape(product.title)}</h3><p class="price">${price}</p></a><button class="add-button" type="button" data-product-id="${commerce.escape(product.id)}" data-product="${commerce.escape(product.title)}" data-price="${(product.price / 100).toFixed(2)}"${action}>${label}</button></article>`;
     }).join('');
+    commerce.enhanceImages?.(arrivalRail);
   };
 
   function catalogCard(product, index) {
     const url = `product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`;
     const optionLabel = product.hasVariants ? 'Xem các lựa chọn' : 'Xem sản phẩm';
-    return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><a href="${url}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" width="520" height="520"></div><h3>${commerce.escape(product.title)}</h3><p class="price">${commerce.money(product.price)}</p></a><a class="add-button" href="${url}">${optionLabel}</a></article>`;
+    return `<article class="product-card" data-product-id="${commerce.escape(product.id)}"><a href="${url}"><div class="product-image product-image--${cardThemes[index % cardThemes.length]}"><img data-smart-fit src="${commerce.escape(commerce.image(product.image))}" alt="${commerce.escape(product.imageAlt || product.title)}" loading="lazy" decoding="async" width="520" height="693"></div><h3>${commerce.escape(product.title)}</h3><p class="price">${commerce.money(product.price)}</p></a><a class="add-button" href="${url}">${optionLabel}</a></article>`;
   }
 
   function collectionFromHash() {
@@ -231,6 +232,7 @@
     const shown = filtered.slice(0, visibleCatalogProducts);
     catalogGrid.innerHTML = shown.length ? shown.map(catalogCard).join('') : '<p class="catalog-empty">Bộ sưu tập này chưa có sản phẩm đang bán.</p>';
     catalogLoadMore.hidden = shown.length >= filtered.length;
+    commerce.enhanceImages?.(catalogGrid);
   }
 
   catalogFilters?.addEventListener('click', event => {

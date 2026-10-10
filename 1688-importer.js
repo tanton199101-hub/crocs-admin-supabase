@@ -12,12 +12,18 @@
   // truncated while still bounding a malformed payload.
   const MAX_GALLERY_IMAGES = 50;
   const MAX_DETAIL_IMAGES = 120;
+  const MAX_VIDEOS = 8;
   const IMAGE_HOSTS = Object.freeze(new Set([
     'cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com',
     'img01.1688.com', 'img02.1688.com',
   ]));
   const ALICDN_HOST_RE = /(?:^|\.)alicdn\.com$/i;
+  const VIDEO_HOSTS = Object.freeze(new Set([
+    'cloud.video.taobao.com', 'video01.1688.com', 'video.1688.com', 'caiyuanbao.alicdn.com',
+  ]));
+  const VIDEO_HOST_RE = /(?:^|\.)video\.(?:taobao|1688|alibaba)\.com$/i;
   const IMAGE_PROXY_PATH = '/api/1688-image';
+  const VIDEO_PROXY_PATH = '/api/1688-video';
   const OFFER_RE = /(?:^|\/)offer\/(\d{6,20})(?:\.html)?(?:\/|$)/i;
   const SHOP_HOST_RE = /(?:^|\.)1688\.com$/i;
   const MTOP_ENDPOINT = 'https://h5api.m.1688.com/h5/mtop.alibaba.alisite.cbu.server.moduleasyncservice/1.0/';
@@ -54,6 +60,72 @@
   function allowedImageHost(hostname) {
     const host = String(hostname || '').toLowerCase();
     return IMAGE_HOSTS.has(host) || ALICDN_HOST_RE.test(host);
+  }
+
+  function allowedVideoHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    return VIDEO_HOSTS.has(host) || VIDEO_HOST_RE.test(host);
+  }
+
+  function remoteVideoUrl(value) {
+    const raw = clean(normalizeImageReference(value), 4000);
+    if (!raw) return '';
+    const candidate = raw.startsWith('//') ? `https:${raw}` : raw;
+    try {
+      const url = new URL(candidate);
+      if (url.protocol !== 'https:' || !allowedVideoHost(url.hostname)) return '';
+      if (!/^\/(?:play|video|download)\//i.test(url.pathname) && url.hostname.toLowerCase() !== 'caiyuanbao.alicdn.com') return '';
+      if (!/\.mp4(?:$|[?#])/i.test(url.pathname + url.search)) return '';
+      return url.href;
+    } catch {
+      return '';
+    }
+  }
+
+  function proxyVideoUrl(value) {
+    const direct = remoteVideoUrl(value);
+    return direct ? `${VIDEO_PROXY_PATH}?url=${encodeURIComponent(direct)}` : '';
+  }
+
+  function videoUrl(value, { proxy = false } = {}) {
+    const raw = clean(normalizeImageReference(value), 4000);
+    if (!raw) return '';
+    try {
+      const parsed = new URL(raw, 'https://store.invalid');
+      if (parsed.origin === 'https://store.invalid' && parsed.pathname === VIDEO_PROXY_PATH) {
+        const source = remoteVideoUrl(parsed.searchParams.get('url'));
+        return source ? `${VIDEO_PROXY_PATH}?url=${encodeURIComponent(source)}` : '';
+      }
+    } catch { /* fall through to the remote URL parser */ }
+    const direct = remoteVideoUrl(raw);
+    return direct ? (proxy ? proxyVideoUrl(direct) : direct) : '';
+  }
+
+  function collectVideoUrls(value, output = [], seen = new Set(), depth = 0) {
+    if (depth > 8 || value == null || output.length >= MAX_VIDEOS) return output;
+    if (typeof value === 'string') {
+      const text = decodeEntities(value).replace(/\\\//g, '/');
+      const candidates = text.match(/https?:\/\/[^\s"'<>\\]+/gi) || [text];
+      candidates.forEach(candidate => {
+        const normalized = candidate.replace(/[\\"']+$/g, '');
+        const parsed = videoUrl(normalized);
+        if (parsed && !seen.has(parsed)) { seen.add(parsed); output.push(parsed); }
+      });
+      return output;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(item => collectVideoUrls(item, output, seen, depth + 1));
+      return output;
+    }
+    if (typeof value !== 'object') return output;
+    Object.entries(value).forEach(([key, item]) => {
+      if (output.length >= MAX_VIDEOS) return;
+      // Video fields are preferred, but validating every string URL also
+      // catches older payloads that used an unnamed `media` field.
+      if (/video|media|movie|play/i.test(key) || typeof item === 'string') collectVideoUrls(item, output, seen, depth + 1);
+      else if (item && typeof item === 'object') collectVideoUrls(item, output, seen, depth + 1);
+    });
+    return output;
   }
   function remoteImageUrl(value) {
     const raw = clean(normalizeImageReference(value), 4000);
@@ -236,11 +308,17 @@
     const priceMatch = String(priceText).match(/[0-9]+(?:\.[0-9]+)?/);
     const attributes = normalizeAttributes(attributeBlock.propsList || globalData.blackPage?.property?.propsList);
     const descriptionUrl = normalizeDescriptionUrl(description.detailUrl || detailModel.detailUrl);
+    const videos = collectVideoUrls([
+      main.videoUrl, main.video, main.offerVideo, main.videoInfo, main.offerInfoModel?.videoUrl,
+      offerInfo.videoUrl, tempModel.videoUrl, detailModel.videoUrl, globalData.videoUrl,
+      globalData.offerDetail?.videoUrl, globalData.offerDetail?.video, init,
+    ]).slice(0, MAX_VIDEOS);
     return {
       offerId,
       title,
       gallery,
       skuImages,
+      videos,
       descriptionUrl,
       attributes,
       priceCny: priceMatch ? Number(priceMatch[0]) : 0,
@@ -277,10 +355,12 @@
     const detailMatch = source.match(/(?:["']detailUrl["']|detailUrl)\s*:\s*["'](https?:\\?\/\\?\/itemcdn\.tmall\.com\/1688offer\/[^"']+)["']/i);
     const titleMatch = source.match(/(?:["'](?:subject|title)["']|(?:subject|title))\s*:\s*["']([^"']{3,500})["']/i);
     const offerMatch = source.match(/(?:["']offerId["']|offerId)\s*:\s*["']?(\d{6,20})/i);
+    const videos = collectVideoUrls(source.match(/(?:https?:)?\/\/[^"'<>\\\s]+(?:\.mp4(?:\?[^"'<>\\\s]*)?|video[^"'<>\\\s]*)/gi) || []).slice(0, MAX_VIDEOS);
     return {
       offerId: clean(offerMatch?.[1], 30),
       title: clean(titleMatch?.[1], 500),
       gallery,
+      videos,
       descriptionUrl: normalizeDescriptionUrl(detailMatch?.[1]?.replace(/\\\//g, '/')),
     };
   }
@@ -294,13 +374,17 @@
     }
     const html = String(content || source);
     const images = [...new Set(htmlImageCandidates(html).map(value => imageUrl(value.startsWith('//') ? `https:${value}` : value, { proxy: true })).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
+    const videos = collectVideoUrls([
+      html.match(/(?:src|data-src|data-video|video-url)\s*=\s*["']([^"']+)["']/gi) || [],
+      html.match(/(?:https?:)?\/\/[^"'<>\\\s]+\.mp4(?:\?[^"'<>\\\s]*)?/gi) || [],
+    ]).map(value => videoUrl(value, { proxy: true })).filter(Boolean).slice(0, MAX_VIDEOS);
     const textContent = decodeEntities(html.replace(/<script[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<br\s*\/?\s*>/gi, '\n')
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim());
-    return { html: content ? proxyDescriptionHtml(clean(content, 200000)) : '', text: clean(textContent, 12000), images };
+    return { html: content ? proxyDescriptionHtml(clean(content, 200000)) : '', text: clean(textContent, 12000), images, videos };
   }
 
   function proxySrcset(value) {
@@ -484,6 +568,7 @@
       return {
         offerId: clean(body.offerId, 30), title: clean(body.title || body.subject, 500),
         gallery: [...new Set(body.gallery.map(imageUrl).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES),
+        videos: collectVideoUrls(body.videos || body.video || body.videoUrl).slice(0, MAX_VIDEOS),
         options: normalizeOptions(body.options || []),
         variants: (Array.isArray(body.variants) ? body.variants : []).map((variant, index) => ({
           ...variant, id: clean(variant.id || variant.sku || `remote-${index + 1}`, 80),
@@ -517,6 +602,11 @@
       ...scopes.flatMap(scope => Array.isArray(scope.shareModel?.imageUrls) ? scope.shareModel.imageUrls : []),
       ...(Array.isArray(body.gallery) ? body.gallery : []),
     ].map(imageUrl).filter(Boolean);
+    const videos = collectVideoUrls([
+      offer.videoUrl, offer.video, offer.offerVideo, dataModel.videoUrl, dataModel.video,
+      ...scopes.map(scope => scope.videoUrl), ...scopes.map(scope => scope.video), body.videos, body.video, body.videoUrl,
+      result,
+    ]).slice(0, MAX_VIDEOS);
     const skuProps = Array.isArray(offer.skuProps) ? offer.skuProps
       : first(...scopes.map(scope => Array.isArray(scope.skuModel?.skuProps) ? scope.skuModel.skuProps : null), ...scopes.map(scope => Array.isArray(scope.skuSelection?.fields?.skuProps) ? scope.skuSelection.fields.skuProps : null)) || [];
     const optionDrafts = skuProps.map((prop, index) => {
@@ -564,6 +654,7 @@
       offerId: clean(offer.offerId || dataModel?.offerBaseInfo?.offerId || rootData?.tempModel?.offerId || body.offerId, 30),
       title: clean(offer.subject || offer.title || dataModel?.offerBaseInfo?.title || dataModel?.tempModel?.offerTitle || dataModel?.shareModel?.subject || body.title, 500),
       gallery: [...new Set(gallery)].slice(0, MAX_GALLERY_IMAGES),
+      videos,
       options: options.map(({ sourceName, ...option }) => option),
       variants,
       descriptionUrl: normalizeDescriptionUrl(offer.detailUrl || dataModel.description?.fields?.detailUrl || dataModel.description?.detailUrl || dataModel.detailModel?.detailUrl || rootData?.detailModel?.detailUrl || body.descriptionUrl),
@@ -1074,8 +1165,10 @@
     const variants = normalizeVariants(input, options, sku, translations);
     const galleryDirect = [...new Set((Array.isArray(input.gallery) ? input.gallery : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
     const detailImagesDirect = [...new Set((Array.isArray(input.detailImages) ? input.detailImages : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
+    const videosDirect = [...new Set((Array.isArray(input.videos) ? input.videos : collectVideoUrls(input.videoUrl || input.video)).map(value => videoUrl(value)).filter(Boolean))].slice(0, MAX_VIDEOS);
     const gallery = galleryDirect.map(value => imageUrl(value, { proxy: true })).filter(Boolean);
     const detailImages = detailImagesDirect.map(value => imageUrl(value, { proxy: true })).filter(Boolean);
+    const videos = videosDirect.map(value => videoUrl(value, { proxy: true })).filter(Boolean);
     const price = safeNumber(input.priceMinor ?? input.basePriceMinor, variants.length ? Math.min(...variants.map(variant => variant.price)) : 0);
     const stock = variants.length ? variants.reduce((sum, variant) => sum + variant.stock, 0) : safeNumber(input.stock, 0);
     const titleLanguage = clean(input.titleLanguage || (input.titleVietnamese || input.titleVi ? 'vi' : input.titleEnglish || input.englishTitle ? 'en' : 'vi'), 12).toLowerCase();
@@ -1088,7 +1181,7 @@
       exchangeRateCnyBase: Number.isFinite(Number(input.exchangeRateCnyBase)) ? Number(input.exchangeRateCnyBase) : null,
       exchangeRateCnyVnd: Number.isFinite(Number(input.exchangeRateCnyVnd)) ? Number(input.exchangeRateCnyVnd) : null,
       priceMultiplier: Number.isFinite(Number(input.priceMultiplier)) ? Number(input.priceMultiplier) : null, targetPriceVnd: Number.isSafeInteger(Number(input.priceVnd)) ? Number(input.priceVnd) : null,
-      imageUrl: imageUrl(input.imageUrl || input.sourceImageUrl), imageUrls: galleryDirect, detailImages: detailImagesDirect, descriptionUrl: clean(input.descriptionUrl, 2000), detailFetchedAt: clean(input.detailFetchedAt, 80), detailStatus: clean(input.detailStatus || (input.descriptionUrl ? 'available' : 'not_requested'), 40), syncedAt: new Date().toISOString(),
+      imageUrl: imageUrl(input.imageUrl || input.sourceImageUrl), imageUrls: galleryDirect, detailImages: detailImagesDirect, videos: videosDirect, descriptionUrl: clean(input.descriptionUrl, 2000), detailFetchedAt: clean(input.detailFetchedAt, 80), detailStatus: clean(input.detailStatus || (input.descriptionUrl ? 'available' : 'not_requested'), 40), syncedAt: new Date().toISOString(),
     };
     const regionalPrices = input.regionalPrices && typeof input.regionalPrices === 'object' && !Array.isArray(input.regionalPrices) ? input.regionalPrices : undefined;
     return {
@@ -1096,7 +1189,7 @@
       description: clean(input.description || `${title}. Sản phẩm nhập từ catalog 1688; cần kiểm tra size, màu và thông tin sản xuất trước khi mở bán.`, 12000),
       price, stock, status: ['Active', 'Draft', 'Archived'].includes(input.status) ? input.status : 'Draft',
       image: (/^assets\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(String(input.image || '')) ? input.image : '') || imageUrl(input.image, { proxy: true }) || gallery[0] || imageUrl(input.imageUrl || input.sourceImageUrl, { proxy: true }) || FALLBACK_IMAGE,
-      ...(gallery.length ? { gallery } : {}), ...(detailImages.length ? { detailImages } : {}),
+      ...(gallery.length ? { gallery } : {}), ...(detailImages.length ? { detailImages } : {}), ...(videos.length ? { videos } : {}),
       ...(Array.isArray(input.attributes) && input.attributes.length ? { attributes: input.attributes.slice(0, 80) } : {}),
       ...(clean(input.descriptionHtml, 200000) ? { descriptionHtml: proxyDescriptionHtml(input.descriptionHtml) } : {}),
       imageAlt: clean(input.imageAlt || `${title} — ảnh sản phẩm`, 180), brand: clean(input.brand || 'Nhà cung cấp 1688', 100),
@@ -1141,14 +1234,16 @@
   function mergeEnrichment(product, enrichment = {}) {
     const current = { ...(product || {}) };
     const media = value => [...new Set((Array.isArray(value) ? value : []).map(item => imageUrl(item, { proxy: true })).filter(Boolean))];
-    const gallery = media(enrichment.gallery);
-    const detailImages = media(enrichment.detailImages);
-    if (gallery.length) { current.gallery = gallery.slice(0, MAX_GALLERY_IMAGES); current.image = gallery[0]; }
+    const gallery = media([...(Array.isArray(current.gallery) ? current.gallery : []), ...(Array.isArray(enrichment.gallery) ? enrichment.gallery : [])]);
+    const detailImages = media([...(Array.isArray(current.detailImages) ? current.detailImages : []), ...(Array.isArray(enrichment.detailImages) ? enrichment.detailImages : [])]);
+    const videos = [...new Set((Array.isArray(enrichment.videos) ? enrichment.videos : collectVideoUrls(enrichment.videoUrl || enrichment.video)).map(item => videoUrl(item, { proxy: true })).filter(Boolean))].slice(0, MAX_VIDEOS);
+    if (gallery.length) { current.gallery = gallery.slice(0, MAX_GALLERY_IMAGES); current.image = current.image && current.image !== FALLBACK_IMAGE ? current.image : gallery[0]; }
     else if (!current.image || current.image === FALLBACK_IMAGE) {
       const primary = imageUrl(enrichment.image || enrichment.imageUrl, { proxy: true });
       if (primary) current.image = primary;
     }
     if (detailImages.length) current.detailImages = detailImages.slice(0, MAX_DETAIL_IMAGES);
+    if (videos.length) current.videos = videos;
     const description = meaningfulDescription(enrichment.description, current.title);
     if (description) current.description = description;
     if (typeof enrichment.descriptionHtml === 'string' && enrichment.descriptionHtml.trim()) current.descriptionHtml = clean(enrichment.descriptionHtml, 200000);
@@ -1184,6 +1279,7 @@
       ...(enrichment.detailFetchedAt ? { detailFetchedAt: clean(enrichment.detailFetchedAt, 80) } : {}),
       ...(gallery.length ? { imageUrls: gallery.map(item => imageUrl(item)) } : {}),
       ...(detailImages.length ? { detailImages: detailImages.map(item => imageUrl(item)) } : {}),
+      ...(videos.length ? { videos: videos.map(item => videoUrl(item)) } : {}),
       syncedAt: new Date().toISOString(),
     };
     current.updatedAt = new Date().toISOString();
@@ -1201,6 +1297,7 @@
     const merged = {
       ...input,
       gallery: detailData.gallery?.length ? detailData.gallery : input.gallery,
+      videos: [...new Set([...(input.videos || []), ...(detailData.videos || []), ...(descriptionData.videos || [])])].slice(0, MAX_VIDEOS),
       options: detailData.options?.length ? detailData.options : input.options,
       variants: detailData.variants?.length ? detailData.variants : input.variants,
       attributes: detailData.attributes?.length ? detailData.attributes : input.attributes,
@@ -1225,9 +1322,9 @@
   }
 
   return Object.freeze({
-    FALLBACK_IMAGE, MAX_GALLERY_IMAGES, MAX_DETAIL_IMAGES, MTOP_ENDPOINT, MTOP_APP_KEY, OFFER_DETAIL_MTOP_ENDPOINT, OFFER_DETAIL_MTOP_API, DEFAULT_SHOP_MEMBER_ID, DEFAULT_SHOP_NAME, KNOWN_TITLES,
+    FALLBACK_IMAGE, MAX_GALLERY_IMAGES, MAX_DETAIL_IMAGES, MAX_VIDEOS, MTOP_ENDPOINT, MTOP_APP_KEY, OFFER_DETAIL_MTOP_ENDPOINT, OFFER_DETAIL_MTOP_API, DEFAULT_SHOP_MEMBER_ID, DEFAULT_SHOP_NAME, KNOWN_TITLES,
     clean, parseOfferUrl, isShopUrl, shopHost, sourceUrl, translatedTitle, fallbackVietnameseTitle, shortenVietnameseTitle, localizeProduct,
-    priceCnyToVnd, parseJsonp, imageUrl, proxyImageUrl, offerImages, parseDescriptionDocument, proxyDescriptionHtml, parseMobileOfferDocument, parseDesktopOfferDocument, detailPayload, normalizeDescriptionUrl, createMtopClient, createOfferDetailClient, fetchShopCatalog, translateTitleVi, translateTitles,
+    priceCnyToVnd, parseJsonp, imageUrl, proxyImageUrl, videoUrl, proxyVideoUrl, collectVideoUrls, offerImages, parseDescriptionDocument, proxyDescriptionHtml, parseMobileOfferDocument, parseDesktopOfferDocument, detailPayload, normalizeDescriptionUrl, createMtopClient, createOfferDetailClient, fetchShopCatalog, translateTitleVi, translateTitles,
     translateOptionValues, localizedOptionValue, localizedOptionName,
     toProduct, productFromOffer, mergeEnrichment, enrichProduct, upsert,
   });

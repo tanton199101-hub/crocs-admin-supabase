@@ -63,8 +63,11 @@
     function detailMediaList() {
       return [...new Set((Array.isArray(draft.detailImages) ? draft.detailImages : []).filter(Boolean))].slice(0, 120);
     }
+    function videoList() {
+      return [...new Set((Array.isArray(draft.videos) ? draft.videos : []).filter(Boolean))].slice(0, 8);
+    }
     function mediaMarkup() {
-      const gallery = mediaList(), details = detailMediaList();
+      const gallery = mediaList(), details = detailMediaList(), videos = videoList();
       const sourceStatus = String(draft.source?.detailStatus || '').toLowerCase();
       const statusCopy = {
         available: 'Đã nhận mô tả chi tiết và ảnh từ nguồn 1688.',
@@ -76,7 +79,7 @@
         captcha: '1688 đang yêu cầu CAPTCHA; hệ thống không tự tạo dữ liệu thay thế.',
       }[sourceStatus];
       const descriptionState = String(draft.description || '').trim() ? 'Có mô tả văn bản' : 'Chưa có mô tả văn bản';
-      return `<div class="pe-media-library"><div class="pe-media-library-heading"><strong>Thư viện ảnh đã đồng bộ</strong><span>${gallery.length} ảnh chính · ${details.length} ảnh mô tả chi tiết · ${descriptionState}</span></div>${statusCopy ? `<p class="${['blocked_or_empty', 'captcha'].includes(sourceStatus) ? 'pe-warning' : 'pe-help'}">${esc(statusCopy)}</p>` : ''}${gallery.length ? `<div class="pe-media-grid">${gallery.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>${index === 0 ? 'Ảnh đại diện' : `Ảnh ${index + 1}`}</figcaption></figure>`).join('')}</div>` : '<p class="pe-help">Chưa có gallery từ 1688.</p>'}${details.length ? `<details class="pe-detail-media" open><summary>Xem ${details.length} ảnh trong mô tả chi tiết</summary><div class="pe-media-grid">${details.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>Chi tiết ${index + 1}</figcaption></figure>`).join('')}</div></details>` : ''}</div>`;
+      return `<div class="pe-media-library"><div class="pe-media-library-heading"><strong>Thư viện media đã đồng bộ</strong><span>${gallery.length} ảnh chính · ${details.length} ảnh mô tả chi tiết · ${videos.length} video · ${descriptionState}</span></div>${statusCopy ? `<p class="${['blocked_or_empty', 'captcha'].includes(sourceStatus) ? 'pe-warning' : 'pe-help'}">${esc(statusCopy)}</p>` : ''}${gallery.length ? `<div class="pe-media-grid">${gallery.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>${index === 0 ? 'Ảnh đại diện' : `Ảnh ${index + 1}`}</figcaption></figure>`).join('')}</div>` : '<p class="pe-help">Chưa có gallery từ 1688.</p>'}${videos.length ? `<details class="pe-video-media" open><summary>Xem ${videos.length} video sản phẩm</summary><div class="pe-video-grid">${videos.map((src, index) => `<figure><video controls preload="metadata" playsinline src="${esc(src)}"></video><figcaption>Video ${index + 1}</figcaption></figure>`).join('')}</div></details>` : ''}${details.length ? `<details class="pe-detail-media" open><summary>Xem ${details.length} ảnh trong mô tả chi tiết</summary><div class="pe-media-grid">${details.map((src, index) => `<figure><img src="${esc(src)}" alt=""><figcaption>Chi tiết ${index + 1}</figcaption></figure>`).join('')}</div></details>` : ''}</div>`;
     }
     function variantMarkup(v) {
       const title = M.variantTitle(draft, v);

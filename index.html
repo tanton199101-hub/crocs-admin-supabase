@@ -1,60 +1,34 @@
 <!doctype html>
-<html lang="en-GB">
+<html lang="vi">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#ffffff" />
-    <meta name="description" content="Crocs — come as you are. Shop cosy favourites, classic icons and new arrivals." />
+    <meta name="theme-color" content="#f7fbff" />
+    <meta name="description" content="Sally Kids — thời trang trẻ em vui tươi, dễ mặc và sẵn sàng cho mọi cuộc khám phá." />
     <link rel="canonical" href="https://crocs-admin-supabase.vercel.app/" />
     <meta property="og:type" content="website" />
-    <meta property="og:site_name" content="Crocs UK" />
-    <meta property="og:title" content="Crocs UK — Come As You Are" />
-    <meta property="og:description" content="Shop cosy favourites, classic icons, new arrivals and Jibbitz™ accessories from Crocs UK." />
+    <meta property="og:site_name" content="Sally Kids" />
+    <meta property="og:title" content="Sally Kids — Mặc vui lớn khôn" />
+    <meta property="og:description" content="Khám phá quần áo trẻ em nhiều màu sắc cho những ngày thật vui." />
     <meta property="og:url" content="https://crocs-admin-supabase.vercel.app/" />
-    <meta property="og:image" content="https://crocs-admin-supabase.vercel.app/assets/eba3407d4d927c9b.png" />
-    <meta property="og:image:alt" content="McKenna Grace wearing the Unfurgettable Clog" />
+    <meta property="og:image" content="https://crocs-admin-supabase.vercel.app/assets/sally-kids-hero.png" />
+    <meta property="og:image:alt" content="Ba em nhỏ mặc trang phục Sally Kids trong khu vườn ngập nắng" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Crocs UK — Come As You Are" />
-    <meta name="twitter:description" content="Shop cosy favourites, classic icons, new arrivals and Jibbitz™ accessories from Crocs UK." />
-    <meta name="twitter:image" content="https://crocs-admin-supabase.vercel.app/assets/eba3407d4d927c9b.png" />
+    <meta name="twitter:title" content="Sally Kids — Mặc vui lớn khôn" />
+    <meta name="twitter:description" content="Thời trang trẻ em nhiều màu sắc cho những ngày thật vui." />
+    <meta name="twitter:image" content="https://crocs-admin-supabase.vercel.app/assets/sally-kids-hero.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
         "@graph": [
-          {
-            "@type": "Organization",
-            "@id": "https://crocs-admin-supabase.vercel.app/#organization",
-            "name": "Crocs UK",
-            "url": "https://crocs-admin-supabase.vercel.app/",
-            "logo": "https://crocs-admin-supabase.vercel.app/assets/crocs-logo.svg"
-          },
-          {
-            "@type": "WebSite",
-            "@id": "https://crocs-admin-supabase.vercel.app/#website",
-            "name": "Crocs UK",
-            "url": "https://crocs-admin-supabase.vercel.app/",
-            "publisher": { "@id": "https://crocs-admin-supabase.vercel.app/#organization" },
-            "potentialAction": {
-              "@type": "SearchAction",
-              "target": "https://crocs-admin-supabase.vercel.app/?q={search_term_string}",
-              "query-input": "required name=search_term_string"
-            }
-          },
-          {
-            "@type": "ItemList",
-            "name": "Crocs UK new arrivals",
-            "itemListElement": [
-              { "@type": "ListItem", "position": 1, "url": "https://crocs-admin-supabase.vercel.app/product.html?id=p1&slug=classic-clog" },
-              { "@type": "ListItem", "position": 2, "url": "https://crocs-admin-supabase.vercel.app/product.html?id=p2&slug=crocband-runner" },
-              { "@type": "ListItem", "position": 3, "url": "https://crocs-admin-supabase.vercel.app/product.html?id=p4&slug=classic-platform-bloom" }
-            ]
-          }
+          { "@type": "Organization", "@id": "https://crocs-admin-supabase.vercel.app/#organization", "name": "Sally Kids", "url": "https://crocs-admin-supabase.vercel.app/" },
+          { "@type": "WebSite", "@id": "https://crocs-admin-supabase.vercel.app/#website", "name": "Sally Kids", "url": "https://crocs-admin-supabase.vercel.app/", "publisher": { "@id": "https://crocs-admin-supabase.vercel.app/#organization" } }
         ]
       }
     </script>
-    <title>Crocs UK — Come As You Are</title>
+    <title>Sally Kids — Mặc vui lớn khôn</title>
     <link rel="preconnect" href="https://uvtgzcuifbiufwcrylxx.supabase.co" crossorigin />
-    <link rel="preload" as="image" href="assets/eba3407d4d927c9b.png" fetchpriority="high" />
+    <link rel="preload" as="image" href="assets/sally-kids-hero.png" fetchpriority="high" />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -62,29 +36,28 @@
 
     <header class="site-header">
       <div class="header-inner">
-        <button class="icon-button mobile-only" id="menuButton" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="menuDrawer">
+        <button class="icon-button mobile-only" id="menuButton" type="button" aria-label="Mở menu" aria-expanded="false" aria-controls="menuDrawer">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3.5 6.5h17M3.5 12h17M3.5 17.5h17" /></svg>
         </button>
-        <a class="brand" href="#top" aria-label="Crocs home">crocs<span class="brand-mark">™</span></a>
-        <nav class="desktop-nav" aria-label="Primary navigation">
-          <a class="sale-link" href="#new-arrivals">Sale</a>
-          <a href="#shop">Women</a>
-          <a href="#shop">Men</a>
-          <a href="#shop">Kids</a>
-          <a href="#jibbitz">Jibbitz™ Charms</a>
-          <a href="#shop">Crocs at Work™</a>
-          <a href="#shop">Bags &amp; Accessories</a>
-          <a href="#collabs">HeyDude</a>
+        <a class="brand" href="#top" aria-label="Sally Kids trang chủ"><span class="brand-name">sally</span><span class="brand-word">Kids</span><span class="brand-dot">✦</span></a>
+        <nav class="desktop-nav" aria-label="Điều hướng chính">
+          <a class="sale-link" href="#new-arrivals">Mới về</a>
+          <a href="#shop">Bé gái</a>
+          <a href="#shop">Bé trai</a>
+          <a href="#collabs">Đồ đôi</a>
+          <a href="#school">Đi học</a>
+          <a href="#jibbitz">Phụ kiện</a>
+          <a href="#catalog">Xem tất cả</a>
         </nav>
         <div class="header-tools">
-          <button class="search-trigger" id="searchTrigger" type="button" aria-label="Search" aria-expanded="false" aria-controls="searchPanel">
-            <span>Search</span>
+          <button class="search-trigger" id="searchTrigger" type="button" aria-label="Tìm kiếm" aria-expanded="false" aria-controls="searchPanel">
+            <span>Tìm kiếm</span>
             <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.7" /><path d="m16 16 5 5" /></svg>
           </button>
-          <button class="icon-button" id="accountButton" type="button" aria-label="My account" aria-expanded="false" aria-controls="accountDrawer">
+          <button class="icon-button" id="accountButton" type="button" aria-label="Tài khoản" aria-expanded="false" aria-controls="accountDrawer">
             <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5" /><path d="M4.7 20c.7-3.6 3.2-5.4 7.3-5.4s6.6 1.8 7.3 5.4" /></svg>
           </button>
-          <button class="icon-button cart-trigger" id="cartButton" type="button" aria-label="Shopping bag, 0 items" aria-controls="cartDrawer" aria-expanded="false">
+          <button class="icon-button cart-trigger" id="cartButton" type="button" aria-label="Túi hàng, 0 sản phẩm" aria-controls="cartDrawer" aria-expanded="false">
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5.2 8.5h13.6l-1 11H6.2l-1-11Z" /><path d="M8.8 9V6.8a3.2 3.2 0 0 1 6.4 0V9" /></svg>
             <span class="cart-count" id="cartCount">0</span>
           </button>
@@ -93,159 +66,149 @@
       <div class="search-panel" id="searchPanel" hidden>
         <form id="searchForm" role="search">
           <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.7" /><path d="m16 16 5 5" /></svg>
-          <input id="searchInput" type="search" aria-label="Search shoes, charms and more" placeholder="Search shoes, charms and more" autocomplete="off" />
-          <button type="button" class="search-close" id="searchClose">Close</button>
+          <input id="searchInput" type="search" aria-label="Tìm sản phẩm" placeholder="Tìm váy, áo, đồ đôi…" autocomplete="off" />
+          <button type="button" class="search-close" id="searchClose">Đóng</button>
         </form>
       </div>
     </header>
 
-    <div class="promo-bar" role="note">
-      <p><span>Jibbitz™ Only</span> Spend <strong>£25, Get £5 Off.</strong> Spend <strong>£50, Get £15 Off</strong> <a href="#jibbitz">Shop Now!</a></p>
-    </div>
+    <div class="promo-bar" role="note"><p><span>Ưu đãi gia đình</span> Freeship đơn từ 399K · Đổi size trong 7 ngày <a href="#club">Nhận mã 10%</a></p></div>
 
     <div class="drawer-backdrop" id="drawerBackdrop" hidden></div>
     <aside class="side-drawer menu-drawer" id="menuDrawer" aria-label="Menu" aria-hidden="true">
-      <div class="drawer-header"><span>Menu</span><button class="drawer-close" type="button" data-close-drawer aria-label="Close menu">×</button></div>
+      <div class="drawer-header"><span>Menu</span><button class="drawer-close" type="button" data-close-drawer aria-label="Đóng menu">×</button></div>
       <nav class="drawer-nav">
-        <a href="#new-arrivals">Sale <span>›</span></a>
-        <a href="#shop">Women <span>›</span></a>
-        <a href="#shop">Men <span>›</span></a>
-        <a href="#shop">Kids <span>›</span></a>
-        <a href="#jibbitz">Jibbitz™ Charms <span>›</span></a>
-        <a href="#collabs">Collaborations <span>›</span></a>
-        <a href="#shop">Bags &amp; Accessories <span>›</span></a>
+        <a href="#new-arrivals">Mới về <span>›</span></a>
+        <a href="#shop">Bé gái <span>›</span></a>
+        <a href="#shop">Bé trai <span>›</span></a>
+        <a href="#collabs">Đồ đôi <span>›</span></a>
+        <a href="#school">Đi học <span>›</span></a>
+        <a href="#jibbitz">Phụ kiện <span>›</span></a>
+        <a href="#catalog">Xem tất cả <span>›</span></a>
       </nav>
-      <div class="drawer-links"><a href="#club">Join Crocs Club</a><a href="#footer">Help &amp; FAQs</a><a href="#footer">Store locator</a></div>
+      <div class="drawer-links"><a href="#club">Nhận ưu đãi cho đơn đầu</a><a href="#footer">Hướng dẫn chọn size</a><a href="#footer">Đổi trả &amp; liên hệ</a></div>
     </aside>
 
-    <aside class="side-drawer cart-drawer" id="cartDrawer" aria-label="Shopping bag" aria-hidden="true">
-      <div class="drawer-header"><span>Your bag</span><button class="drawer-close" type="button" data-close-drawer aria-label="Close bag">×</button></div>
-      <div class="cart-empty" id="cartEmpty"><div class="cart-empty-icon">🛍</div><h2>Your bag is empty</h2><p>Find a pair that feels like you.</p><a class="button button--dark" href="#shop" data-close-drawer>Shop classics</a></div>
+    <aside class="side-drawer cart-drawer" id="cartDrawer" aria-label="Túi hàng" aria-hidden="true">
+      <div class="drawer-header"><span>Túi hàng</span><button class="drawer-close" type="button" data-close-drawer aria-label="Đóng túi hàng">×</button></div>
+      <div class="cart-empty" id="cartEmpty"><div class="cart-empty-icon">🛍</div><h2>Túi hàng đang trống</h2><p>Chọn một món thật vui cho bé nhé.</p><a class="button button--dark" href="#shop" data-close-drawer>Xem sản phẩm</a></div>
       <div class="cart-items" id="cartItems" hidden></div>
-      <div class="cart-summary" id="cartSummary" hidden><div><span>Subtotal</span><strong id="cartSubtotal">£0.00</strong></div><button class="button button--blue" type="button" id="checkoutButton">Checkout</button></div>
+      <div class="cart-summary" id="cartSummary" hidden><div><span>Tạm tính</span><strong id="cartSubtotal">0 ₫</strong></div><button class="button button--blue" type="button" id="checkoutButton">Thanh toán</button></div>
     </aside>
-    <aside class="side-drawer account-drawer" id="accountDrawer" aria-label="Account" aria-hidden="true">
-      <div class="drawer-header"><span>Log in</span><button class="drawer-close" type="button" data-close-drawer aria-label="Close account">×</button></div>
+    <aside class="side-drawer account-drawer" id="accountDrawer" aria-label="Tài khoản" aria-hidden="true">
+      <div class="drawer-header"><span>Đăng nhập</span><button class="drawer-close" type="button" data-close-drawer aria-label="Đóng tài khoản">×</button></div>
       <form class="account-form" id="accountForm">
-        <p>Don’t have an account? <a href="#club">Sign up</a></p>
-        <label for="accountEmail">Email address</label><input id="accountEmail" type="email" required />
-        <label for="accountPassword">Password</label><input id="accountPassword" type="password" required />
-        <label class="remember"><input type="checkbox" /> <span>Remember me</span></label>
-        <button class="button button--green" type="submit">Log in</button>
-        <a class="forgot-link" href="#footer">Forgot your password?</a>
-        <div class="account-divider"><span>or continue with</span></div>
-        <button class="social-login" type="button">G&nbsp;&nbsp; Continue with Google</button>
-        <button class="social-login" type="button">f&nbsp;&nbsp; Continue with Facebook</button>
+        <p>Chưa có tài khoản? <a href="#club">Đăng ký nhận ưu đãi</a></p>
+        <label for="accountEmail">Email</label><input id="accountEmail" type="email" required />
+        <label for="accountPassword">Mật khẩu</label><input id="accountPassword" type="password" required />
+        <label class="remember"><input type="checkbox" /> <span>Ghi nhớ đăng nhập</span></label>
+        <button class="button button--green" type="submit">Đăng nhập</button>
+        <a class="forgot-link" href="#footer">Quên mật khẩu?</a>
+        <div class="account-divider"><span>hoặc tiếp tục với</span></div>
+        <button class="social-login" type="button">G&nbsp;&nbsp; Tiếp tục với Google</button>
+        <button class="social-login" type="button">f&nbsp;&nbsp; Tiếp tục với Facebook</button>
       </form>
     </aside>
 
     <main id="top">
-      <section class="hero-wrap" aria-label="Featured collection">
+      <section class="hero-wrap" aria-label="Bộ sưu tập nổi bật">
         <div class="hero-track">
-          <article class="hero-card hero-card--side hero-card--left" aria-hidden="true"><img src="assets/eba3407d4d927c9b.png" alt="" /></article>
           <article class="hero-card hero-card--main">
-            <picture><source media="(min-width: 1025px)" srcset="assets/crocs-hero-desktop.jpg" /><img src="assets/eba3407d4d927c9b.png" alt="McKenna Grace wearing the Unfurgettable Clog" width="960" height="720" fetchpriority="high" decoding="async" /></picture>
-            <div class="hero-content"><h1>Cozy Favourites</h1><p>McKenna Grace in the Unfurgettable Clog</p><a class="button button--light" href="#new-arrivals">Shop the Collection</a></div>
+            <picture><source media="(min-width: 1025px)" srcset="assets/sally-kids-hero.png" /><img src="assets/sally-kids-hero.png" alt="Ba em nhỏ mặc trang phục màu sắc trong khu vườn ngập nắng" width="1983" height="793" fetchpriority="high" decoding="async" /></picture>
+            <div class="hero-content"><p class="hero-kicker">Bộ sưu tập mới · Xuân hè</p><h1>Mặc vui<br />lớn khôn</h1><p class="hero-subtitle">Những bộ đồ mềm mại để bé tự do chơi, khám phá và là chính mình.</p><a class="button button--light" href="#new-arrivals">Khám phá bộ sưu tập</a></div>
           </article>
-          <article class="hero-card hero-card--side hero-card--right" aria-hidden="true"><img src="assets/eba3407d4d927c9b.png" alt="" /></article>
         </div>
       </section>
 
       <section class="section classics" id="shop">
-        <div class="section-heading"><div><h2>Explore Our Classic Icons</h2></div><a class="text-link desktop-only" href="#shop">Shop all classic clogs <span>→</span></a></div>
+        <div class="section-heading"><div><p class="eyebrow">Chọn theo gu của bé</p><h2>Mỗi ngày một kiểu vui</h2></div><a class="text-link desktop-only" href="#catalog">Xem tất cả sản phẩm <span>↗</span></a></div>
         <div class="product-rail icon-rail" data-rail>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--cream"><img src="assets/ce6f460894af3c89.png" alt="Classic Clog in white" loading="lazy" /></div><h3>Classic</h3><p>38 colours</p></a></article>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--sand"><img src="assets/ce6f460894af3c89.png" alt="Classic Crafted Clog" loading="lazy" /></div><h3>Crafted</h3><p>Everyday ease</p></a></article>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--blue"><img src="assets/ea799cf56cb9b7df.png" alt="Classic Lined Clog" loading="lazy" /></div><h3>Lined</h3><p>Sink-in comfort</p></a></article>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--grey"><img src="assets/aff5f44c3634bd97.png" alt="Crocband clog" loading="lazy" /></div><h3>Crocband</h3><p>Retro stripes</p></a></article>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--pink"><img src="assets/c42f8985b710beb0.png" alt="Classic Ballet" loading="lazy" /></div><h3>Ballet</h3><p>Light on your feet</p></a></article>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--yellow"><img src="assets/afa078a42f137753.png" alt="Classic Buckle" loading="lazy" /></div><h3>Buckle</h3><p>A little extra</p></a></article>
-          <article class="icon-card"><a href="#new-arrivals"><div class="product-image product-image--mint"><img src="assets/ce6f460894af3c89.png" alt="Baya Clog" loading="lazy" /></div><h3>Baya</h3><p>Make it yours</p></a></article>
+          <article class="icon-card category-card"><a href="#catalog"><div class="product-image category-art category-art--coral"><span aria-hidden="true">🎀</span></div><h3>Bé gái</h3><p>Váy xinh, màu yêu</p></a></article>
+          <article class="icon-card category-card"><a href="#catalog"><div class="product-image category-art category-art--mint"><span aria-hidden="true">🧢</span></div><h3>Bé trai</h3><p>Năng động cả ngày</p></a></article>
+          <article class="icon-card category-card"><a href="#catalog"><div class="product-image category-art category-art--butter"><span aria-hidden="true">✨</span></div><h3>Đồ đôi</h3><p>Cùng mặc cùng vui</p></a></article>
+          <article class="icon-card category-card"><a href="#catalog"><div class="product-image category-art category-art--lilac"><span aria-hidden="true">🎒</span></div><h3>Đi học</h3><p>Gọn gàng, dễ vận động</p></a></article>
+          <article class="icon-card category-card"><a href="#catalog"><div class="product-image category-art category-art--sky"><span aria-hidden="true">🌈</span></div><h3>Phụ kiện</h3><p>Thêm một chút đáng yêu</p></a></article>
         </div>
-        <a class="button button--outline mobile-only full-width" href="#new-arrivals">Shop all classic clogs</a>
+        <a class="button button--outline mobile-only full-width" href="#catalog">Xem tất cả sản phẩm</a>
       </section>
 
-      <section class="spotlight" aria-label="Cosy collection">
-        <picture><img src="assets/764790f71488026d.png" alt="Cosy slippers and lined clogs" loading="lazy" /></picture>
-        <div class="spotlight-content"><p class="eyebrow">Softness, switched on</p><h2>Killing It Softly</h2><p>Bring the comfort of a slipper to everywhere you go.</p><a class="button button--light" href="#new-arrivals">Shop Cozzzy Slipper</a></div>
+      <section class="spotlight" aria-label="Bộ sưu tập chơi hết mình">
+        <picture><img src="assets/sally-kids-play.png" alt="Hai em nhỏ chạy chơi trong công viên với trang phục Sally Kids" loading="lazy" /></picture>
+        <div class="spotlight-content"><p class="eyebrow">Thoải mái để lớn lên</p><h2>Chơi hết mình</h2><p>Vải mềm, phom dễ chịu, màu sắc để bé tự tin chạy nhảy.</p><a class="button button--light" href="#new-arrivals">Xem đồ mặc hằng ngày</a></div>
       </section>
 
       <section class="section arrivals" id="new-arrivals">
-        <div class="section-heading"><div><p class="eyebrow">Fresh from the lab</p><h2>New Arrivals</h2></div><a class="text-link desktop-only" href="#new-arrivals">Shop new arrivals <span>→</span></a></div>
+        <div class="section-heading"><div><p class="eyebrow">Vừa cập bến</p><h2>Mới lên kệ</h2></div><a class="text-link desktop-only" href="#catalog">Xem thêm đồ mới <span>↗</span></a></div>
         <div class="product-rail arrival-rail" data-rail>
-          <article class="product-card" data-product-id="p1"><button class="wishlist" type="button" aria-label="Save Classic Clog">♡</button><a href="product.html?id=p1"><div class="product-image product-image--cream"><span class="new-tag">New</span><img src="assets/ce6f460894af3c89.png" alt="Classic Clog" loading="lazy" /></div><h3>Classic Clog</h3><p class="price">£34.99</p></a><button class="add-button" type="button" data-product-id="p1" data-product="Classic Clog" data-price="34.99">Add to bag</button></article>
-          <article class="product-card" data-product-id="p2"><button class="wishlist" type="button" aria-label="Save Crocband Runner">♡</button><a href="product.html?id=p2"><div class="product-image product-image--blue"><span class="new-tag">New</span><img src="assets/c4292bd7162eccb9.png" alt="Crocband Runner" loading="lazy" /></div><h3>Crocband Runner</h3><p class="price">£59.99</p></a><button class="add-button" type="button" data-product-id="p2" data-product="Crocband Runner" data-price="59.99">Add to bag</button></article>
-          <article class="product-card" data-product-id="p3"><button class="wishlist" type="button" aria-label="Save Kids Classic Clog">♡</button><a href="product.html?id=p3"><div class="product-image product-image--pink"><img src="assets/8a5ac0acf1d99f97.png" alt="Kids' Classic Clog" loading="lazy" /></div><h3>Kids’ Classic Clog</h3><p class="price">£39.99</p></a><button class="add-button" type="button" data-product-id="p3" data-product="Kids’ Classic Clog" data-price="39.99">Add to bag</button></article>
-          <article class="product-card" data-product-id="p4"><button class="wishlist" type="button" aria-label="Save Classic Platform Bloom Clog">♡</button><a href="product.html?id=p4"><div class="product-image product-image--yellow"><img src="assets/7d5d03951715d0ef.png" alt="Classic Platform Bloom Clog" loading="lazy" /></div><h3>Classic Platform Bloom</h3><p class="price">£64.99</p></a><button class="add-button" type="button" data-product-id="p4" data-product="Classic Platform Bloom" data-price="64.99">Add to bag</button></article>
-          <article class="product-card" data-product-id="p5"><button class="wishlist" type="button" aria-label="Save Getaway Strappy">♡</button><a href="product.html?id=p5"><div class="product-image product-image--mint"><img src="assets/df547d8201bfb2a4.png" alt="Getaway Strappy sandal" loading="lazy" /></div><h3>Getaway Strappy</h3><p class="price">£27.99</p></a><button class="add-button" type="button" data-product-id="p5" data-product="Getaway Strappy" data-price="27.99">Add to bag</button></article>
-          <article class="product-card" data-product-id="p6"><button class="wishlist" type="button" aria-label="Save Classic Ballet">♡</button><a href="product.html?id=p6"><div class="product-image product-image--sand"><img src="assets/c42f8985b710beb0.png" alt="Classic Ballet" loading="lazy" /></div><h3>Classic Ballet</h3><p class="price">£34.99</p></a><button class="add-button" type="button" data-product-id="p6" data-product="Classic Ballet" data-price="34.99">Add to bag</button></article>
+          <article class="product-card" data-product-id="sally-demo-1"><button class="wishlist" type="button" aria-label="Lưu Set váy hoa nắng">♡</button><a href="#catalog"><div class="product-image product-image--coral"><span class="new-tag">Mới</span><div class="product-placeholder">🌼</div></div><h3>Set váy hoa nắng</h3><p class="price">Từ 189.000 ₫</p></a><button class="add-button" type="button" data-product-id="sally-demo-1" data-product="Set váy hoa nắng" data-price="189000">Thêm vào túi</button></article>
+          <article class="product-card" data-product-id="sally-demo-2"><button class="wishlist" type="button" aria-label="Lưu Áo thun cầu vồng">♡</button><a href="#catalog"><div class="product-image product-image--sky"><span class="new-tag">Mới</span><div class="product-placeholder">🌈</div></div><h3>Áo thun cầu vồng</h3><p class="price">Từ 99.000 ₫</p></a><button class="add-button" type="button" data-product-id="sally-demo-2" data-product="Áo thun cầu vồng" data-price="99000">Thêm vào túi</button></article>
+          <article class="product-card" data-product-id="sally-demo-3"><button class="wishlist" type="button" aria-label="Lưu Set đôi cuối tuần">♡</button><a href="#catalog"><div class="product-image product-image--butter"><div class="product-placeholder">🧸</div></div><h3>Set đôi cuối tuần</h3><p class="price">Từ 249.000 ₫</p></a><button class="add-button" type="button" data-product-id="sally-demo-3" data-product="Set đôi cuối tuần" data-price="249000">Thêm vào túi</button></article>
+          <article class="product-card" data-product-id="sally-demo-4"><button class="wishlist" type="button" aria-label="Lưu Áo khoác gió pastel">♡</button><a href="#catalog"><div class="product-image product-image--mint"><div class="product-placeholder">🧥</div></div><h3>Áo khoác gió pastel</h3><p class="price">Từ 219.000 ₫</p></a><button class="add-button" type="button" data-product-id="sally-demo-4" data-product="Áo khoác gió pastel" data-price="219000">Thêm vào túi</button></article>
         </div>
-        <div class="rail-controls desktop-only"><button type="button" class="rail-arrow" data-direction="prev" aria-label="Previous products">←</button><button type="button" class="rail-arrow" data-direction="next" aria-label="Next products">→</button></div>
+        <div class="rail-controls desktop-only"><button type="button" class="rail-arrow" data-direction="prev" aria-label="Sản phẩm trước">←</button><button type="button" class="rail-arrow" data-direction="next" aria-label="Sản phẩm tiếp theo">→</button></div>
       </section>
 
       <section class="section catalog-browser" id="catalog" aria-labelledby="catalogTitle">
-        <div class="section-heading catalog-heading"><div><p class="eyebrow">Đồng bộ từ 1688</p><h2 id="catalogTitle">Tất cả sản phẩm</h2><p id="catalogCount" class="catalog-count">Đang tải catalog…</p></div></div>
+        <div class="section-heading catalog-heading"><div><p class="eyebrow">Sally Kids chọn giúp bạn</p><h2 id="catalogTitle">Tất cả sản phẩm</h2><p id="catalogCount" class="catalog-count">Đang tải sản phẩm…</p></div></div>
         <nav class="catalog-filters" id="catalogFilters" aria-label="Bộ sưu tập sản phẩm"></nav>
         <div class="catalog-product-grid" id="catalogProductGrid" aria-live="polite"></div>
         <div class="catalog-load-more"><button class="button button--outline" id="catalogLoadMore" type="button" hidden>Xem thêm sản phẩm</button></div>
       </section>
 
-      <section class="collabs" id="collabs" aria-label="Collaborations">
-        <article class="collab-card"><img src="assets/12875aebbb61f08d.png" alt="LEGO NINJAGO Crocs collaboration" loading="lazy" /><div class="collab-content"><h2>Go Full Ninja</h2><a class="button button--light" href="#shop">Shop LEGO® NINJAGO®</a></div></article>
-        <article class="collab-card"><img src="assets/8810d0e0f87fc054.png" alt="Super Mario Crocs collaboration" loading="lazy" /><div class="collab-content"><h2>Choose your hero</h2><a class="button button--light" href="#shop">Shop Super Mario™</a></div></article>
-        <article class="collab-card"><img src="assets/9f778bedfc4c0aa4.png" alt="Pokémon Crocs collaboration" loading="lazy" /><div class="collab-content"><h2>Catch your next adventure</h2><a class="button button--light" href="#shop">Shop Pokémon</a></div></article>
+      <section class="collabs" id="collabs" aria-label="Bộ sưu tập theo dịp">
+        <article class="collab-card"><img src="assets/sally-kids-play.png" alt="Hai em nhỏ mặc đồ Sally Kids dạo phố" loading="lazy" /><div class="collab-content"><p class="eyebrow">Cuối tuần</p><h2>Dạo phố thật vui</h2><a class="button button--light" href="#catalog">Xem đồ dạo phố</a></div></article>
+        <article class="collab-card" id="school"><img src="assets/sally-kids-school.png" alt="Ba em nhỏ mặc trang phục đi học sáng sủa" loading="lazy" /><div class="collab-content"><p class="eyebrow">Mỗi ngày đến lớp</p><h2>Đi học thật xinh</h2><a class="button button--light" href="#catalog">Xem đồ đi học</a></div></article>
+        <article class="collab-card"><img src="assets/sally-kids-hero.png" alt="Ba em nhỏ mặc đồ nhiều màu sắc cùng nhau" loading="lazy" /><div class="collab-content"><p class="eyebrow">Cùng nhau</p><h2>Đồ đôi đáng yêu</h2><a class="button button--light" href="#catalog">Tìm set đôi</a></div></article>
       </section>
 
-      <section class="spotlight throwback" aria-label="Crocband collection">
-        <img src="assets/abed2e8b5d4c3b0d.png" alt="Crocband collection" loading="lazy" />
-        <div class="spotlight-content"><p class="eyebrow">Back in the mix</p><h2>A Throwback Worth Repeating</h2><a class="button button--light" href="#shop">Shop Crocband™ Collection</a></div>
+      <section class="spotlight throwback" aria-label="Bộ sưu tập đi học">
+        <img src="assets/sally-kids-school.png" alt="Bộ sưu tập đi học Sally Kids với ba em nhỏ cầm sách" loading="lazy" />
+        <div class="spotlight-content"><p class="eyebrow">Sẵn sàng cho ngày mới</p><h2>Ngày nhỏ thật rực rỡ</h2><p>Những món đồ chỉn chu mà bé vẫn thoải mái vận động.</p><a class="button button--light" href="#catalog">Khám phá đồ đi học</a></div>
       </section>
 
       <section class="section charms" id="jibbitz">
-        <div class="tab-heading"><div><p class="eyebrow">Make it yours</p><h2>Style it your way</h2></div><a class="text-link desktop-only" href="#jibbitz">Shop all accessories <span>→</span></a></div>
-        <div class="tabs" role="tablist" aria-label="Accessories categories">
-          <button class="tab is-active" id="tab-tattoos" type="button" role="tab" aria-selected="true" aria-controls="panel-tattoos" data-tab="tattoos">Shoe Tattoos</button>
-          <button class="tab" id="tab-accessories" type="button" role="tab" aria-selected="false" aria-controls="panel-accessories" data-tab="accessories">Accessories</button>
-          <button class="tab" id="tab-jibbitz" type="button" role="tab" aria-selected="false" aria-controls="panel-jibbitz" data-tab="jibbitz">Jibbitz™ Charms</button>
+        <div class="tab-heading"><div><p class="eyebrow">Hoàn thiện outfit</p><h2>Phối đồ của bé</h2></div><a class="text-link desktop-only" href="#catalog">Xem toàn bộ phụ kiện <span>↗</span></a></div>
+        <div class="tabs" role="tablist" aria-label="Danh mục phụ kiện">
+          <button class="tab is-active" id="tab-tattoos" type="button" role="tab" aria-selected="true" aria-controls="panel-tattoos" data-tab="tattoos">Mũ &amp; túi</button>
+          <button class="tab" id="tab-accessories" type="button" role="tab" aria-selected="false" aria-controls="panel-accessories" data-tab="accessories">Tất &amp; giày</button>
+          <button class="tab" id="tab-jibbitz" type="button" role="tab" aria-selected="false" aria-controls="panel-jibbitz" data-tab="jibbitz">Đồ đôi</button>
         </div>
         <div class="tab-panels">
           <div class="tab-panel is-active" id="panel-tattoos" role="tabpanel" aria-labelledby="tab-tattoos" data-panel="tattoos"><div class="product-rail charm-rail">
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--lavender"><img src="assets/9a56a0db458afacf.png" alt="Sporty Shoe Tattoos" loading="lazy" /></div><h3>Sporty Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--coral"><img src="assets/9a56a0db458afacf.png" alt="Western Shoe Tattoos" loading="lazy" /></div><h3>Western Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--mint"><img src="assets/c42f8985b710beb0.png" alt="Rebel Icons Shoe Tattoos" loading="lazy" /></div><h3>Rebel Icons Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--yellow"><img src="assets/8ac97ae0dc2f04c7.png" alt="Fine Line Shoe Tattoos" loading="lazy" /></div><h3>Fine Line Shoe Tattoos</h3><p class="price">£9.99</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--lavender"><div class="charm-illustration">🧢</div></div><h3>Mũ bucket hoa nhỏ</h3><p class="price">Từ 79.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--coral"><div class="charm-illustration">🎒</div></div><h3>Túi mini đi chơi</h3><p class="price">Từ 129.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--mint"><div class="charm-illustration">🎀</div></div><h3>Kẹp tóc cầu vồng</h3><p class="price">Từ 39.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--yellow"><div class="charm-illustration">🧸</div></div><h3>Gấu bông đeo túi</h3><p class="price">Từ 59.000 ₫</p></a></article>
           </div></div>
-          <div class="tab-panel" id="panel-accessories" role="tabpanel" aria-labelledby="tab-accessories" data-panel="accessories">
-            <div class="product-rail charm-rail">
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--blue"><img src="assets/ce6f460894af3c89.png" alt="Classic blue clog" loading="lazy" /></div><h3>Classic Shoe Clips</h3><p class="price">£12.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--pink"><img src="assets/c42f8985b710beb0.png" alt="Classic pink clog" loading="lazy" /></div><h3>Colourful Shoe Clips</h3><p class="price">£12.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--sand"><img src="assets/ce6f460894af3c89.png" alt="Classic neutral clog" loading="lazy" /></div><h3>Everyday Accessories</h3><p class="price">£14.99</p></a></article>
+          <div class="tab-panel" id="panel-accessories" role="tabpanel" aria-labelledby="tab-accessories" data-panel="accessories"><div class="product-rail charm-rail">
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--sky"><div class="charm-illustration">🧦</div></div><h3>Tất cổ ngắn pastel</h3><p class="price">Từ 29.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--pink"><div class="charm-illustration">👟</div></div><h3>Giày vải đi học</h3><p class="price">Từ 199.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--sand"><div class="charm-illustration">☂️</div></div><h3>Ô mini cho bé</h3><p class="price">Từ 89.000 ₫</p></a></article>
           </div></div>
-          <div class="tab-panel" id="panel-jibbitz" role="tabpanel" aria-labelledby="tab-jibbitz" data-panel="jibbitz">
-            <div class="product-rail charm-rail">
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--coral"><div class="charm-sparkles">✦ ✧ ✦</div></div><h3>Jibbitz™ 3D Charms</h3><p class="price">From £4.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--yellow"><div class="charm-sparkles">★ ♡ ★</div></div><h3>Sweet &amp; Savage</h3><p class="price">From £4.99</p></a></article>
-            <article class="product-card charm-card"><a href="#jibbitz"><div class="product-image product-image--mint"><div class="charm-sparkles">☀︎ ✿ ☀︎</div></div><h3>Classic Icons</h3><p class="price">From £4.99</p></a></article>
+          <div class="tab-panel" id="panel-jibbitz" role="tabpanel" aria-labelledby="tab-jibbitz" data-panel="jibbitz"><div class="product-rail charm-rail">
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--coral"><div class="charm-illustration">👩‍👧</div></div><h3>Set mẹ và bé</h3><p class="price">Từ 289.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--yellow"><div class="charm-illustration">👫</div></div><h3>Set anh chị em</h3><p class="price">Từ 249.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="#catalog"><div class="product-image product-image--mint"><div class="charm-illustration">💛</div></div><h3>Áo nhóm bạn thân</h3><p class="price">Từ 119.000 ₫</p></a></article>
           </div></div>
         </div>
-        <a class="button button--outline full-width mobile-only" href="#jibbitz">Shop all accessories</a>
+        <a class="button button--outline full-width mobile-only" href="#catalog">Xem toàn bộ phụ kiện</a>
       </section>
 
       <section class="club" id="club">
-        <div class="club-copy"><p class="eyebrow">A little something extra</p><h2>Join Crocs Club &amp; get 15% off your next purchase</h2><p>Sign up for first access to new drops, member-only offers and more.</p></div>
-        <form class="club-form" id="clubForm"><label for="clubEmail">Email address</label><div><input id="clubEmail" name="email" type="email" placeholder="you@example.com" required /><button class="button button--dark" type="submit">Sign up for free</button></div><small>By signing up, you agree to receive Crocs news. Unsubscribe anytime.</small></form>
+        <div class="club-copy"><p class="eyebrow">Một món quà cho gia đình</p><h2>Nhận ưu đãi 10% cho đơn đầu tiên</h2><p>Đăng ký để nhận bộ sưu tập mới, mẹo phối đồ và mã giảm giá dành riêng cho gia đình.</p></div>
+        <form class="club-form" id="clubForm"><label for="clubEmail">Email của bạn</label><div><input id="clubEmail" name="email" type="email" placeholder="me@example.com" required /><button class="button button--dark" type="submit">Nhận ưu đãi</button></div><small>Bạn có thể huỷ đăng ký bất cứ lúc nào.</small></form>
       </section>
     </main>
 
     <footer class="site-footer" id="footer">
-      <div class="footer-top"><div><p class="footer-kicker">Download the Crocs app</p><p class="footer-muted">Get your favourites wherever you go.</p><div class="app-badges"><span class="app-badge" aria-label="App Store download coming soon"> App Store</span><span class="app-badge" aria-label="Google Play download coming soon">▶ Google Play</span></div></div><div class="footer-account"><p>Already a member?</p><button type="button" class="button button--outline" id="footerAccount">Log in to my account</button></div></div>
+      <div class="footer-top"><div><p class="footer-kicker">Sally Kids</p><p class="footer-muted">Mặc vui lớn khôn, mỗi ngày một khám phá.</p><div class="app-badges"><span class="app-badge">Instagram</span><span class="app-badge">TikTok</span></div></div><div class="footer-account"><p>Đã có tài khoản?</p><button type="button" class="button button--outline" id="footerAccount">Đăng nhập</button></div></div>
       <div class="footer-grid">
-        <div class="footer-column"><h3>Crocs Exclusives</h3><a href="#collabs">Collaborations &amp; Limited Editions</a><a href="#shop">Shop all</a><a href="#new-arrivals">Sale &amp; discounted</a><a href="#club">Student discount</a><a href="#club">Crocs app</a></div>
-        <div class="footer-column"><h3>Company</h3><a href="#footer">About Crocs</a><a href="#footer">Crocs Purpose</a><a href="#footer">Careers</a><a href="#footer">Investor relations</a><a href="#footer">Wholesale enquiries</a></div>
-        <div class="footer-column"><h3>Help</h3><a href="#footer">Order status</a><a href="#footer">Return request</a><a href="#footer">Shipping rates &amp; times</a><a href="#footer">FAQs</a><a href="#footer">Size chart</a></div>
-        <div class="footer-column footer-service"><h3>Customer Service</h3><p>Monday–Thursday: 24 hours<br />Friday: closes 10 PM GMT<br />Saturday: closed<br />Sunday: opens 8 PM GMT</p><a href="#footer">+31 23 7411703</a><a href="#footer">Other contact options</a></div>
+        <div class="footer-column"><h3>Mua sắm cùng Sally</h3><a href="#shop">Bé gái</a><a href="#shop">Bé trai</a><a href="#collabs">Đồ đôi</a><a href="#school">Đi học</a><a href="#catalog">Xem tất cả</a></div>
+        <div class="footer-column"><h3>Về Sally Kids</h3><a href="#footer">Câu chuyện thương hiệu</a><a href="#footer">Chất liệu &amp; sản xuất</a><a href="#club">Cộng đồng Sally</a><a href="#footer">Tuyển dụng</a><a href="#footer">Liên hệ hợp tác</a></div>
+        <div class="footer-column"><h3>Hỗ trợ</h3><a href="#footer">Hướng dẫn chọn size</a><a href="#footer">Đổi size trong 7 ngày</a><a href="#footer">Theo dõi đơn hàng</a><a href="#footer">Câu hỏi thường gặp</a><a href="#footer">Chính sách giao hàng</a></div>
+        <div class="footer-column footer-service"><h3>Chăm sóc khách hàng</h3><p>Thứ 2–Thứ 7: 9:00–21:00<br />Chủ nhật: 9:00–18:00</p><a href="tel:19000000">1900 00 00</a><a href="mailto:hello@sallykids.vn">hello@sallykids.vn</a></div>
       </div>
-      <div class="footer-bottom"><div class="social-links"><a href="#footer" aria-label="Instagram">◎</a><a href="#footer" aria-label="Facebook">f</a><a href="#footer" aria-label="TikTok">♪</a><a href="#footer" aria-label="YouTube">▶</a></div><div class="legal"><a href="#footer">Privacy policy</a><a href="#footer">Terms of use</a><a href="#footer">United Kingdom</a><span>© 2026 Crocs, Inc.</span></div></div>
+      <div class="footer-bottom"><div class="social-links"><a href="#footer" aria-label="Instagram">◎</a><a href="#footer" aria-label="Facebook">f</a><a href="#footer" aria-label="TikTok">♪</a><a href="#footer" aria-label="Zalo">z</a></div><div class="legal"><a href="#footer">Chính sách bảo mật</a><a href="#footer">Điều khoản sử dụng</a><a href="#footer">Việt Nam</a><span>© 2026 Sally Kids</span></div></div>
     </footer>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

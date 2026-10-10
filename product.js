@@ -133,6 +133,9 @@
     for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)) embedded.push(match[1]);
     return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
   }
+  function videoMediaFor(item) {
+    return [...new Set((Array.isArray(item?.videos) ? item.videos : []).map(value => commerce.video?.(value)).filter(Boolean))].slice(0, 8);
+  }
   function displayPrice(current) {
     if (current) return commerce.money(current.price);
     const variants = activeVariants();
@@ -167,6 +170,7 @@
     const media = mediaFor(product);
     selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
     const detailImages = detailMediaFor(product);
+    const videos = videoMediaFor(product);
     const related = commerce.products.filter(item => item.id !== product.id && item.status === 'Active' && item.category === product.category).slice(0, 4);
     updateStructuredData(variants, current);
     main.setAttribute('aria-busy', 'false');
@@ -176,11 +180,11 @@
         <div class="product-gallery">
           <div class="product-gallery-viewport product-hero-image" id="productGallery" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Product images">
             <div class="product-gallery-track">
-              ${media.map((src, index) => `<figure class="product-gallery-slide" data-gallery-slide="${index}" aria-label="Image ${index + 1} of ${media.length}"><img${index === 0 ? ' id="productHeroImage"' : ''} src="${commerce.escape(src)}" alt="${commerce.escape(product.imageAlt || product.title)} — image ${index + 1}" width="900" height="1200" loading="${index === 0 ? 'eager' : 'lazy'}" draggable="false"></figure>`).join('')}
+              ${media.map((src, index) => `<figure class="product-gallery-slide" data-gallery-slide="${index}" aria-label="Image ${index + 1} of ${media.length}"><img${index === 0 ? ' id="productHeroImage" fetchpriority="high"' : ''} data-smart-fit src="${commerce.escape(src)}" alt="${commerce.escape(product.imageAlt || product.title)} — image ${index + 1}" width="900" height="1200" loading="${index === 0 ? 'eager' : 'lazy'}" decoding="async" draggable="false"></figure>`).join('')}
             </div>
             ${media.length > 1 ? `<button class="product-gallery-control product-gallery-control--prev" type="button" data-gallery-prev aria-label="Previous product image">‹</button><button class="product-gallery-control product-gallery-control--next" type="button" data-gallery-next aria-label="Next product image">›</button>` : ''}
           </div>
-          ${media.length > 1 ? `<div class="product-gallery-status" aria-live="polite"><span data-gallery-current>${selectedMediaIndex + 1}</span><span aria-hidden="true"> / </span><span>${media.length}</span></div><div class="product-thumbnails" role="list" aria-label="Product images">${media.map((src, index) => `<button type="button" class="product-thumbnail${index === selectedMediaIndex ? ' is-selected' : ''}" data-gallery-index="${index}" aria-label="View product image ${index + 1}"${index === selectedMediaIndex ? ' aria-current="true"' : ''}><img src="${commerce.escape(src)}" alt="" loading="lazy" draggable="false"></button>`).join('')}</div>` : ''}
+          ${media.length > 1 ? `<div class="product-gallery-status" aria-live="polite"><span data-gallery-current>${selectedMediaIndex + 1}</span><span aria-hidden="true"> / </span><span>${media.length}</span></div><div class="product-thumbnails" role="list" aria-label="Product images">${media.map((src, index) => `<button type="button" class="product-thumbnail${index === selectedMediaIndex ? ' is-selected' : ''}" data-gallery-index="${index}" aria-label="View product image ${index + 1}"${index === selectedMediaIndex ? ' aria-current="true"' : ''}><img data-smart-fit src="${commerce.escape(src)}" alt="" width="90" height="120" loading="lazy" decoding="async" draggable="false"></button>`).join('')}</div>` : ''}
           <p class="product-gallery-note">Product code ${commerce.escape(current?.sku || product.sku || product.id)}${media.length > 1 ? ` · ${media.length} ảnh sản phẩm` : ''}</p>
         </div>
         <div class="product-copy">
@@ -203,9 +207,10 @@
           <p class="shipping-note">${t('freeDelivery', 'Free standard delivery on orders over {amount}. This storefront is a demo; no payment is taken.', { amount: commerce.money(regional?.convert?.(5000) || 5000) })}</p>
         </div>
       </section>
-      ${descriptionMarkup(product) || detailImages.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ 1688</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" loading="lazy">`).join('')}</div></div>` : ''}</section>` : ''}
-      ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">More comfort, same energy</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" loading="lazy"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
+      ${descriptionMarkup(product) || detailImages.length || videos.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${videos.length ? `<div class="product-video-media"><div class="product-detail-media-heading"><strong>Video sản phẩm</strong><span>${videos.length} video từ 1688</span></div><div class="product-video-list" aria-label="Video sản phẩm">${videos.map((src, index) => `<figure><video controls preload="metadata" playsinline poster="${commerce.escape(media[0] || '')}" aria-label="${commerce.escape(product.title)} — video ${index + 1}"><source src="${commerce.escape(src)}" type="video/mp4">Trình duyệt của bạn không hỗ trợ video.</video><figcaption>Video sản phẩm ${index + 1}</figcaption></figure>`).join('')}</div></div>` : ''}${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ 1688</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img data-smart-fit src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" width="900" height="1200" loading="lazy" decoding="async">`).join('')}</div></div>` : ''}</section>` : ''}
+      ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">More comfort, same energy</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
     bind();
+    commerce.enhanceImages?.(main);
   }
 
   function refreshQuantity() { const value = main.querySelector('#quantityValue'); if (value) value.textContent = String(quantity); }
@@ -233,15 +238,19 @@
       if (!slides.length) return;
       selectedMediaIndex = (index + slides.length) % slides.length;
       const target = slides[selectedMediaIndex];
-      if (gallery && target) gallery.scrollTo({ left: target.offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
+      const reduceMotion = root.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
+      if (gallery && target) gallery.scrollTo({ left: target.offsetLeft, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
       syncGalleryState();
     };
     thumbnails.forEach(button => button.addEventListener('click', () => goToGalleryIndex(Number(button.dataset.galleryIndex) || 0)));
     main.querySelector('[data-gallery-prev]')?.addEventListener('click', () => goToGalleryIndex(selectedMediaIndex - 1));
     main.querySelector('[data-gallery-next]')?.addEventListener('click', () => goToGalleryIndex(selectedMediaIndex + 1));
+    let galleryFrame = 0;
     gallery?.addEventListener('scroll', () => {
       if (!slides.length || !gallery.clientWidth) return;
-      window.requestAnimationFrame(() => {
+      if (galleryFrame) return;
+      galleryFrame = window.requestAnimationFrame(() => {
+        galleryFrame = 0;
         const index = Math.max(0, Math.min(slides.length - 1, Math.round(gallery.scrollLeft / gallery.clientWidth)));
         if (index !== selectedMediaIndex) { selectedMediaIndex = index; syncGalleryState(); }
       });

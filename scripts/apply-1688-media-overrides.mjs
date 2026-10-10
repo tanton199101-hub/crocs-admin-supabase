@@ -23,11 +23,13 @@ for (const file of files) {
     if (!override) continue;
     const gallery = [...new Set((Array.isArray(override.gallery) ? override.gallery : []).map(value => Importer.imageUrl(value, { proxy: true })).filter(Boolean))].slice(0, Importer.MAX_GALLERY_IMAGES);
     const detailImages = [...new Set((Array.isArray(override.detailImages) ? override.detailImages : product.detailImages || []).map(value => Importer.imageUrl(value, { proxy: true })).filter(Boolean))].slice(0, Importer.MAX_DETAIL_IMAGES);
+    const videos = [...new Set((Array.isArray(override.videos) ? override.videos : product.videos || []).map(value => Importer.videoUrl(value, { proxy: true })).filter(Boolean))].slice(0, Importer.MAX_VIDEOS);
     if (gallery.length) { product.gallery = gallery; product.image = gallery[0]; }
     if (detailImages.length) product.detailImages = detailImages;
+    if (videos.length) product.videos = videos;
     if (override.descriptionHtml) product.descriptionHtml = Importer.proxyDescriptionHtml(override.descriptionHtml);
     if (override.description) product.description = String(override.description).slice(0, 12000);
-    if (gallery.length || detailImages.length) {
+    if (gallery.length || detailImages.length || videos.length) {
       const count = detailImages.length;
       if (count && /Bộ ảnh mô tả chi tiết gồm \d+ ảnh/.test(String(product.description || ''))) product.description = product.description.replace(/Bộ ảnh mô tả chi tiết gồm \d+ ảnh/, `Bộ ảnh mô tả chi tiết gồm ${count} ảnh`);
       changed.add(product.id);

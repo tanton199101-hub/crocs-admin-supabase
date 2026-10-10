@@ -10,11 +10,13 @@
   const STATIC_CATALOG_PATH = 'assets/catalog-1688';
   const MAX_GALLERY_IMAGES = 50;
   const MAX_DETAIL_IMAGES = 120;
+  const MAX_VIDEOS = 8;
   const regional = root.CrocsRegional;
   const baseMoney = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
   const money = cents => regional?.formatMoney ? regional.formatMoney(cents) : baseMoney(cents);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com', 'img01.1688.com', 'img02.1688.com']);
+  const remoteVideoHosts = new Set(['cloud.video.taobao.com', 'video01.1688.com', 'video.1688.com', 'caiyuanbao.alicdn.com']);
   const allowedRemoteHost = host => remoteImageHosts.has(String(host || '').toLowerCase()) || /(?:^|\.)alicdn\.com$/i.test(String(host || ''));
   const normalizeImageReference = value => String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/').replace(/&quot;/gi, '"').trim();
   const image = value => {
@@ -28,6 +30,21 @@
       }
       return parsed.protocol === 'https:' && allowedRemoteHost(parsed.hostname) && !/^\/1688offer\//i.test(parsed.pathname) ? parsed.href : 'assets/arrival-classic-clog-100.png';
     } catch { return 'assets/arrival-classic-clog-100.png'; }
+  };
+  const video = value => {
+    const raw = normalizeImageReference(value);
+    try {
+      const parsed = new URL(raw, root.location?.origin || 'https://store.invalid');
+      if (parsed.origin === (root.location?.origin || 'https://store.invalid') && parsed.pathname === '/api/1688-video') {
+        const source = new URL(parsed.searchParams.get('url') || '');
+        const host = source.hostname.toLowerCase();
+        const pathOkay = /^\/(?:play|video|download)\//i.test(source.pathname) || host === 'caiyuanbao.alicdn.com';
+        return source.protocol === 'https:' && remoteVideoHosts.has(host) && pathOkay && /\.mp4(?:$|[?#])/i.test(source.pathname + source.search) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : '';
+      }
+      const host = parsed.hostname.toLowerCase();
+      const pathOkay = /^\/(?:play|video|download)\//i.test(parsed.pathname) || host === 'caiyuanbao.alicdn.com';
+      return parsed.protocol === 'https:' && remoteVideoHosts.has(host) && pathOkay && /\.mp4(?:$|[?#])/i.test(parsed.pathname + parsed.search) ? parsed.href : '';
+    } catch { return ''; }
   };
   const descriptionImages = value => {
     const html = String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
@@ -67,7 +84,8 @@
     const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
     const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
     const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(image).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
-    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
+    const videos = [...new Set((Array.isArray(p.videos) ? p.videos : []).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
+    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
 
@@ -146,6 +164,36 @@
     return { ...product, basePrice, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : regional.priceFor(basePrice, product), variants };
   }
   function localizeCatalog(products) { return products.map(localizeProduct); }
+  // Product media uses a consistent 3:4 frame, but source artwork is not
+  // always 3:4. Once the browser knows the intrinsic dimensions, use cover
+  // for 3:4-to-square art (cropping only a controlled amount at the sides).
+  // Very wide supplier banners stay contained so the product itself is not
+  // clipped, while tall art never loses its top or bottom.
+  const SMART_FRAME_RATIO = 3 / 4;
+  const SMART_COVER_MAX_RATIO = 1.35;
+  function enhanceImage(imageElement) {
+    if (!imageElement || String(imageElement.tagName || '').toLowerCase() !== 'img') return imageElement;
+    const applyFit = () => {
+      const width = Number(imageElement.naturalWidth);
+      const height = Number(imageElement.naturalHeight);
+      if (!(width > 0 && height > 0)) return;
+      const ratio = width / height;
+      const fit = ratio >= SMART_FRAME_RATIO && ratio <= SMART_COVER_MAX_RATIO ? 'is-smart-cover' : 'is-smart-contain';
+      imageElement.classList.toggle('is-smart-cover', fit === 'is-smart-cover');
+      imageElement.classList.toggle('is-smart-contain', fit === 'is-smart-contain');
+      imageElement.dataset.imageRatio = `${width}:${height}`;
+    };
+    if (imageElement.complete) applyFit();
+    else imageElement.addEventListener('load', applyFit, { once: true });
+    imageElement.addEventListener('error', () => imageElement.classList.add('is-smart-contain'), { once: true });
+    return imageElement;
+  }
+  function enhanceImages(scope = root.document) {
+    if (!scope) return scope;
+    if (String(scope.tagName || '').toLowerCase() === 'img' && scope.matches?.('[data-smart-fit]')) enhanceImage(scope);
+    scope.querySelectorAll?.('img[data-smart-fit]').forEach(enhanceImage);
+    return scope;
+  }
   const seeds = [
     ['p1','Classic Clog','10001-100',3499,8,'arrival-classic-clog-100.png','Clogs'],
     ['p2','Crocband™ Runner','20598-5AD',5999,64,'arrival-crocband-runner-5AD.png','Clogs'],
@@ -278,6 +326,7 @@
             imageAlt: local.imageAlt || product.imageAlt,
             slug: local.slug || product.slug,
             description: local.description || product.description,
+            videos: local.videos?.length ? local.videos : product.videos,
             seo: local.seo || product.seo,
           };
         }) };
@@ -355,6 +404,7 @@
           description: mirror.description || value.description,
           descriptionHtml: mirror.descriptionHtml || value.descriptionHtml,
           detailImages: mirror.detailImages?.length ? mirror.detailImages : value.detailImages,
+          videos: mirror.videos?.length ? mirror.videos : value.videos,
           gallery: mirror.gallery?.length ? mirror.gallery : value.gallery,
           attributes: mirror.attributes?.length ? mirror.attributes : value.attributes,
           options: mirror.options?.length ? mirror.options : value.options,
@@ -383,7 +433,7 @@
     root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
   });
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
+  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;

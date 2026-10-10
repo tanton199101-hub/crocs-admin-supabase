@@ -200,8 +200,9 @@ for (const product of selected) {
   const previous = checkpoint.processed[offerId];
   const hasGallery = Array.isArray(product.gallery) && product.gallery.length > 0;
   const hasDetail = Array.isArray(product.detailImages) && product.detailImages.length > 0 && product.source?.detailStatus === 'available';
+  const hasVideo = Array.isArray(product.videos) && product.videos.length > 0;
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-  if (!force && previous?.gallery && previous?.detail && previous?.variants > 0 && hasGallery && hasDetail && hasVariants) continue;
+  if (!force && previous?.gallery && previous?.detail && previous?.variants > 0 && previous?.video === hasVideo && hasGallery && hasDetail && hasVariants) continue;
   let enrichment = { source: { detailStatus: 'not_requested' } };
   const offer = offersById.get(offerId);
   if (offer) {
@@ -232,6 +233,7 @@ for (const product of selected) {
       const mobileGallery = Array.isArray(mobile.gallery) ? mobile.gallery : [];
       enrichment = {
         ...enrichment,
+        videos: Array.isArray(mobile.videos) ? mobile.videos : enrichment.videos,
         gallery: mobileGallery.length ? mobileGallery : enrichment.gallery,
         image: mobileGallery[0] || enrichment.image || product?.source?.imageUrl,
         attributes: mobile.attributes?.length ? mobile.attributes : enrichment.attributes,
@@ -264,6 +266,7 @@ for (const product of selected) {
       enrichment = {
         ...enrichment,
         gallery: desktop.gallery?.length ? [...new Set([...(enrichment.gallery || []), ...desktop.gallery])] : enrichment.gallery,
+        videos: desktop.videos?.length ? [...new Set([...(enrichment.videos || []), ...desktop.videos])] : enrichment.videos,
         descriptionUrl: desktop.descriptionUrl || enrichment.descriptionUrl,
         source: { ...(enrichment.source || {}), desktopUrl: `https://detail.1688.com/offer/${offerId}.html`, desktopExportedAt: new Date().toISOString(), detailStatus: desktop.descriptionUrl ? 'desktop_available' : enrichment.source?.detailStatus },
       };
@@ -275,6 +278,7 @@ for (const product of selected) {
       enrichment = {
         ...enrichment,
         gallery: desktop.gallery?.length ? [...new Set([...(enrichment.gallery || []), ...desktop.gallery])] : enrichment.gallery,
+        videos: desktop.videos?.length ? [...new Set([...(enrichment.videos || []), ...desktop.videos])] : enrichment.videos,
         descriptionUrl: desktop.descriptionUrl || enrichment.descriptionUrl,
         source: { ...(enrichment.source || {}), desktopUrl: `https://detail.1688.com/offer/${offerId}.html`, detailStatus: desktop.descriptionUrl ? 'desktop_available' : enrichment.source?.detailStatus },
       };
@@ -293,6 +297,7 @@ for (const product of selected) {
         ...enrichment,
         ...parsedSku,
         gallery: enrichment.gallery?.length ? enrichment.gallery : parsedSku.gallery,
+        videos: enrichment.videos?.length ? enrichment.videos : parsedSku.videos,
         attributes: enrichment.attributes?.length ? enrichment.attributes : parsedSku.attributes,
         descriptionUrl: enrichment.descriptionUrl || parsedSku.descriptionUrl,
         // SKU/stock data is a verified detail layer, but it is not the same
@@ -307,11 +312,12 @@ for (const product of selected) {
     }
   }
 
-  if (supplied && (Array.isArray(supplied.gallery) || Array.isArray(supplied.detailImages) || supplied.descriptionHtml)) {
+  if (supplied && (Array.isArray(supplied.gallery) || Array.isArray(supplied.detailImages) || Array.isArray(supplied.videos) || supplied.descriptionHtml)) {
     enrichment = {
       ...enrichment,
       ...(Array.isArray(supplied.gallery) && supplied.gallery.length ? { gallery: [...new Set([...(enrichment.gallery || []), ...supplied.gallery])] } : {}),
       ...(Array.isArray(supplied.detailImages) && supplied.detailImages.length ? { detailImages: supplied.detailImages } : {}),
+      ...(Array.isArray(supplied.videos) && supplied.videos.length ? { videos: supplied.videos } : {}),
       ...(typeof supplied.descriptionHtml === 'string' && supplied.descriptionHtml.trim() ? { descriptionHtml: supplied.descriptionHtml } : {}),
       ...(supplied.descriptionUrl ? { descriptionUrl: supplied.descriptionUrl } : {}),
       source: { ...(enrichment.source || {}), manifestMedia: true },
@@ -334,7 +340,7 @@ for (const product of selected) {
   if (detailText) {
     const parsed = Importer.parseDescriptionDocument(detailText);
     parsedDescriptionText = parsed.text;
-    enrichment = { ...enrichment, ...(parsed.text ? { description: parsed.text } : {}), descriptionHtml: parsed.html, detailImages: parsed.images, descriptionUrl, detailFetchedAt: new Date().toISOString(), detailStatus: parsed.text || parsed.images.length ? 'available' : 'empty', source: { ...(enrichment.source || {}), detailStatus: parsed.text || parsed.images.length ? 'available' : 'empty' } };
+    enrichment = { ...enrichment, ...(parsed.text ? { description: parsed.text } : {}), descriptionHtml: parsed.html, detailImages: parsed.images, videos: [...new Set([...(enrichment.videos || []), ...(parsed.videos || [])])], descriptionUrl, detailFetchedAt: new Date().toISOString(), detailStatus: parsed.text || parsed.images.length ? 'available' : 'empty', source: { ...(enrichment.source || {}), detailStatus: parsed.text || parsed.images.length ? 'available' : 'empty' } };
   }
   if (detailPayload) {
     try {
@@ -387,6 +393,7 @@ for (const product of selected) {
     at: new Date().toISOString(),
     gallery: Boolean(output[index].gallery?.length),
     detail: Boolean(output[index].detailImages?.length) || enrichment.detailStatus === 'available' || enrichment.detailStatus === 'sku_available',
+    video: Boolean(output[index].videos?.length),
     mobile: Boolean(mobile),
     variants: output[index].variants?.length || 0,
   };

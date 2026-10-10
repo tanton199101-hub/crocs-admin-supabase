@@ -119,6 +119,20 @@ test('1688 media parser keeps lazy-load/srcset images and the full desktop offer
   assert.equal(desktop.descriptionUrl, 'https://itemcdn.tmall.com/1688offer/example');
 });
 
+test('1688 media parser captures verified offer videos and keeps them same-origin proxied', () => {
+  const video = 'https://cloud.video.taobao.com/play/u/3050596981/p/2/e/6/t/1/1763845575970661.mp4';
+  const mobile = `<script>window.__INIT_DATA=${JSON.stringify({
+    data: { main: { data: { offerId: '1081098810208', offerImgList: ['https://cbu01.alicdn.com/img/ibank/main.jpg'], videoUrl: video } } },
+    globalData: {},
+  })}</script>`;
+  const parsed = Importer.parseMobileOfferDocument(mobile);
+  assert.deepEqual(parsed.videos, [video]);
+  const product = Importer.toProduct({ offerId: '1081098810208', sku: 'VIDEO-01', titleVietnamese: 'Trang phục biểu diễn', videos: parsed.videos });
+  assert.equal(product.videos.length, 1);
+  assert.match(product.videos[0], /^\/api\/1688-video\?/);
+  assert.equal(new URL(`https://store.invalid${product.videos[0]}`).searchParams.get('url'), video);
+});
+
 test('1688 detail parser accepts the current desktop window.context shape', () => {
   const offer = {
     offerId: '1081098810208',
