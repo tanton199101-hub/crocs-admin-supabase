@@ -32,6 +32,9 @@ const fetchCatalog = arg('refresh-catalog', 'true') !== 'false';
 const fetchMobile = arg('fetch-mobile', 'true') !== 'false';
 const fetchSku = arg('fetch-sku', 'true') !== 'false';
 const force = arg('force', 'false') === 'true';
+const maxTitleLength = Math.max(36, Math.min(80, Math.floor(numberArg('max-title-length', 56))));
+const translationConcurrency = Math.max(1, Math.min(8, Math.floor(numberArg('translation-concurrency', 4))));
+const translationBatchSize = Math.max(1, Math.min(80, Math.floor(numberArg('translation-batch-size', 60))));
 
 const DETAIL_HOSTS = new Set(['itemcdn.tmall.com']);
 const MOBILE_HOSTS = new Set(['m.1688.com']);
@@ -126,6 +129,40 @@ if (fetchCatalog) {
 }
 
 const output = products.map(item => ({ ...item }));
+const translationCachePath = path.resolve(arg('translation-cache', path.join(process.cwd(), 'assets/catalog-1688/variation-translations.vi.json')));
+let translationMap = await readJson(translationCachePath, {});
+const chinese = /[\u3400-\u9fff\uf900-\ufaff]/;
+const optionLabels = value => [
+  ...(Array.isArray(value?.options) ? value.options.flatMap(option => [option.name, ...(option.values || [])]) : []),
+  ...(Array.isArray(value?.variants) ? value.variants.flatMap(variant => Object.values(variant.values || {})) : []),
+].map(item => String(item || '').trim()).filter(item => item && chinese.test(item));
+async function translateMissing(value) {
+  const labels = [...new Set(optionLabels(value))].filter(label => !translationMap[label]);
+  if (!labels.length) return;
+  const added = await Importer.translateOptionValues(labels, {
+    cache: translationMap,
+    concurrency: translationConcurrency,
+    batchSize: translationBatchSize,
+    onProgress: ({ translated, total }) => {
+      if (translated === total) process.stdout.write(`\n  Đã dịch thêm ${total} nhãn variation.\n`);
+    },
+  });
+  translationMap = { ...translationMap, ...added };
+  await writeJson(translationCachePath, translationMap);
+}
+const initialLabels = [...new Set(output.flatMap(optionLabels))];
+if (initialLabels.length) {
+  const initial = await Importer.translateOptionValues(initialLabels, {
+    cache: translationMap,
+    concurrency: translationConcurrency,
+    batchSize: translationBatchSize,
+  });
+  translationMap = { ...translationMap, ...initial };
+  await writeJson(translationCachePath, translationMap);
+}
+for (let index = 0; index < output.length; index += 1) {
+  output[index] = Importer.localizeProduct(output[index], translationMap, { maxLength: maxTitleLength });
+}
 const selected = limit ? output.slice(0, limit) : output;
 let done = 0;
 for (const product of selected) {
@@ -267,6 +304,9 @@ for (const product of selected) {
     enrichment.detailFetchedAt = enrichment.detailFetchedAt || new Date().toISOString();
     enrichment.source = { ...(enrichment.source || {}), detailStatus: enrichment.detailStatus };
   }
+  await translateMissing(enrichment);
+  enrichment.translationMap = translationMap;
+  enrichment.titleMaxLength = maxTitleLength;
   // Generated import files do not have the durable admin id yet.  Resolve
   // the row by its supplier offer/SKU so every product is enriched exactly
   // once instead of repeatedly overwriting the first row.
@@ -288,6 +328,10 @@ for (const product of selected) {
   if (delayMs) await sleep(delayMs);
 }
 await writeJson(checkpointPath, checkpoint);
+for (let index = 0; index < output.length; index += 1) {
+  output[index] = Importer.localizeProduct(output[index], translationMap, { maxLength: maxTitleLength });
+}
+await writeJson(translationCachePath, translationMap);
 await writeJson(outputPath, output);
 console.log(`Đã ghi ${output.length} sản phẩm vào ${outputPath}`);
 console.log(`Gallery: ${output.filter(item => Array.isArray(item.gallery) && item.gallery.length).length}; detail: ${output.filter(item => item.source?.detailStatus === 'available').length}; variants: ${output.filter(item => item.variants?.length).length}; CAPTCHA/block: ${Object.keys(checkpoint.blocked).length}`);

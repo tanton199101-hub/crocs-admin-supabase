@@ -95,11 +95,14 @@ const products = catalog.offers.map(offer => Importer.productFromOffer(offer, {
   priceMultiplier: multiplier,
   regionId: 'vn',
   titleVi: translated.titles[String(offer.id)],
+  titleMaxLength: Number(arg('max-title-length', 56)),
   status: 'Draft',
-}));
+})).map(product => Importer.localizeProduct(product, {}, { maxLength: Number(arg('max-title-length', 56)) }));
 
 const chineseTitleCount = products.filter(product => /[\u3400-\u9fff]/.test(product.title)).length;
 if (chineseTitleCount) throw new Error(`${chineseTitleCount} tiêu đề vẫn còn chữ Trung; không ghi file.`);
+const chineseOptionCount = products.filter(product => /[\u3400-\u9fff\uf900-\ufaff]/.test(JSON.stringify(product.options || []))).length;
+if (chineseOptionCount) throw new Error(`${chineseOptionCount} sản phẩm vẫn còn nhãn variation tiếng Trung; không ghi file.`);
 const offerIds = new Set(products.map(product => product.source.offerId));
 if (offerIds.size !== products.length) throw new Error('Offer ID bị trùng; không ghi file.');
 

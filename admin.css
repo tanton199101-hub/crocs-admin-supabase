@@ -55,7 +55,9 @@
   --admin-dark: #151b16;
   --admin-radius: 14px;
   --admin-shadow: 0 1px 2px rgba(24, 32, 27, .04), 0 9px 24px rgba(24, 32, 27, .035);
-  --admin-body: "TT Crocs", Arial, sans-serif;
+  /* Use a native system sans for reliable Vietnamese diacritics in admin
+     forms, tables, and variation labels. */
+  --admin-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }

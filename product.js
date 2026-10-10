@@ -120,6 +120,15 @@
     if (!text) return '';
     return text.split(/\n{2,}|\r?\n/).filter(Boolean).map(part => `<p>${commerce.escape(part.trim())}</p>`).join('');
   }
+  function detailMediaFor(item) {
+    const direct = Array.isArray(item?.detailImages) ? item.detailImages : [];
+    const html = String(item?.descriptionHtml || '');
+    const embedded = [
+      ...[...html.matchAll(/(?:src|data-src|data-lazy-src|data-lazyload-src|data-original)\s*=\s*["']([^"']+)["']/gi)].map(match => match[1]),
+      ...[...html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)].map(match => match[1]),
+    ];
+    return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(Boolean))].slice(0, 40);
+  }
   function displayPrice(current) {
     if (current) return commerce.money(current.price);
     const variants = activeVariants();
@@ -154,7 +163,7 @@
     const media = mediaFor(product);
     selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
     const heroImage = media[selectedMediaIndex] || commerce.image(product.image);
-    const detailImages = [...new Set((Array.isArray(product.detailImages) ? product.detailImages : []).map(value => commerce.image(value)).filter(Boolean))];
+    const detailImages = detailMediaFor(product);
     const related = commerce.products.filter(item => item.id !== product.id && item.status === 'Active' && item.category === product.category).slice(0, 4);
     updateStructuredData(variants, current);
     main.setAttribute('aria-busy', 'false');
@@ -186,7 +195,7 @@
           <p class="shipping-note">${t('freeDelivery', 'Free standard delivery on orders over {amount}. This storefront is a demo; no payment is taken.', { amount: commerce.money(regional?.convert?.(5000) || 5000) })}</p>
         </div>
       </section>
-      ${descriptionMarkup(product) || detailImages.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${detailImages.length ? `<div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — detail ${index + 1}" loading="lazy">`).join('')}</div>` : ''}</section>` : ''}
+      ${descriptionMarkup(product) || detailImages.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ 1688</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" loading="lazy">`).join('')}</div></div>` : ''}</section>` : ''}
       ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">More comfort, same energy</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" loading="lazy"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
     bind();
   }

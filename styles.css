@@ -60,8 +60,10 @@
   --radius-lg: 30px;
   --radius-md: 18px;
   --shadow: 0 14px 32px rgba(20, 18, 21, .1);
-  --font-body: "TT Crocs", Arial, sans-serif;
-  --font-display: "TT Crocs", Arial, sans-serif;
+  /* Segoe/system UI has complete Vietnamese glyph coverage and a softer
+     rhythm for product copy. Keep TT Crocs only for the wordmark below. */
+  --font-body: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -81,7 +83,7 @@ h1, h2, h3, .brand { font-family: var(--font-display); }
 .site-header { position: relative; z-index: 30; background: #fff; border-bottom: 1px solid #ececed; }
 main#top { display: flex; flex-direction: column; gap: 16px; }
 .header-inner { height: 66px; max-width: 1440px; padding: 0 24px; margin: 0 auto; display: flex; align-items: center; gap: 28px; }
-.brand { flex: none; color: var(--green); font-size: 41px; font-weight: 900; letter-spacing: -3px; line-height: 1; }
+.brand { flex: none; color: var(--green); font-family: "TT Crocs", var(--font-display); font-size: 41px; font-weight: 900; letter-spacing: -3px; line-height: 1; }
 .brand-mark { display: inline-block; margin-left: 2px; color: var(--green-dark); font-family: var(--font-body); font-size: 8px; letter-spacing: 0; vertical-align: top; transform: translateY(2px); }
 .desktop-nav { display: flex; align-items: center; gap: clamp(13px, 1.45vw, 25px); flex: 1; white-space: nowrap; }
 .desktop-nav a { font-weight: 800; font-size: 14px; transition: color .2s ease; }

@@ -1,12 +1,37 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
+import Importer from '../1688-importer.js';
 
 const sourcePath = process.argv[2];
 const outputPath = resolve(process.argv[3] || 'assets/catalog-1688');
 if (!sourcePath) throw new Error('Usage: node scripts/generate-static-catalog.mjs <backup-json> [output-dir]');
 
+const arg = (name, fallback = '') => {
+  const index = process.argv.indexOf(`--${name}`);
+  return index >= 0 ? String(process.argv[index + 1] || fallback) : fallback;
+};
+const maxTitleLength = Math.max(36, Math.min(80, Number(arg('max-title-length', '56')) || 56));
+const translationCachePath = resolve(arg('translation-cache', join(outputPath, 'variation-translations.vi.json')));
+const chinese = /[\u3400-\u9fff\uf900-\ufaff]/;
+
 const backup = JSON.parse(await readFile(resolve(sourcePath), 'utf8'));
-const products = Array.isArray(backup.products) ? backup.products : [];
+const sourceProducts = Array.isArray(backup.products) ? backup.products : [];
+let translationMap = {};
+try { translationMap = JSON.parse(await readFile(translationCachePath, 'utf8')); } catch { /* first generation */ }
+const is1688 = product => Boolean(product?.source?.platform === '1688' || /^1688-/i.test(String(product?.sku || '')));
+const labels = sourceProducts.filter(is1688).flatMap(product => [
+  ...(product.options || []).flatMap(option => [option.name, ...(option.values || [])]),
+  ...(product.variants || []).flatMap(variant => Object.values(variant.values || {})),
+]).filter(value => chinese.test(String(value || '')));
+const translated = await Importer.translateOptionValues(labels, {
+  cache: translationMap,
+  concurrency: Number(arg('translation-concurrency', '6')),
+  batchSize: Number(arg('translation-batch-size', '60')),
+});
+translationMap = { ...translationMap, ...translated };
+const products = sourceProducts.map(product => is1688(product)
+  ? Importer.localizeProduct(product, translationMap, { maxLength: maxTitleLength })
+  : product);
 const active = products.filter(product => product?.status === 'Active');
 const chunkSize = 50;
 const variantEncoding = 'crocs-1688-v3';
@@ -73,6 +98,7 @@ function projection(product, chunk) {
 
 await rm(outputPath, { recursive: true, force: true });
 await mkdir(outputPath, { recursive: true });
+await writeFile(translationCachePath, JSON.stringify(translationMap, null, 2));
 const details = new Map();
 const summaries = active.map((product, index) => {
   const chunk = Math.floor(index / chunkSize);

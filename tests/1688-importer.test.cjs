@@ -72,11 +72,27 @@ test('1688 fallback translation never leaves Chinese characters in a Vietnamese 
   assert.match(title, /trẻ em|múa|trang phục|Sản phẩm/);
 });
 
+test('1688 presentation localization shortens titles and translates every variant label', () => {
+  const localized = Importer.localizeProduct({
+    id: 'product-1688-localize',
+    sku: '1688-123456789',
+    title: 'Bộ trang phục biểu diễn jazz cho bé gái phong cách sân khấu mùa hè rất nổi bật',
+    source: { platform: '1688', offerId: '123456789' },
+    options: [{ id: 'colour', name: '颜色', values: ['红色', '黑色'] }],
+    variants: [{ id: 'v1', sku: 'v1', values: { colour: '红色' }, price: 100, stock: 2, enabled: true }],
+  }, { 颜色: 'Màu sắc', 红色: 'Đỏ', 黑色: 'Đen' }, { maxLength: 56 });
+  assert.equal(/[\u3400-\u9fff\uf900-\ufaff]/.test(JSON.stringify(localized)), false);
+  assert.ok(localized.title.length <= 56);
+  assert.deepEqual(localized.options[0], { id: 'colour', name: 'Màu sắc', values: ['Đỏ', 'Đen'] });
+  assert.equal(localized.variants[0].values.colour, 'Đỏ');
+});
+
 test('1688 detail parser keeps gallery/detail images and maps SKU specs to options', () => {
   const description = 'var offer_details={"content":"<h1>Thông tin</h1><p>Vải mềm &amp; thoáng</p><img src=\"https://cbu01.alicdn.com/img/ibank/main.jpg\"><img data-lazyload-src=\"//cbu01.alicdn.com/img/ibank/detail.jpg\">"};';
   const parsedDescription = Importer.parseDescriptionDocument(description);
   assert.match(parsedDescription.text, /Vải mềm/);
   assert.equal(parsedDescription.images.length, 2);
+  assert.match(Importer.proxyDescriptionHtml('<img src="https://cbu01.alicdn.com/img/ibank/detail.jpg">'), /\/api\/1688-image\?/);
   const parsed = Importer.detailPayload({
     offerModel: { offerDetail: { subject: 'Áo biểu diễn', skuProps: [{ prop: '颜色', value: [{ name: 'Đỏ' }] }, { prop: '尺码', value: [{ name: 'S' }] }] } },
     dataModel: { mainPrice: { fields: { finalPriceModel: { tradeWithoutPromotion: { skuMapOriginal: [{ skuId: 'sku-1', specAttrs: '颜色:Đỏ;尺码:S', price: '12.50', canBookCount: 4 }] } } } } },

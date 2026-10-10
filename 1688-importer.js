@@ -23,6 +23,7 @@
   // matrix to be preserved intact.
   const MAX_IMPORT_VARIANTS = 500;
   const TRANSLATE_ENDPOINT = 'https://clients5.google.com/translate_a/t';
+  const TRANSLATE_VALUES_ENDPOINT = 'https://translate.googleapis.com/translate_a/single';
   const DEFAULT_SHOP_MEMBER_ID = 'b2b-305059698170e97';
   const DEFAULT_SHOP_NAME = '湖州简百服饰有限公司';
   const KNOWN_TITLES = Object.freeze({
@@ -193,7 +194,19 @@
       .replace(/<[^>]+>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim());
-    return { html: content ? clean(content, 200000) : '', text: clean(textContent, 12000), images };
+    return { html: content ? proxyDescriptionHtml(clean(content, 200000)) : '', text: clean(textContent, 12000), images };
+  }
+
+  function proxyDescriptionHtml(value) {
+    return clean(value, 200000).replace(/((?:src|data-src|data-lazy-src|data-lazyload-src|data-original)\s*=\s*)(["'])([^"']+)\2/gi, (match, prefix, quote, source) => {
+      const normalized = source.startsWith('//') ? `https:${source}` : source;
+      const proxied = imageUrl(normalized, { proxy: true });
+      return proxied ? `${prefix}${quote}${proxied}${quote}` : match;
+    }).replace(/(background(?:-image)?\s*:\s*url\((?:["']?))([^\)"']+)(["']?\))/gi, (match, prefix, source, suffix) => {
+      const normalized = source.startsWith('//') ? `https:${source}` : source;
+      const proxied = imageUrl(normalized, { proxy: true });
+      return proxied ? `${prefix}${proxied}${suffix}` : match;
+    });
   }
 
   const OPTION_NAME_TRANSLATIONS = Object.freeze({
@@ -202,7 +215,57 @@
     '身高': 'Chiều cao', '适合身高': 'Chiều cao', 'suitable for height': 'Chiều cao', 'height': 'Chiều cao',
     '规格': 'Quy cách', 'specification': 'Quy cách', '款式': 'Kiểu dáng', 'style': 'Kiểu dáng',
     '材质': 'Chất liệu', 'material': 'Chất liệu', '型号': 'Mẫu mã', 'model': 'Mẫu mã',
+    '童袜尺码': 'Cỡ tất trẻ em', '镜架颜色': 'Màu gọng kính', '鞋面颜色': 'Màu thân giày',
   });
+  const OPTION_VALUE_REPLACEMENTS = Object.freeze([
+    ['上衣+裤子+领带+眼镜+袜子', 'Áo + quần + cà vạt + kính + tất'],
+    ['上衣+裙子+领结+眼镜+袜子', 'Áo + váy + nơ + kính + tất'],
+    ['上衣+裤子+项链+手套', 'Áo + quần + vòng cổ + găng tay'],
+    ['上衣+裙子+袜子', 'Áo + váy + tất'], ['上衣+短裤+袜子', 'Áo + quần short + tất'],
+    ['上衣+短裙+袜子', 'Áo + chân váy ngắn + tất'], ['上衣+长裤', 'Áo + quần dài'],
+    ['上衣+短裤', 'Áo + quần short'], ['上衣+短裙', 'Áo + chân váy ngắn'],
+    ['上衣+裙子', 'Áo + váy'], ['上衣+裤子', 'Áo + quần'], ['外套+裤子', 'Áo khoác + quần'],
+    ['衬衫+裤子', 'Sơ mi + quần'], ['背心+裤子', 'Áo ba lỗ + quần'], ['旗袍+袜子', 'Sườn xám + tất'],
+    ['裤子', 'Quần'], ['长裤', 'Quần dài'], ['短裤', 'Quần short'], ['裙子', 'Váy'], ['短裙', 'Chân váy ngắn'],
+    ['长裙', 'Váy dài'], ['上衣', 'Áo'], ['外套', 'Áo khoác'], ['衬衫', 'Sơ mi'], ['背心', 'Áo ba lỗ'],
+    ['袜套', 'Ống tất'], ['袜子', 'Tất'], ['帽子', 'Mũ'], ['手套', 'Găng tay'], ['眼镜', 'Kính'],
+    ['项链', 'Vòng cổ'], ['挂链', 'Dây đeo'], ['脖链', 'Dây chuyền'], ['领带', 'Cà vạt'], ['领结', 'Nơ'],
+    ['腰带', 'Thắt lưng'], ['腰裙', 'Váy eo'], ['腰绳', 'Dây eo'], ['发带', 'Băng đô'], ['发箍', 'Cài tóc'],
+    ['头巾', 'Khăn trùm đầu'], ['方巾', 'Khăn vuông'], ['手环', 'Vòng tay'], ['手链', 'Vòng tay'],
+    ['扇子', 'Quạt'], ['挂饰', 'Phụ kiện treo'], ['饰品', 'Phụ kiện'], ['内搭', 'Áo lót'], ['袖套', 'Ống tay'],
+    ['颜色', 'Màu sắc'], ['红色', 'Đỏ'], ['黄色', 'Vàng'], ['黑色', 'Đen'], ['白色', 'Trắng'], ['绿色', 'Xanh lá'],
+    ['蓝色', 'Xanh dương'], ['粉色', 'Hồng'], ['橙色', 'Cam'], ['紫色', 'Tím'], ['灰色', 'Xám'], ['棕色', 'Nâu'],
+    ['玫红色', 'Hồng cánh sen'], ['藏青色', 'Xanh navy'], ['浅蓝色', 'Xanh nhạt'], ['纯白', 'Trắng tinh'],
+    ['均码', 'Freesize'], ['儿童均码', 'Freesize trẻ em'], ['可调节', 'Có thể điều chỉnh'], ['男款', 'Nam'], ['女款', 'Nữ'],
+    ['男童', 'Bé trai'], ['女童', 'Bé gái'], ['儿童', 'Trẻ em'], ['幼儿', 'Mầm non'], ['无袖', 'Không tay'],
+    ['短袖', 'Tay ngắn'], ['长袖', 'Tay dài'], ['牛仔', 'Denim'], ['迷彩', 'Camouflage'], ['蕾丝', 'Ren'],
+    ['字母', 'Chữ cái'], ['条纹', 'Sọc'], ['花朵', 'Hoa'], ['印花', 'In họa tiết'], ['亮钻', 'Đính đá'],
+    ['铁环', 'Khoen kim loại'], ['发饰', 'Phụ kiện tóc'], ['马面裙', 'Váy mã diện'], ['旗袍', 'Sườn xám'],
+  ]);
+  const CHINESE_OPTION_RE = /[\u3400-\u9fff\uf900-\ufaff]/;
+  function valueHash(value) {
+    let hash = 0;
+    for (const char of String(value || '')) hash = ((hash << 5) - hash + char.codePointAt(0)) | 0;
+    return String(Math.abs(hash) % 10000).padStart(4, '0');
+  }
+  function fallbackOptionValue(value) {
+    let result = decodeEntities(String(value || '')).trim();
+    OPTION_VALUE_REPLACEMENTS.forEach(([from, to]) => { result = result.split(from).join(to); });
+    result = result.replace(/\s*\+\s*/g, ' + ').replace(/\s+/g, ' ').trim();
+    return CHINESE_OPTION_RE.test(result) ? `Mẫu lựa chọn ${valueHash(value)}` : clean(result, 80);
+  }
+  function localizedOptionValue(value, translations = {}) {
+    const source = clean(value, 80);
+    if (!source || !CHINESE_OPTION_RE.test(source)) return source;
+    const translated = translations[source] || translations[decodeEntities(source)] || '';
+    return fallbackOptionValue(translated || source);
+  }
+  function localizedOptionName(value, index = 0, translations = {}) {
+    const source = clean(value, 80);
+    const translated = translations[source] || translations[decodeEntities(source)] || OPTION_NAME_TRANSLATIONS[source] || OPTION_NAME_TRANSLATIONS[source.toLowerCase()];
+    const result = translated || fallbackOptionValue(source);
+    return clean(CHINESE_OPTION_RE.test(result) ? `Lựa chọn ${index + 1}` : (result || `Lựa chọn ${index + 1}`), 80);
+  }
   const optionId = (name, index) => {
     const ascii = String(name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
       .replace(/đ/gi, 'd').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
@@ -274,17 +337,17 @@
     return raw;
   }
 
-  function mapVariantValues(rawValues, options) {
+  function mapVariantValues(rawValues, options, translations = {}) {
     const entries = Object.entries(rawValues || {});
     if (Array.isArray(rawValues?.__ordered)) {
-      return Object.fromEntries(options.map((option, index) => [option.id, clean(rawValues.__ordered[index], 80)]).filter(([, value]) => value));
+      return Object.fromEntries(options.map((option, index) => [option.id, localizedOptionValue(rawValues.__ordered[index], translations)]).filter(([, value]) => value));
     }
     const single = rawValues?.__single || (entries.length === 1 && !String(entries[0][0]).trim() ? entries[0][1] : '');
-    if (options.length === 1 && single) return { [options[0].id]: String(single).trim() };
+    if (options.length === 1 && single) return { [options[0].id]: localizedOptionValue(single, translations) };
     return Object.fromEntries(options.map(option => {
-      const exact = entries.find(([key, value]) => String(key).trim() !== '__single' && (String(key).trim() === option.sourceName || optionName(key, 0) === option.name || option.values.includes(String(value).trim())))
-        || (entries.find(([, value]) => option.values.includes(String(value).trim())) || null);
-      return [option.id, exact ? String(exact[1]).trim() : ''];
+      const exact = entries.find(([key, value]) => String(key).trim() !== '__single' && (String(key).trim() === option.sourceName || optionName(key, 0) === option.name || option.values.includes(localizedOptionValue(value, translations))))
+        || (entries.find(([, value]) => option.values.includes(localizedOptionValue(value, translations))) || null);
+      return [option.id, exact ? localizedOptionValue(exact[1], translations) : ''];
     }).filter(([, value]) => value));
   }
 
@@ -473,24 +536,24 @@
     return [{ id: 'height', name: 'Height', values: heights.map(value => clean(value, 40)).filter(Boolean) }];
   }
 
-  function normalizeOptions(options) {
+  function normalizeOptions(options, translations = {}) {
     return (Array.isArray(options) ? options : []).slice(0, 3).map((option, index) => ({
       id: clean(option?.id || `option-${index + 1}`, 40).replace(/[^a-zA-Z0-9_-]/g, '-'),
-      name: clean(option?.name || `Option ${index + 1}`, 80),
+      name: localizedOptionName(option?.name || `Lựa chọn ${index + 1}`, index, translations),
       // Some 1688 offers use a catalogue-style "model" option with more
       // than one hundred labels. Keep every verified label needed by the SKU
       // matrix; the 500-row ceiling is enforced on combinations instead.
-      values: [...new Set((Array.isArray(option?.values) ? option.values : []).map(value => clean(value, 80)).filter(Boolean))].slice(0, MAX_IMPORT_VARIANTS),
+      values: [...new Set((Array.isArray(option?.values) ? option.values : []).map(value => localizedOptionValue(value, translations)).filter(Boolean))].slice(0, MAX_IMPORT_VARIANTS),
     })).filter(option => option.id && option.name && option.values.length);
   }
 
-  function normalizeVariants(input, options, sku) {
+  function normalizeVariants(input, options, sku, translations = {}) {
     const source = Array.isArray(input.variants) ? input.variants : [];
     const regionId = clean(input.regionId || input.defaultRegionId || 'vn', 40).toLowerCase() || 'vn';
     return source.slice(0, MAX_IMPORT_VARIANTS).map((variant, index) => {
       const values = {};
       options.forEach(option => {
-        const value = clean(variant?.values?.[option.id] || variant?.[option.id], 80);
+        const value = localizedOptionValue(variant?.values?.[option.id] || variant?.[option.id], translations);
         if (value) values[option.id] = value;
       });
       const suffix = Object.values(values).join('-').replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toUpperCase();
@@ -750,15 +813,149 @@
     return { titles: Object.fromEntries(result), cache: Object.fromEntries(cache) };
   }
 
+  async function translateOptionValues(values, options = {}) {
+    const sourceValues = [...new Set((Array.isArray(values) ? values : []).map(value => clean(value, 80)).filter(value => CHINESE_OPTION_RE.test(value)))];
+    const cache = new Map(Object.entries(options.cache || {}));
+    const pending = sourceValues.filter(value => !cache.has(value));
+    const batchSize = Math.max(1, Math.min(80, Number(options.batchSize || 60)));
+    const concurrency = Math.max(1, Math.min(8, Number(options.concurrency || 4)));
+    let cursor = 0;
+    async function translateBatch(batch) {
+      const query = new URLSearchParams({ client: 'gtx', sl: options.from || 'zh-CN', tl: options.to || 'vi', dt: 't', q: batch.join('\n') });
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const response = await (options.fetchImpl || globalThis.fetch)(`${options.endpoint || TRANSLATE_VALUES_ENDPOINT}?${query.toString()}`, { headers: { accept: 'application/json,text/plain,*/*', 'user-agent': 'Mozilla/5.0' } });
+          if (response.status === 429 || response.status >= 500) { await sleep(350 * (attempt + 1)); continue; }
+          if (!response.ok) break;
+          const body = await response.json();
+          const joined = Array.isArray(body?.[0]) ? body[0].map(item => Array.isArray(item) ? item[0] : '').join('') : '';
+          const translated = joined.split('\n');
+          if (translated.length === batch.length) return translated;
+        } catch { /* retry, then use deterministic Vietnamese labels */ }
+      }
+      return batch.map(fallbackOptionValue);
+    }
+    async function worker() {
+      while (cursor < pending.length) {
+        const start = cursor; cursor += batchSize;
+        const batch = pending.slice(start, start + batchSize);
+        const translated = await translateBatch(batch);
+        batch.forEach((value, index) => cache.set(value, fallbackOptionValue(translated[index] || value)));
+        if (typeof options.onProgress === 'function') await options.onProgress({ translated: Math.min(start + batch.length, pending.length), total: pending.length });
+        if (options.delayMs) await sleep(Number(options.delayMs));
+      }
+    }
+    await Promise.all(Array.from({ length: Math.min(concurrency, Math.max(1, Math.ceil(pending.length / batchSize))) }, worker));
+    return Object.fromEntries(sourceValues.map(value => [value, cache.get(value) || fallbackOptionValue(value)]));
+  }
+
+  function shortenVietnameseTitle(value, options = {}) {
+    const original = clean(value, 180).replace(/["“”]/g, '').replace(/\s+/g, ' ').trim();
+    const maxLength = Math.max(36, Math.min(80, Number(options.maxLength || 64)));
+    if (original.length <= maxLength && !/^Sản phẩm thời trang trẻ em 1688/i.test(original)) return original;
+    const title = original.toLowerCase();
+    const performance = /(biểu diễn|khiêu vũ|múa|jazz|hip\s*-?\s*hop|hiphop|cổ vũ|hợp xướng|sân khấu|catwalk|trống)/i.test(title);
+    let kind = 'Thời trang trẻ em';
+    if (/(tất|vớ)/i.test(title) && !performance) kind = 'Tất trẻ em';
+    else if (/(mũ|nón)/i.test(title) && !performance) kind = 'Mũ trẻ em';
+    else if (/thắt lưng/i.test(title) && !performance) kind = 'Thắt lưng trẻ em';
+    else if (/(băng đô|phụ kiện tóc|kẹp tóc)/i.test(title) && !performance) kind = 'Phụ kiện tóc';
+    else if (/kính/i.test(title) && !performance) kind = 'Kính thời trang';
+    else if (/(váy|đầm|chân váy)/i.test(title) && !performance) kind = 'Váy trẻ em';
+    else if (/(quần|legging|short)/i.test(title) && !performance) kind = 'Quần trẻ em';
+    else if (/(áo|sơ mi|t-shirt|vest)/i.test(title) && !performance) kind = 'Áo trẻ em';
+    else if (performance) kind = 'Trang phục biểu diễn';
+    const details = [];
+    if (/jazz/i.test(title)) details.push('jazz');
+    else if (/hip\s*-?\s*hop|hiphop/i.test(title)) details.push('hip hop');
+    else if (/cổ vũ/i.test(title)) details.push('cổ vũ');
+    else if (/hợp xướng/i.test(title)) details.push('hợp xướng');
+    else if (/múa|khiêu vũ/i.test(title)) details.push('múa');
+    if (/hanfu|hán phục|trung hoa|trung quốc/i.test(title)) details.push('phong cách Trung Hoa');
+    let audience = '';
+    if (/bé gái|nữ sinh|con gái/i.test(title)) audience = 'bé gái';
+    else if (/bé trai|nam sinh|con trai/i.test(title)) audience = 'bé trai';
+    else if (/trẻ em|thiếu nhi|học sinh/i.test(title)) audience = 'trẻ em';
+    if (audience && ![kind, ...details].join(' ').toLowerCase().includes(audience)) details.push(audience);
+    if (/mùa hè/i.test(title)) details.push('mùa hè');
+    else if (/thu đông|mùa thu|mùa đông/i.test(title)) details.push('thu đông');
+    const offerId = clean(options.offerId, 30);
+    const suffix = offerId ? ` · Mẫu ${offerId.slice(-4)}` : '';
+    const room = Math.max(20, maxLength - suffix.length);
+    let result = [kind, ...details].join(' ').replace(/\s+/g, ' ').trim();
+    if (result.length > room) result = result.slice(0, room + 1).replace(/\s+\S*$/, '').trim();
+    return clean(`${result}${suffix}`, maxLength);
+  }
+
+  // Apply the presentation rules to a product at the boundary of every
+  // import/enrichment pipeline.  Keeping this in the importer prevents a
+  // later SKU refresh from re-introducing Chinese option labels or the long
+  // supplier title that the first catalog pass had already cleaned up.
+  function localizeProduct(product = {}, translations = {}, options = {}) {
+    const current = { ...(product || {}) };
+    const source = current.source && typeof current.source === 'object' ? current.source : {};
+    const offerId = clean(source.offerId || current.offerId || String(current.sku || '').replace(/^1688-/, ''), 30);
+    const is1688 = options.force === true || source.platform === '1688' || /^1688-/i.test(String(current.sku || ''));
+    const hasChinese = value => CHINESE_OPTION_RE.test(String(value || ''));
+    const rawTitle = clean(current.title || current.titleVietnamese || current.titleVi || source.sourceTitle, 180);
+    if (is1688 && rawTitle) {
+      const safeTitle = hasChinese(rawTitle)
+        ? fallbackVietnameseTitle({ sourceTitle: rawTitle, offerId })
+        : rawTitle;
+      current.title = options.shorten === false
+        ? clean(safeTitle, 180)
+        : shortenVietnameseTitle(safeTitle, { offerId, maxLength: options.maxLength || 56 });
+      current.titleLanguage = 'vi';
+    }
+
+    const rawOptions = Array.isArray(current.options) ? current.options : [];
+    const normalizedOptions = normalizeOptions(rawOptions, translations);
+    const rawById = new Map(rawOptions.map((option, index) => [String(option?.id || `option-${index + 1}`), option]));
+    current.options = normalizedOptions;
+    if (Array.isArray(current.variants)) {
+      current.variants = current.variants.map(variant => {
+        const values = {};
+        normalizedOptions.forEach((option, optionIndex) => {
+          const rawOption = rawById.get(option.id) || rawOptions[optionIndex] || {};
+          const rawValues = Array.isArray(rawOption.values) ? rawOption.values : [];
+          const rawValue = variant?.values?.[option.id] ?? variant?.values?.[rawOption.id] ?? variant?.[option.id];
+          let value = localizedOptionValue(rawValue, translations);
+          if (!option.values.includes(value) && rawValue != null) {
+            const rawIndex = rawValues.findIndex(item => String(item) === String(rawValue));
+            if (rawIndex >= 0) value = option.values[rawIndex] || value;
+          }
+          if (value && option.values.includes(value)) values[option.id] = value;
+        });
+        return { ...variant, values };
+      });
+    }
+
+    if (is1688 && current.title) {
+      current.imageAlt = `${current.title} — ảnh sản phẩm`;
+      const slug = current.title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/đ/gi, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 140);
+      if (slug) current.slug = `${slug}-${offerId}`.slice(0, 160);
+      current.seo = { ...(current.seo || {}), title: current.title, description: current.title };
+    }
+    if (current.descriptionHtml) current.descriptionHtml = proxyDescriptionHtml(current.descriptionHtml);
+    return current;
+  }
+
   function toProduct(input = {}) {
     const offerId = clean(input.offerId || parseOfferUrl(input.offerUrl || input.url), 30);
     if (!/^\d{6,20}$/.test(offerId)) throw new Error('Cần link offer 1688 dạng detail.1688.com/offer/...; link QR/shop chỉ là trang cửa hàng.');
     const sku = clean(input.sku || input.code, 80).toUpperCase();
     if (!/^[A-Z0-9][A-Z0-9._-]{1,79}$/.test(sku)) throw new Error('Mã sản phẩm nội bộ phải có 2–80 ký tự chữ, số, dấu gạch hoặc dấu chấm.');
-    const title = translatedTitle({ ...input, offerId });
+    const requestedVietnamese = clean(input.titleVietnamese || input.titleVi, 180);
+    let title = translatedTitle({ ...input, offerId });
+    if (requestedVietnamese) title = shortenVietnameseTitle(requestedVietnamese, { offerId, maxLength: input.titleMaxLength || 56 });
+    if (input.titleLanguage === 'vi' && /[\u3400-\u9fff\uf900-\ufaff]/.test(title)) {
+      title = shortenVietnameseTitle(fallbackVietnameseTitle({ sourceTitle: title, offerId }), { offerId, maxLength: input.titleMaxLength || 56 });
+    }
     if (title.length < 3) throw new Error('Cần tiêu đề sản phẩm.');
-    const options = normalizeOptions(optionValues(input));
-    const variants = normalizeVariants(input, options, sku);
+    const translations = input.translationMap && typeof input.translationMap === 'object' ? input.translationMap : {};
+    const options = normalizeOptions(optionValues(input), translations);
+    const variants = normalizeVariants(input, options, sku, translations);
     const galleryDirect = [...new Set((Array.isArray(input.gallery) ? input.gallery : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, 20);
     const detailImagesDirect = [...new Set((Array.isArray(input.detailImages) ? input.detailImages : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, 40);
     const gallery = galleryDirect.map(value => imageUrl(value, { proxy: true })).filter(Boolean);
@@ -785,7 +982,7 @@
       image: (/^assets\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(String(input.image || '')) ? input.image : '') || imageUrl(input.image, { proxy: true }) || gallery[0] || imageUrl(input.imageUrl || input.sourceImageUrl, { proxy: true }) || FALLBACK_IMAGE,
       ...(gallery.length ? { gallery } : {}), ...(detailImages.length ? { detailImages } : {}),
       ...(Array.isArray(input.attributes) && input.attributes.length ? { attributes: input.attributes.slice(0, 80) } : {}),
-      ...(clean(input.descriptionHtml, 200000) ? { descriptionHtml: clean(input.descriptionHtml, 200000) } : {}),
+      ...(clean(input.descriptionHtml, 200000) ? { descriptionHtml: proxyDescriptionHtml(input.descriptionHtml) } : {}),
       imageAlt: clean(input.imageAlt || `${title} — ảnh sản phẩm`, 180), brand: clean(input.brand || 'Nhà cung cấp 1688', 100),
       category: clean(input.category || 'Thời trang trẻ em', 80), tags: Array.isArray(input.tags) ? input.tags.map(tag => clean(tag, 40)).filter(Boolean).slice(0, 30) : ['1688', 'thời trang trẻ em'],
       slug: clean(input.slug || slugify(title, offerId), 160), seo: { title: clean(input.seo?.title || title, 160), description: clean(input.seo?.description || title, 320), noindex: true },
@@ -803,10 +1000,11 @@
     const basePriceMinor = baseRate > 0 ? Math.round(priceCny * baseRate * (10 ** Number(options.baseCurrencyDecimals ?? 2))) : safeNumber(options.basePriceMinor, 0);
     const requestedTitle = clean(options.titleVi || options.titleVietnamese, 180);
     const titleVi = requestedTitle.length >= 3 ? requestedTitle : fallbackVietnameseTitle({ sourceTitle: offer?.subject, offerId: id });
+    const shortTitleVi = shortenVietnameseTitle(titleVi, { offerId: id, maxLength: options.titleMaxLength || 56 });
     const gallery = offerImages(offer);
     const primaryImageUrl = gallery[0] || '';
     return toProduct({
-      offerId: id, sku: options.skuPrefix ? `${options.skuPrefix}-${id}` : `1688-${id}`, titleVietnamese: titleVi, titleLanguage: 'vi', sourceTitle: offer?.subject,
+      offerId: id, sku: options.skuPrefix ? `${options.skuPrefix}-${id}` : `1688-${id}`, titleVietnamese: shortTitleVi, titleLanguage: 'vi', sourceTitle: offer?.subject,
       priceCny, priceVnd, priceMinor: basePriceMinor, stock: 0, status: options.status || 'Draft', shopId: options.shopId || offer?.memberId || DEFAULT_SHOP_MEMBER_ID,
       shopName: options.shopName || DEFAULT_SHOP_NAME, sourceUrl: options.shopUrl || `https://detail.1688.com/offer/${id}.html`,
        imageUrl: primaryImageUrl, gallery, targetCurrency: 'VND', regionId: options.regionId || 'vn', exchangeRateCnyBase: options.exchangeRateCnyBase,
@@ -840,7 +1038,8 @@
     if (typeof enrichment.descriptionHtml === 'string' && enrichment.descriptionHtml.trim()) current.descriptionHtml = clean(enrichment.descriptionHtml, 200000);
     if (Array.isArray(enrichment.attributes) && enrichment.attributes.length) current.attributes = enrichment.attributes.slice(0, 80);
     if (Array.isArray(enrichment.options) && enrichment.options.length && Array.isArray(enrichment.variants) && enrichment.variants.length) {
-      const options = normalizeOptions(enrichment.options);
+      const translations = enrichment.translationMap && typeof enrichment.translationMap === 'object' ? enrichment.translationMap : {};
+      const options = normalizeOptions(enrichment.options, translations);
       const source = current.source && typeof current.source === 'object' ? current.source : {};
       const enrichmentSource = enrichment.source && typeof enrichment.source === 'object' ? enrichment.source : {};
       const variants = normalizeVariants({
@@ -851,7 +1050,7 @@
         baseCurrencyDecimals: enrichment.baseCurrencyDecimals ?? enrichmentSource.baseCurrencyDecimals ?? source.baseCurrencyDecimals ?? 2,
         exchangeRateCnyVnd: enrichment.exchangeRateCnyVnd ?? enrichmentSource.exchangeRateCnyVnd ?? source.exchangeRateCnyVnd,
         priceMultiplier: enrichment.priceMultiplier ?? enrichmentSource.priceMultiplier ?? source.priceMultiplier,
-      }, options, current.sku);
+      }, options, current.sku, translations);
       const complete = variants.filter(variant => Object.keys(variant.values).length === options.length);
       if (options.length && complete.length && complete.length <= MAX_IMPORT_VARIANTS) {
         current.options = options;
@@ -872,6 +1071,11 @@
       syncedAt: new Date().toISOString(),
     };
     current.updatedAt = new Date().toISOString();
+    if (current.source?.platform === '1688' || enrichment.translationMap) {
+      const localized = localizeProduct(current, enrichment.translationMap || {}, { maxLength: enrichment.titleMaxLength || 56 });
+      localized.updatedAt = current.updatedAt;
+      return localized;
+    }
     return current;
   }
 
@@ -906,8 +1110,9 @@
 
   return Object.freeze({
     FALLBACK_IMAGE, MTOP_ENDPOINT, MTOP_APP_KEY, OFFER_DETAIL_MTOP_ENDPOINT, OFFER_DETAIL_MTOP_API, DEFAULT_SHOP_MEMBER_ID, DEFAULT_SHOP_NAME, KNOWN_TITLES,
-    clean, parseOfferUrl, isShopUrl, shopHost, sourceUrl, translatedTitle, fallbackVietnameseTitle,
-    priceCnyToVnd, parseJsonp, imageUrl, proxyImageUrl, offerImages, parseDescriptionDocument, parseMobileOfferDocument, detailPayload, normalizeDescriptionUrl, createMtopClient, createOfferDetailClient, fetchShopCatalog, translateTitleVi, translateTitles,
+    clean, parseOfferUrl, isShopUrl, shopHost, sourceUrl, translatedTitle, fallbackVietnameseTitle, shortenVietnameseTitle, localizeProduct,
+    priceCnyToVnd, parseJsonp, imageUrl, proxyImageUrl, offerImages, parseDescriptionDocument, proxyDescriptionHtml, parseMobileOfferDocument, detailPayload, normalizeDescriptionUrl, createMtopClient, createOfferDetailClient, fetchShopCatalog, translateTitleVi, translateTitles,
+    translateOptionValues, localizedOptionValue, localizedOptionName,
     toProduct, productFromOffer, mergeEnrichment, enrichProduct, upsert,
   });
 });

@@ -25,6 +25,8 @@
       return parsed.protocol === 'https:' && remoteImageHosts.has(parsed.hostname.toLowerCase()) ? parsed.href : 'assets/arrival-classic-clog-100.png';
     } catch { return 'assets/arrival-classic-clog-100.png'; }
   };
+  const descriptionImages = value => [...String(value || '').matchAll(/(?:src|data-src|data-lazyload-src|data-original)\s*=\s*["']([^"']+)["']/gi)]
+    .map(match => match[1]).filter(Boolean);
   const colourNames = { p1: 'White', p2: 'Lilac', p3: 'Multi', p4: 'Black', p5: 'Black', p6: 'Pink', p7: 'Espresso', p8: 'Multi' };
   const optionsFor = p => Array.isArray(p?.options) ? p.options : [];
   const variantsFor = p => Array.isArray(p?.variants) ? p.variants.filter(v => v && v.enabled !== false) : [];
@@ -50,7 +52,8 @@
     const variants = Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false })).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
     const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, 20) : [];
-    const detailImages = Array.isArray(p.detailImages) ? p.detailImages.map(image).filter(Boolean).slice(0, 40) : [];
+    const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
+    const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(image).filter(Boolean))].slice(0, 40);
     const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
@@ -246,6 +249,27 @@
   }
   async function setCatalog(data, nextSource = 'supabase') {
     if (!Array.isArray(data?.products)) throw new Error('The catalogue is unavailable.');
+    // The public RPC intentionally keeps the home response light.  Merge the
+    // generated 1688 presentation mirror for titles and copy so a pending
+    // storefront detail migration cannot expose the raw supplier wording.
+    if (nextSource !== 'static') {
+      try {
+        const staticData = await loadStaticSummary();
+        const mirror = new Map((staticData.products || []).map(product => [product.id, product]));
+        data = { ...data, products: data.products.map(product => {
+          const local = mirror.get(product.id);
+          if (!local) return product;
+          return {
+            ...product,
+            title: local.title || product.title,
+            imageAlt: local.imageAlt || product.imageAlt,
+            slug: local.slug || product.slug,
+            description: local.description || product.description,
+            seo: local.seo || product.seo,
+          };
+        }) };
+      } catch { /* The live catalog remains usable when the mirror is unavailable. */ }
+    }
     const localization = { ...(data.store?.localization || {}), ...(data.localization || {}), currency: data.localization?.currency || data.store?.currency || data.settings?.currency };
     if (regional?.configure) await regional.configure(localization);
     catalog = localizeCatalog(data.products.filter(p => p.status === 'Active').map(normalize));
@@ -296,14 +320,35 @@
     if (current?._detailLoaded) return current;
     if (detailRequests.has(productId)) return detailRequests.get(productId);
     const applyDetail = payload => {
-      const value = Array.isArray(payload) ? payload[0] : payload;
+      const value = Array.isArray(payload) ? payload[0] : (payload || {});
       if (!value?.id || value.status !== 'Active') throw new Error('This product is not available right now.');
       const detail = localizeProduct(normalize({ ...unpackPackedProduct(value), _detailLoaded: true }));
       const index = catalog.findIndex(item => item.id === productId);
       if (index >= 0) catalog[index] = detail; else catalog.push(detail);
       return detail;
     };
-    const request = rpc('storefront_product_v1', { p_product_id: productId }).then(applyDetail).catch(async error => {
+    const request = rpc('storefront_product_v1', { p_product_id: productId }).then(async payload => {
+      const value = Array.isArray(payload) ? payload[0] : (payload || {});
+      try {
+        const mirror = await loadStaticProduct(productId);
+        // Keep live price/stock/variant rows authoritative while taking the
+        // verified localized presentation and detail media from the mirror.
+        return applyDetail({
+          ...mirror,
+          ...value,
+          title: mirror.title || value.title,
+          imageAlt: mirror.imageAlt || value.imageAlt,
+          slug: mirror.slug || value.slug,
+          description: mirror.description || value.description,
+          descriptionHtml: mirror.descriptionHtml || value.descriptionHtml,
+          detailImages: mirror.detailImages?.length ? mirror.detailImages : value.detailImages,
+          gallery: mirror.gallery?.length ? mirror.gallery : value.gallery,
+          attributes: mirror.attributes?.length ? mirror.attributes : value.attributes,
+          options: mirror.options?.length ? mirror.options : value.options,
+          seo: mirror.seo || value.seo,
+        });
+      } catch { return applyDetail(payload); }
+    }).catch(async error => {
       try { return applyDetail(await loadStaticProduct(productId)); } catch { throw error; }
     }).finally(() => detailRequests.delete(productId));
     detailRequests.set(productId, request);

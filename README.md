@@ -69,6 +69,14 @@ node scripts/import-1688-shop.mjs --shop-url "https://shop1481820794169.1688.com
 
 The generated products keep a base-currency amount in `price` and the exact Vietnamese selling amount in `regionalPrices.vn` (`CNY × exchangeRateCnyVnd × multiplier`, rounded to whole VND). The exchange-rate snapshot and import metadata are written beside the JSON file. Do not publish the drafts until stock, variants, image rights and supplier terms have been checked.
 
+Every 1688 import/enrichment pass uses the same presentation normalizer: Vietnamese titles are capped at 56 characters by default, option names/values are translated through the shared cache at `assets/catalog-1688/variation-translations.vi.json`, and verified description HTML images are rewritten to the allowlisted `/api/1688-image` proxy. To re-run the normalizer after a static catalog refresh:
+
+```text
+node scripts/localize-1688-catalog.mjs --catalog assets/catalog-1688 --max-title-length 56
+```
+
+`scripts/enrich-1688-products.mjs` accepts the same `--max-title-length` and translation-cache options. Detail images are shown only when 1688 returns them (or a verified detail manifest supplies them); CAPTCHA/empty responses are recorded as blocked and never replaced with invented media.
+
 ## Included
 
 - Responsive header, navigation drawer, search and account UI
