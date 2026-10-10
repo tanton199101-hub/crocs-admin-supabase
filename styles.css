@@ -114,3 +114,7 @@ main#top{display:flex;flex-direction:column;gap:0}
 }
 
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*:before,*:after{transition-duration:.01ms!important;animation-duration:.01ms!important;animation-iteration-count:1!important}}
+
+/* Keep storefront cards in the same 3:4 media system as product pages. */
+img[data-smart-fit].is-smart-cover{object-fit:cover!important;object-position:center center}
+img[data-smart-fit].is-smart-contain{object-fit:contain!important;object-position:center center}
