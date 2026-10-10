@@ -159,8 +159,14 @@
     if (mainMenu?.items?.length) {
       const desktop = document.querySelector('.desktop-nav');
       const drawer = document.querySelector('.drawer-nav');
-      if (desktop) desktop.innerHTML = mainMenu.items.map((item, index) => `<a${index === 0 ? ' class="sale-link"' : ''} href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)}</a>`).join('');
-      if (drawer) drawer.innerHTML = mainMenu.items.map(item => `<a href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)} <span>›</span></a>`).join('');
+      if (desktop) {
+        desktop.dataset.dynamicMenu = 'true';
+        desktop.innerHTML = mainMenu.items.map((item, index) => `<a${index === 0 ? ' class="sale-link"' : ''} href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)}</a>`).join('');
+      }
+      if (drawer) {
+        drawer.dataset.dynamicMenu = 'true';
+        drawer.innerHTML = mainMenu.items.map(item => `<a href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)} <span>›</span></a>`).join('');
+      }
     }
     const footerMenu = list.find(menu => menu.id === 'footer');
     const legal = document.querySelector('.footer-bottom .legal');

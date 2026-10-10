@@ -174,7 +174,13 @@
   const staticCopy = { '#searchTrigger span': 'search', '#searchClose': 'close', '.promo-bar a': 'shopNow', '#menuDrawer .drawer-header span': 'menu', '#cartDrawer .drawer-header span': 'bag', '#accountDrawer .drawer-header span': 'account', '#cartEmpty h2': 'emptyBag', '#cartEmpty p': 'findPair', '#cartEmpty a': 'shopClassics', '#cartSummary span': 'subtotal', '#checkoutButton': 'checkout', '.hero-content a': 'shopCollection', '.arrivals h2': 'newArrivals', '#footerAccount': 'account', '.desktop-nav .sale-link': 'sale', '.desktop-nav a:nth-child(2)': 'women', '.desktop-nav a:nth-child(3)': 'men', '.desktop-nav a:nth-child(4)': 'kids', '.desktop-nav a:nth-child(5)': 'charms', '.desktop-nav a:nth-child(6)': 'work', '.desktop-nav a:nth-child(7)': 'accessories', '.desktop-nav a:nth-child(8)': 'collaborations', '.drawer-nav a:nth-child(1)': 'sale', '.drawer-nav a:nth-child(2)': 'women', '.drawer-nav a:nth-child(3)': 'men', '.drawer-nav a:nth-child(4)': 'kids', '.drawer-nav a:nth-child(5)': 'charms', '.drawer-nav a:nth-child(6)': 'collaborations', '.drawer-nav a:nth-child(7)': 'accessories', '.classics h2': 'classicIcons', '.classics .text-link': 'shopClassicClogs', '.spotlight:not(.throwback) .eyebrow': 'softness', '.spotlight:not(.throwback) h2': 'killingSoftly', '.spotlight:not(.throwback) a': 'shopCozzy', '.charms h2': 'styleYourWay', '#tab-tattoos': 'shoeTattoos', '#tab-accessories': 'accessories', '.club h2': 'clubTitle', '.club-copy > p:last-child': 'clubCopy', '#clubForm button': 'signUp' };
   function translateStatic() {
     if (!root.document) return;
-    Object.entries(staticCopy).forEach(([selector, key]) => root.document.querySelectorAll(selector).forEach(element => { element.textContent = t(key, element.textContent); }));
+    Object.entries(staticCopy).forEach(([selector, key]) => root.document.querySelectorAll(selector).forEach(element => {
+      // A published admin menu is store content, not one of the seeded
+      // navigation labels. Keep its collection names and links intact when
+      // the shopper changes region or language.
+      if (element.closest('.desktop-nav, .drawer-nav')?.dataset.dynamicMenu === 'true') return;
+      element.textContent = t(key, element.textContent);
+    }));
     const promo = root.document.querySelectorAll('.promo-bar strong');
     if (promo[0]) promo[0].textContent = `${formatMoney(priceFor(2500))}, Get ${formatMoney(priceFor(500))} Off.`;
     if (promo[1]) promo[1].textContent = `${formatMoney(priceFor(5000))}, Get ${formatMoney(priceFor(1500))} Off`;
