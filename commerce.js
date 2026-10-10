@@ -7,6 +7,7 @@
   const CART_KEY = 'crocs-bag-v2';
   const CATALOG_CACHE_KEY = 'crocs-catalog-v1';
   const CATALOG_CACHE_TTL = 60 * 1000;
+  const STATIC_CATALOG_PATH = 'assets/catalog-1688';
   const regional = root.CrocsRegional;
   const baseMoney = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
   const money = cents => regional?.formatMoney ? regional.formatMoney(cents) : baseMoney(cents);
@@ -53,6 +54,73 @@
     const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
+
+  // The public RPC is the source of truth. A static, generated 1688 mirror is
+  // kept as a safe read-only fallback while a project is unavailable or its
+  // SQL migration is still waiting to be applied. It uses the same compact
+  // variant wire format as supabase-sync.js so product pages can still load
+  // verified options without sending 100k SKU rows in the home response.
+  function unpackPackedProduct(product) {
+    if (product?.variantEncoding !== 'crocs-1688-v3' || !Array.isArray(product.variantsPacked)) return product;
+    const options = Array.isArray(product.options) ? product.options : [];
+    const regions = Array.isArray(product.variantRegions) ? product.variantRegions : [];
+    const priceIndex = 1 + options.length;
+    const stockIndex = priceIndex + 1;
+    const regionIndex = stockIndex + 1;
+    const flagIndex = regionIndex + regions.length;
+    const variants = product.variantsPacked.map(row => {
+      if (!Array.isArray(row) || typeof row[0] !== 'string') return null;
+      const sku = row[0];
+      const values = Object.fromEntries(options.map((option, index) => {
+        const value = option.values?.[Number(row[1 + index])];
+        return value == null ? null : [option.id, value];
+      }).filter(Boolean));
+      const regionalPrices = Object.fromEntries(regions.map((region, index) => {
+        const value = row[regionIndex + index];
+        return value == null ? null : [region, Number(value)];
+      }).filter(Boolean));
+      return {
+        id: sku,
+        values,
+        sku,
+        price: Number(row[priceIndex] || 0),
+        compareAt: null,
+        cost: null,
+        stock: Number(row[stockIndex] || 0),
+        enabled: row[flagIndex] !== 0,
+        barcode: '',
+        ...(Object.keys(regionalPrices).length ? { regionalPrices } : {}),
+      };
+    }).filter(Boolean);
+    const expanded = { ...product, variants };
+    delete expanded.variantEncoding;
+    delete expanded.variantRegions;
+    delete expanded.variantsPacked;
+    return expanded;
+  }
+  async function fetchStaticJson(file) {
+    const response = await fetch(`${STATIC_CATALOG_PATH}/${file}`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    if (!response.ok) throw new Error(`Static catalogue ${response.status}`);
+    return response.json();
+  }
+  async function loadStaticSummary() {
+    if (!staticSummary) staticSummary = await fetchStaticJson('summary.json');
+    return staticSummary;
+  }
+  const staticDetailChunks = new Map();
+  async function loadStaticProduct(id) {
+    const summary = (await loadStaticSummary()).products?.find(product => product.id === id);
+    if (!summary) throw new Error('Static product unavailable.');
+    const chunk = Number.isInteger(summary.detailChunk) ? summary.detailChunk : 0;
+    let products = staticDetailChunks.get(chunk);
+    if (!products) {
+      products = await fetchStaticJson(`details-${chunk}.json`);
+      staticDetailChunks.set(chunk, products);
+    }
+    const product = products?.[id];
+    if (!product) throw new Error('Static product unavailable.');
+    return unpackPackedProduct(product);
+  }
   function localizeProduct(product) {
     if (!regional?.priceFor) return product;
     const basePrice = Number.isSafeInteger(product.basePrice) ? product.basePrice : product.price;
@@ -71,6 +139,7 @@
     ['p7','Classic Lined Clog','203591-206',4999,12,'icon-lined-206.png','Clogs']
   ].map(([id,title,sku,price,stock,img,category]) => normalize({ id,title,sku,price,stock,image:`assets/${img}`,category,status:'Active',description:'Lightweight comfort. Made for everyday adventures.' }));
   let catalog = seeds, source = 'sample', problem = '';
+  let staticSummary = null;
   function readCart() {
     try {
       const parsed = JSON.parse(root.localStorage?.getItem(CART_KEY) || '[]');
@@ -204,11 +273,17 @@
       await setCatalog(data, 'supabase');
       saveCatalogCache(data);
     } catch {
-      if (!cached) {
-        source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.';
-        if (regional?.ready) await regional.ready.catch(() => {});
-        catalog = localizeCatalog(catalog);
-        root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
+      try {
+        const staticData = await loadStaticSummary();
+        await setCatalog(staticData, 'static');
+        saveCatalogCache(staticData);
+      } catch {
+        if (!cached) {
+          source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.';
+          if (regional?.ready) await regional.ready.catch(() => {});
+          catalog = localizeCatalog(catalog);
+          root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
+        }
       }
     }
     return catalog;
@@ -220,13 +295,16 @@
     const current = catalog.find(item => item.id === productId);
     if (current?._detailLoaded) return current;
     if (detailRequests.has(productId)) return detailRequests.get(productId);
-    const request = rpc('storefront_product_v1', { p_product_id: productId }).then(payload => {
+    const applyDetail = payload => {
       const value = Array.isArray(payload) ? payload[0] : payload;
       if (!value?.id || value.status !== 'Active') throw new Error('This product is not available right now.');
-      const detail = localizeProduct(normalize({ ...value, _detailLoaded: true }));
+      const detail = localizeProduct(normalize({ ...unpackPackedProduct(value), _detailLoaded: true }));
       const index = catalog.findIndex(item => item.id === productId);
       if (index >= 0) catalog[index] = detail; else catalog.push(detail);
       return detail;
+    };
+    const request = rpc('storefront_product_v1', { p_product_id: productId }).then(applyDetail).catch(async error => {
+      try { return applyDetail(await loadStaticProduct(productId)); } catch { throw error; }
     }).finally(() => detailRequests.delete(productId));
     detailRequests.set(productId, request);
     return request;
