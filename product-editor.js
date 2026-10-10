@@ -58,10 +58,10 @@
       return `<div class="pe-option" data-option="${esc(o.id)}"><label class="field"><span>Thuộc tính</span><input data-option-name value="${esc(o.name)}" maxlength="40" placeholder="Màu sắc"></label><label class="field"><span>Giá trị, ngăn cách bằng dấu phẩy</span><input data-option-values value="${esc(o.values.join(', '))}" placeholder="Trắng, Đen, Hồng"></label><button type="button" class="pe-icon" data-pe="remove-option" aria-label="Bỏ thuộc tính ${esc(o.name)}">×</button></div>`;
     }
     function mediaList() {
-      return [...new Set([draft.image, ...(Array.isArray(draft.gallery) ? draft.gallery : [])].filter(Boolean))].slice(0, 20);
+      return [...new Set([draft.image, ...(Array.isArray(draft.gallery) ? draft.gallery : [])].filter(Boolean))].slice(0, 50);
     }
     function detailMediaList() {
-      return [...new Set((Array.isArray(draft.detailImages) ? draft.detailImages : []).filter(Boolean))].slice(0, 40);
+      return [...new Set((Array.isArray(draft.detailImages) ? draft.detailImages : []).filter(Boolean))].slice(0, 120);
     }
     function mediaMarkup() {
       const gallery = mediaList(), details = detailMediaList();

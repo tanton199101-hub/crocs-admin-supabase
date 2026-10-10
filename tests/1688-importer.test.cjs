@@ -108,6 +108,17 @@ test('1688 detail parser keeps gallery/detail images and maps SKU specs to optio
   assert.doesNotThrow(() => Store.validate(data));
 });
 
+test('1688 media parser keeps lazy-load/srcset images and the full desktop offer gallery', () => {
+  const description = 'var offer_details={"content":"<img data-ks-lazyload=\"https://cbu01.alicdn.com/img/ibank/lazy.jpg\"><img srcset=\"https://cbu01.alicdn.com/img/ibank/one.jpg 1x, https://cbu01.alicdn.com/img/ibank/two.jpg 2x\">"};';
+  const parsed = Importer.parseDescriptionDocument(description);
+  assert.equal(parsed.images.length, 3);
+  assert.equal(Importer.imageUrl('https://itemcdn.tmall.com/1688offer/not-an-image'), '');
+  const gallery = Array.from({ length: 22 }, (_, index) => `https://cbu01.alicdn.com/img/ibank/gallery-${index}.jpg`);
+  const desktop = Importer.parseDesktopOfferDocument(`<script>window.context={"gallery":{"fields":{"offerImgList":${JSON.stringify(gallery)}}},"description":{"fields":{"detailUrl":"https://itemcdn.tmall.com/1688offer/example"}}};</script>`);
+  assert.equal(desktop.gallery.length, 22);
+  assert.equal(desktop.descriptionUrl, 'https://itemcdn.tmall.com/1688offer/example');
+});
+
 test('1688 detail parser accepts the current desktop window.context shape', () => {
   const offer = {
     offerId: '1081098810208',

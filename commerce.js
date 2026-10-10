@@ -8,25 +8,38 @@
   const CATALOG_CACHE_KEY = 'crocs-catalog-v1';
   const CATALOG_CACHE_TTL = 60 * 1000;
   const STATIC_CATALOG_PATH = 'assets/catalog-1688';
+  const MAX_GALLERY_IMAGES = 50;
+  const MAX_DETAIL_IMAGES = 120;
   const regional = root.CrocsRegional;
   const baseMoney = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
   const money = cents => regional?.formatMoney ? regional.formatMoney(cents) : baseMoney(cents);
   const escape = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com']);
+  const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com', 'img01.1688.com', 'img02.1688.com']);
+  const allowedRemoteHost = host => remoteImageHosts.has(String(host || '').toLowerCase()) || /(?:^|\.)alicdn\.com$/i.test(String(host || ''));
+  const normalizeImageReference = value => String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/').replace(/&quot;/gi, '"').trim();
   const image = value => {
-    const raw = String(value || '');
+    const raw = normalizeImageReference(value);
     if (/^assets\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(raw) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(raw)) return raw;
     try {
       const parsed = new URL(raw, root.location?.origin || 'https://store.invalid');
       if (parsed.origin === (root.location?.origin || 'https://store.invalid') && parsed.pathname === '/api/1688-image') {
         const source = new URL(parsed.searchParams.get('url') || '');
-        return source.protocol === 'https:' && remoteImageHosts.has(source.hostname.toLowerCase()) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : 'assets/arrival-classic-clog-100.png';
+        return source.protocol === 'https:' && allowedRemoteHost(source.hostname) && !/^\/1688offer\//i.test(source.pathname) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : 'assets/arrival-classic-clog-100.png';
       }
-      return parsed.protocol === 'https:' && remoteImageHosts.has(parsed.hostname.toLowerCase()) ? parsed.href : 'assets/arrival-classic-clog-100.png';
+      return parsed.protocol === 'https:' && allowedRemoteHost(parsed.hostname) && !/^\/1688offer\//i.test(parsed.pathname) ? parsed.href : 'assets/arrival-classic-clog-100.png';
     } catch { return 'assets/arrival-classic-clog-100.png'; }
   };
-  const descriptionImages = value => [...String(value || '').matchAll(/(?:src|data-src|data-lazyload-src|data-original)\s*=\s*["']([^"']+)["']/gi)]
-    .map(match => match[1]).filter(Boolean);
+  const descriptionImages = value => {
+    const html = String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    const result = [];
+    for (const match of html.matchAll(/([\w-]+)\s*=\s*(["'])([\s\S]*?)\2/gi)) {
+      const name = String(match[1] || '').toLowerCase();
+      if (!['src', 'data-src', 'data-lazy-src', 'data-lazyload-src', 'data-ks-lazyload', 'data-img', 'data-image', 'data-original', 'srcset', 'data-srcset'].includes(name)) continue;
+      result.push(...(name === 'srcset' || name === 'data-srcset' ? match[3].split(',').map(item => item.trim().split(/\s+/)[0]) : [match[3]]));
+    }
+    for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\(\s*["']?([^\)"']+)/gi)) result.push(match[1]);
+    return result.filter(Boolean);
+  };
   const colourNames = { p1: 'White', p2: 'Lilac', p3: 'Multi', p4: 'Black', p5: 'Black', p6: 'Pink', p7: 'Espresso', p8: 'Multi' };
   const optionsFor = p => Array.isArray(p?.options) ? p.options : [];
   const variantsFor = p => Array.isArray(p?.variants) ? p.variants.filter(v => v && v.enabled !== false) : [];
@@ -51,9 +64,9 @@
     const basePrice = Number.isSafeInteger(p.basePrice) ? p.basePrice : p.price;
     const variants = Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false })).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
-    const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, 20) : [];
+    const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
     const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
-    const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(image).filter(Boolean))].slice(0, 40);
+    const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(image).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
     const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }

@@ -94,11 +94,14 @@
     return target;
   }
   const safeLink = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|index\.html(?:#[\w-]+)?)$/.test(value);
-  const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com']);
+  const MAX_GALLERY_IMAGES = 50;
+  const MAX_DETAIL_IMAGES = 120;
+  const remoteImageHosts = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com', 'img01.1688.com', 'img02.1688.com']);
+  const allowedRemoteHost = host => remoteImageHosts.has(String(host || '').toLowerCase()) || /(?:^|\.)alicdn\.com$/i.test(String(host || ''));
   const safeRemoteImage = value => {
     try {
       const url = new URL(String(value || ''));
-      return url.protocol === 'https:' && remoteImageHosts.has(url.hostname.toLowerCase());
+      return url.protocol === 'https:' && allowedRemoteHost(url.hostname) && !/^\/1688offer\//i.test(url.pathname);
     } catch {
       return false;
     }
@@ -172,7 +175,7 @@
       p.imageAlt ||= `${p.title} product image`;
       if (!p.slug) p.slug = p.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
       if (!p.title?.trim() || !p.sku?.trim() || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0 || !['Active', 'Draft', 'Archived'].includes(p.status) || !safeImage(p.image)) throw new Error('Sản phẩm cần tên, SKU, ảnh, giá và tồn kho hợp lệ.');
-      if (p.gallery.length > 20 || p.gallery.some(image => !safeImage(image)) || p.detailImages.length > 40 || p.detailImages.some(image => !safeImage(image))) throw new Error('Gallery ảnh sản phẩm không hợp lệ.');
+      if (p.gallery.length > MAX_GALLERY_IMAGES || p.gallery.some(image => !safeImage(image)) || p.detailImages.length > MAX_DETAIL_IMAGES || p.detailImages.some(image => !safeImage(image))) throw new Error('Gallery ảnh sản phẩm không hợp lệ.');
       if (typeof p.description !== 'string' || p.description.length > 12000 || p.attributes.length > 80 || p.attributes.some(attribute => !attribute || typeof attribute !== 'object' || String(attribute.name || attribute.label || '').length > 160 || String(attribute.value || attribute.content || '').length > 500)) throw new Error('Mô tả hoặc thuộc tính sản phẩm không hợp lệ.');
       if (p.descriptionHtml != null && (typeof p.descriptionHtml !== 'string' || p.descriptionHtml.length > 200000)) throw new Error('Mô tả HTML sản phẩm quá dài hoặc không hợp lệ.');
       if (typeof p.brand !== 'string' || typeof p.imageAlt !== 'string' || typeof p.slug !== 'string' || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(p.slug) || typeof p.seo.title !== 'string' || typeof p.seo.description !== 'string' || typeof p.seo.noindex !== 'boolean') throw new Error('Thông tin thương hiệu hoặc SEO sản phẩm không hợp lệ.');

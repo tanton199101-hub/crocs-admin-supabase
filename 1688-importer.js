@@ -6,7 +6,17 @@
   'use strict';
 
   const FALLBACK_IMAGE = 'assets/arrival-classic-clog-100.png';
-  const IMAGE_HOSTS = Object.freeze(new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com']));
+  // 1688 offers can expose more than the three thumbnails returned by the
+  // shop-list endpoint (the offer currently used in the admin has 22). Keep
+  // generous, explicit ceilings so verified supplier media is not silently
+  // truncated while still bounding a malformed payload.
+  const MAX_GALLERY_IMAGES = 50;
+  const MAX_DETAIL_IMAGES = 120;
+  const IMAGE_HOSTS = Object.freeze(new Set([
+    'cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com',
+    'img01.1688.com', 'img02.1688.com',
+  ]));
+  const ALICDN_HOST_RE = /(?:^|\.)alicdn\.com$/i;
   const IMAGE_PROXY_PATH = '/api/1688-image';
   const OFFER_RE = /(?:^|\/)offer\/(\d{6,20})(?:\.html)?(?:\/|$)/i;
   const SHOP_HOST_RE = /(?:^|\.)1688\.com$/i;
@@ -31,13 +41,27 @@
   });
 
   const clean = (value, max = 500) => String(value ?? '').trim().slice(0, max);
+  function normalizeImageReference(value) {
+    return decodeEntities(String(value ?? ''))
+      .replace(/\\u002f/gi, '/')
+      .replace(/\\\//g, '/')
+      .replace(/\\"/g, '"')
+      .replace(/^\s*url\(\s*["']?/i, '')
+      .replace(/["']?\s*\)\s*$/i, '')
+      .trim()
+      .replace(/[<>;,]+$/g, '');
+  }
+  function allowedImageHost(hostname) {
+    const host = String(hostname || '').toLowerCase();
+    return IMAGE_HOSTS.has(host) || ALICDN_HOST_RE.test(host);
+  }
   function remoteImageUrl(value) {
-    const raw = clean(value, 2000);
+    const raw = clean(normalizeImageReference(value), 4000);
     if (!raw) return '';
     const candidate = raw.startsWith('//') ? `https:${raw}` : raw;
     try {
       const url = new URL(candidate);
-      if (url.protocol !== 'https:' || !IMAGE_HOSTS.has(url.hostname.toLowerCase())) return '';
+      if (url.protocol !== 'https:' || !allowedImageHost(url.hostname)) return '';
       return url.href;
     } catch {
       return '';
@@ -46,11 +70,12 @@
 
   function proxyImageUrl(value) {
     const direct = remoteImageUrl(value);
+    if (!direct || /^\/1688offer\//i.test(new URL(direct).pathname)) return '';
     return direct ? `${IMAGE_PROXY_PATH}?url=${encodeURIComponent(direct)}` : '';
   }
 
   function imageUrl(value, { proxy = false } = {}) {
-    const raw = clean(value, 4000);
+    const raw = clean(normalizeImageReference(value), 4000);
     if (!raw) return '';
     // Keep already-proxied URLs idempotent. They are same-origin paths and
     // are safe to persist in the validated store state.
@@ -61,6 +86,7 @@
       }
     } catch { /* fall through to the remote URL parser */ }
     const direct = remoteImageUrl(raw);
+    if (!direct || /^\/1688offer\//i.test(new URL(direct).pathname)) return '';
     return direct ? (proxy ? proxyImageUrl(direct) : direct) : '';
   }
 
@@ -72,7 +98,7 @@
         if (!raw) return '';
         return imageUrl(raw.startsWith('http') || raw.startsWith('//') ? raw : `https://cbu01.alicdn.com/${raw.replace(/^\/+/, '')}`);
       })
-      .filter(Boolean))].slice(0, 20);
+      .filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
   }
 
   function extractJsonObject(source, marker) {
@@ -98,12 +124,61 @@
     return '';
   }
 
+  function extractJsonArray(source, marker) {
+    const input = String(source || '');
+    const start = input.indexOf(marker);
+    if (start < 0) return '';
+    const open = input.indexOf('[', start);
+    if (open < 0) return '';
+    let depth = 0;
+    let quoted = false;
+    let escaped = false;
+    for (let index = open; index < input.length; index += 1) {
+      const char = input[index];
+      if (quoted) {
+        if (escaped) escaped = false;
+        else if (char === '\\') escaped = true;
+        else if (char === '"') quoted = false;
+        continue;
+      }
+      if (char === '"') { quoted = true; continue; }
+      if (char === '[') depth += 1;
+      if (char === ']' && --depth === 0) return input.slice(open, index + 1);
+    }
+    return '';
+  }
+
   function decodeEntities(value) {
     return String(value || '')
       .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
       .replace(/&#x([\da-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
       .replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<')
       .replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
+  }
+
+  function srcsetValues(value) {
+    return String(value || '').split(',').map(item => item.trim().split(/\s+/)[0]).filter(Boolean);
+  }
+
+  // 1688 has used several lazy-loading attributes over time. Extract them
+  // consistently for both the detail-image list and persisted HTML.
+  function htmlImageCandidates(value) {
+    const html = String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    const candidates = [];
+    const attributeRe = /([\w-]+)\s*=\s*(["'])([\s\S]*?)\2/gi;
+    for (const match of html.matchAll(attributeRe)) {
+      const name = String(match[1] || '').toLowerCase();
+      if (!['src', 'data-src', 'data-lazy-src', 'data-lazyload-src', 'data-ks-lazyload', 'data-img', 'data-image', 'data-original', 'srcset', 'data-srcset'].includes(name)) continue;
+      candidates.push(...(name === 'srcset' || name === 'data-srcset' ? srcsetValues(match[3]) : [match[3]]));
+    }
+    for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\(\s*["']?([^\)"']+)/gi)) candidates.push(match[1]);
+    // Some payloads contain escaped CDN URLs in JSON rather than rendered
+    // attributes. Limit this fallback to image-looking paths.
+    for (const match of html.matchAll(/https?:\\?\/\\?\/(?:[^"'\\s<>]|\\.)+/gi)) {
+      const candidate = normalizeImageReference(match[0]).replace(/[\\"']+$/g, '');
+      if (/\.(?:avif|gif|jpe?g|png|webp|svg)(?:[?#_]|$)/i.test(candidate) || /\/img(?:extra|bank)\//i.test(candidate)) candidates.push(candidate);
+    }
+    return candidates;
   }
 
   /**
@@ -149,7 +224,7 @@
         image: imageUrl(item?.imgUrl || item?.imageURI || item),
       }))
       .filter(item => item.image);
-    const gallery = [...new Set([...galleryCandidates, ...skuImages.map(item => item.image)].map(imageUrl).filter(Boolean))].slice(0, 20);
+    const gallery = [...new Set([...galleryCandidates, ...skuImages.map(item => item.image)].map(imageUrl).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
     const inlineSkuModel = [
       main.skuModel,
       globalData.skuModel,
@@ -175,6 +250,41 @@
     };
   }
 
+  /**
+   * Read the reduced, public desktop offer payload. The desktop page embeds
+   * `gallery.fields.offerImgList` and `description.fields.detailUrl` even
+   * when the detail HTML itself requires a signed/session request. This lets
+   * an authenticated browser export restore the complete gallery without
+   * scraping arbitrary page markup.
+   */
+  function parseDesktopOfferDocument(text) {
+    const source = decodeEntities(String(text || '')).replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    const arrayMarkers = ['"offerImgList"', 'offerImgList', '"mainImage"', 'mainImage', '"imageList"', 'imageList'];
+    let galleryValues = [];
+    for (const marker of arrayMarkers) {
+      const arrayText = extractJsonArray(source, marker);
+      if (!arrayText) continue;
+      try {
+        const parsed = JSON.parse(arrayText);
+        if (Array.isArray(parsed) && parsed.length) { galleryValues = parsed; break; }
+      } catch {
+        // The surrounding desktop document may use HTML entities; fall back
+        // to the URL extractor below rather than failing the whole import.
+      }
+    }
+    if (!galleryValues.length) galleryValues = htmlImageCandidates(source);
+    const gallery = [...new Set(galleryValues.map(item => item?.fullPathImageURI || item?.imageURI || item?.imgUrl || item).map(imageUrl).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
+    const detailMatch = source.match(/(?:["']detailUrl["']|detailUrl)\s*:\s*["'](https?:\\?\/\\?\/itemcdn\.tmall\.com\/1688offer\/[^"']+)["']/i);
+    const titleMatch = source.match(/(?:["'](?:subject|title)["']|(?:subject|title))\s*:\s*["']([^"']{3,500})["']/i);
+    const offerMatch = source.match(/(?:["']offerId["']|offerId)\s*:\s*["']?(\d{6,20})/i);
+    return {
+      offerId: clean(offerMatch?.[1], 30),
+      title: clean(titleMatch?.[1], 500),
+      gallery,
+      descriptionUrl: normalizeDescriptionUrl(detailMatch?.[1]?.replace(/\\\//g, '/')),
+    };
+  }
+
   function parseDescriptionDocument(text) {
     const source = String(text || '');
     const objectText = extractJsonObject(source, 'offer_details');
@@ -183,11 +293,7 @@
       try { content = JSON.parse(objectText).content || ''; } catch { content = ''; }
     }
     const html = String(content || source);
-    const imageCandidates = [
-      ...[...html.matchAll(/(?:src|data-src|data-lazyload-src|data-original)\s*=\s*["']([^"']+)["']/gi)].map(item => item[1]),
-      ...[...html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)].map(item => item[1]),
-    ];
-    const images = [...new Set(imageCandidates.map(value => imageUrl(value.startsWith('//') ? `https:${value}` : value, { proxy: true })).filter(Boolean))].slice(0, 40);
+    const images = [...new Set(htmlImageCandidates(html).map(value => imageUrl(value.startsWith('//') ? `https:${value}` : value, { proxy: true })).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
     const textContent = decodeEntities(html.replace(/<script[\s\S]*?<\/script>/gi, ' ')
       .replace(/<style[\s\S]*?<\/style>/gi, ' ')
       .replace(/<br\s*\/?\s*>/gi, '\n')
@@ -197,8 +303,18 @@
     return { html: content ? proxyDescriptionHtml(clean(content, 200000)) : '', text: clean(textContent, 12000), images };
   }
 
+  function proxySrcset(value) {
+    return srcsetValues(value).map((candidate, index) => {
+      const descriptor = String(value || '').split(',')[index]?.trim().split(/\s+/).slice(1).join(' ') || '';
+      const proxied = imageUrl(candidate.startsWith('//') ? `https:${candidate}` : candidate, { proxy: true });
+      return `${proxied || candidate}${descriptor ? ` ${descriptor}` : ''}`;
+    }).join(', ');
+  }
+
   function proxyDescriptionHtml(value) {
-    return clean(value, 200000).replace(/((?:src|data-src|data-lazy-src|data-lazyload-src|data-original)\s*=\s*)(["'])([^"']+)\2/gi, (match, prefix, quote, source) => {
+    return clean(value, 200000).replace(/((?:src|data-src|data-lazy-src|data-lazyload-src|data-ks-lazyload|data-img|data-image|data-original|srcset|data-srcset)\s*=\s*)(["'])([^"']+)\2/gi, (match, prefix, quote, source) => {
+      const attr = String(prefix).split('=')[0].trim().toLowerCase();
+      if (attr === 'srcset' || attr === 'data-srcset') return `${prefix}${quote}${proxySrcset(source)}${quote}`;
       const normalized = source.startsWith('//') ? `https:${source}` : source;
       const proxied = imageUrl(normalized, { proxy: true });
       return proxied ? `${prefix}${quote}${proxied}${quote}` : match;
@@ -367,7 +483,7 @@
     if (body && Array.isArray(body.gallery) && (Array.isArray(body.variants) || Array.isArray(body.options)) && (body.offerId || body.title)) {
       return {
         offerId: clean(body.offerId, 30), title: clean(body.title || body.subject, 500),
-        gallery: [...new Set(body.gallery.map(imageUrl).filter(Boolean))].slice(0, 20),
+        gallery: [...new Set(body.gallery.map(imageUrl).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES),
         options: normalizeOptions(body.options || []),
         variants: (Array.isArray(body.variants) ? body.variants : []).map((variant, index) => ({
           ...variant, id: clean(variant.id || variant.sku || `remote-${index + 1}`, 80),
@@ -447,7 +563,7 @@
     return {
       offerId: clean(offer.offerId || dataModel?.offerBaseInfo?.offerId || rootData?.tempModel?.offerId || body.offerId, 30),
       title: clean(offer.subject || offer.title || dataModel?.offerBaseInfo?.title || dataModel?.tempModel?.offerTitle || dataModel?.shareModel?.subject || body.title, 500),
-      gallery: [...new Set(gallery)].slice(0, 20),
+      gallery: [...new Set(gallery)].slice(0, MAX_GALLERY_IMAGES),
       options: options.map(({ sourceName, ...option }) => option),
       variants,
       descriptionUrl: normalizeDescriptionUrl(offer.detailUrl || dataModel.description?.fields?.detailUrl || dataModel.description?.detailUrl || dataModel.detailModel?.detailUrl || rootData?.detailModel?.detailUrl || body.descriptionUrl),
@@ -956,8 +1072,8 @@
     const translations = input.translationMap && typeof input.translationMap === 'object' ? input.translationMap : {};
     const options = normalizeOptions(optionValues(input), translations);
     const variants = normalizeVariants(input, options, sku, translations);
-    const galleryDirect = [...new Set((Array.isArray(input.gallery) ? input.gallery : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, 20);
-    const detailImagesDirect = [...new Set((Array.isArray(input.detailImages) ? input.detailImages : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, 40);
+    const galleryDirect = [...new Set((Array.isArray(input.gallery) ? input.gallery : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
+    const detailImagesDirect = [...new Set((Array.isArray(input.detailImages) ? input.detailImages : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
     const gallery = galleryDirect.map(value => imageUrl(value, { proxy: true })).filter(Boolean);
     const detailImages = detailImagesDirect.map(value => imageUrl(value, { proxy: true })).filter(Boolean);
     const price = safeNumber(input.priceMinor ?? input.basePriceMinor, variants.length ? Math.min(...variants.map(variant => variant.price)) : 0);
@@ -1027,12 +1143,12 @@
     const media = value => [...new Set((Array.isArray(value) ? value : []).map(item => imageUrl(item, { proxy: true })).filter(Boolean))];
     const gallery = media(enrichment.gallery);
     const detailImages = media(enrichment.detailImages);
-    if (gallery.length) { current.gallery = gallery.slice(0, 20); current.image = gallery[0]; }
+    if (gallery.length) { current.gallery = gallery.slice(0, MAX_GALLERY_IMAGES); current.image = gallery[0]; }
     else if (!current.image || current.image === FALLBACK_IMAGE) {
       const primary = imageUrl(enrichment.image || enrichment.imageUrl, { proxy: true });
       if (primary) current.image = primary;
     }
-    if (detailImages.length) current.detailImages = detailImages.slice(0, 40);
+    if (detailImages.length) current.detailImages = detailImages.slice(0, MAX_DETAIL_IMAGES);
     const description = meaningfulDescription(enrichment.description, current.title);
     if (description) current.description = description;
     if (typeof enrichment.descriptionHtml === 'string' && enrichment.descriptionHtml.trim()) current.descriptionHtml = clean(enrichment.descriptionHtml, 200000);
@@ -1109,9 +1225,9 @@
   }
 
   return Object.freeze({
-    FALLBACK_IMAGE, MTOP_ENDPOINT, MTOP_APP_KEY, OFFER_DETAIL_MTOP_ENDPOINT, OFFER_DETAIL_MTOP_API, DEFAULT_SHOP_MEMBER_ID, DEFAULT_SHOP_NAME, KNOWN_TITLES,
+    FALLBACK_IMAGE, MAX_GALLERY_IMAGES, MAX_DETAIL_IMAGES, MTOP_ENDPOINT, MTOP_APP_KEY, OFFER_DETAIL_MTOP_ENDPOINT, OFFER_DETAIL_MTOP_API, DEFAULT_SHOP_MEMBER_ID, DEFAULT_SHOP_NAME, KNOWN_TITLES,
     clean, parseOfferUrl, isShopUrl, shopHost, sourceUrl, translatedTitle, fallbackVietnameseTitle, shortenVietnameseTitle, localizeProduct,
-    priceCnyToVnd, parseJsonp, imageUrl, proxyImageUrl, offerImages, parseDescriptionDocument, proxyDescriptionHtml, parseMobileOfferDocument, detailPayload, normalizeDescriptionUrl, createMtopClient, createOfferDetailClient, fetchShopCatalog, translateTitleVi, translateTitles,
+    priceCnyToVnd, parseJsonp, imageUrl, proxyImageUrl, offerImages, parseDescriptionDocument, proxyDescriptionHtml, parseMobileOfferDocument, parseDesktopOfferDocument, detailPayload, normalizeDescriptionUrl, createMtopClient, createOfferDetailClient, fetchShopCatalog, translateTitleVi, translateTitles,
     translateOptionValues, localizedOptionValue, localizedOptionName,
     toProduct, productFromOffer, mergeEnrichment, enrichProduct, upsert,
   });

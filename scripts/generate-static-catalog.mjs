@@ -12,10 +12,13 @@ const arg = (name, fallback = '') => {
 };
 const maxTitleLength = Math.max(36, Math.min(80, Number(arg('max-title-length', '56')) || 56));
 const translationCachePath = resolve(arg('translation-cache', join(outputPath, 'variation-translations.vi.json')));
+const mediaOverridesPath = resolve(arg('media-overrides', join(outputPath, 'media-overrides.json')));
 const chinese = /[\u3400-\u9fff\uf900-\ufaff]/;
 
 const backup = JSON.parse(await readFile(resolve(sourcePath), 'utf8'));
 const sourceProducts = Array.isArray(backup.products) ? backup.products : [];
+let mediaOverrides = {};
+try { mediaOverrides = JSON.parse(await readFile(mediaOverridesPath, 'utf8')); } catch { /* optional */ }
 let translationMap = {};
 try { translationMap = JSON.parse(await readFile(translationCachePath, 'utf8')); } catch { /* first generation */ }
 const is1688 = product => Boolean(product?.source?.platform === '1688' || /^1688-/i.test(String(product?.sku || '')));
@@ -31,7 +34,21 @@ const translated = await Importer.translateOptionValues(labels, {
 translationMap = { ...translationMap, ...translated };
 const products = sourceProducts.map(product => is1688(product)
   ? Importer.localizeProduct(product, translationMap, { maxLength: maxTitleLength })
-  : product);
+  : product).map(product => {
+    const key = String(product?.source?.offerId || product?.sku || '').trim();
+    const override = mediaOverrides[key] || mediaOverrides[String(product?.sku || '').replace(/^1688-/i, '')];
+    if (!override) return product;
+    return Importer.mergeEnrichment(product, {
+      gallery: override.gallery,
+      detailImages: override.detailImages,
+      descriptionHtml: override.descriptionHtml,
+      description: override.description,
+      descriptionUrl: override.descriptionUrl,
+      detailFetchedAt: override.detailFetchedAt,
+      detailStatus: override.detailStatus || 'available',
+      source: { ...(override.source || {}), mediaOverride: true },
+    });
+  });
 const active = products.filter(product => product?.status === 'Active');
 const chunkSize = 50;
 const variantEncoding = 'crocs-1688-v3';
@@ -99,6 +116,7 @@ function projection(product, chunk) {
 await rm(outputPath, { recursive: true, force: true });
 await mkdir(outputPath, { recursive: true });
 await writeFile(translationCachePath, JSON.stringify(translationMap, null, 2));
+if (Object.keys(mediaOverrides).length) await writeFile(join(outputPath, 'media-overrides.json'), JSON.stringify(mediaOverrides, null, 2));
 const details = new Map();
 const summaries = active.map((product, index) => {
   const chunk = Math.floor(index / chunkSize);

@@ -75,7 +75,13 @@ Every 1688 import/enrichment pass uses the same presentation normalizer: Vietnam
 node scripts/localize-1688-catalog.mjs --catalog assets/catalog-1688 --max-title-length 56
 ```
 
-`scripts/enrich-1688-products.mjs` accepts the same `--max-title-length` and translation-cache options. Detail images are shown only when 1688 returns them (or a verified detail manifest supplies them); CAPTCHA/empty responses are recorded as blocked and never replaced with invented media.
+`scripts/enrich-1688-products.mjs` accepts the same `--max-title-length` and translation-cache options. The enrichment pass now merges the full desktop `offerImgList` (up to 50 gallery images), parses `src`, `data-ks-lazyload`, `data-img`, `srcset` and CSS background images (up to 120 detail images), and keeps all media behind the same-origin `/api/1688-image` proxy. CAPTCHA/empty responses are recorded as blocked and never replaced with invented media. A browser export can be supplied in the detail manifest as `{ "offerHtml": "<desktop offer html>", "description": "<detail html>" }`; this is the reliable path when a server request is challenged by 1688.
+
+Verified offer-page media that must survive a static-catalog rebuild can be recorded in `assets/catalog-1688/media-overrides.json` and applied to an existing mirror with:
+
+```text
+node scripts/apply-1688-media-overrides.mjs --catalog assets/catalog-1688
+```
 
 ## Included
 

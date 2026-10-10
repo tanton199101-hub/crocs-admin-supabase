@@ -1,14 +1,15 @@
-const ALLOWED_HOSTS = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com']);
+const ALLOWED_HOSTS = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com', 'img01.1688.com', 'img02.1688.com']);
+const ALICDN_HOST_RE = /(?:^|\.)alicdn\.com$/i;
 const MAX_BYTES = 8 * 1024 * 1024;
 
 function allowedUrl(raw) {
   if (!raw) return null;
   try {
     const url = raw instanceof URL ? raw : new URL(String(raw));
-    if (url.protocol !== 'https:' || !ALLOWED_HOSTS.has(url.hostname.toLowerCase())) return null;
+    if (url.protocol !== 'https:' || !(ALLOWED_HOSTS.has(url.hostname.toLowerCase()) || ALICDN_HOST_RE.test(url.hostname))) return null;
     // The proxy is intentionally limited to image/detail-CDN paths. This
     // prevents it from becoming an open SSRF or arbitrary URL relay.
-    if (!/^\/(?:img|imgextra|cms|1688offer|tfs)\//i.test(url.pathname)) return null;
+    if (!/^\/(?:img|imgextra|cms|tfs|i\d*)\//i.test(url.pathname)) return null;
     return url;
   } catch {
     return null;

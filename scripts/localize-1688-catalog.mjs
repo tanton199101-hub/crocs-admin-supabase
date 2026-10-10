@@ -49,7 +49,7 @@ await fs.writeFile(cachePath, JSON.stringify(translationMap, null, 2), 'utf8');
 function detailImageCount(product) {
   const direct = Array.isArray(product?.detailImages) ? product.detailImages.length : 0;
   const html = String(product?.descriptionHtml || '');
-  const embedded = [...html.matchAll(/(?:src|data-src|data-lazyload-src|data-original)\s*=\s*["'][^"']+["']/gi)].length;
+  const embedded = [...html.matchAll(/(?:src|data-src|data-lazy-src|data-lazyload-src|data-ks-lazyload|data-img|data-image|data-original|srcset|data-srcset)\s*=\s*["'][^"']+["']/gi)].length;
   return Math.max(direct, embedded);
 }
 

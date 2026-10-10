@@ -30,6 +30,7 @@ const limit = Math.max(0, Math.floor(numberArg('limit', 0)));
 const delayMs = Math.max(0, Math.floor(numberArg('delay', 500)));
 const fetchCatalog = arg('refresh-catalog', 'true') !== 'false';
 const fetchMobile = arg('fetch-mobile', 'true') !== 'false';
+const fetchDesktop = arg('fetch-desktop', 'true') !== 'false';
 const fetchSku = arg('fetch-sku', 'true') !== 'false';
 const force = arg('force', 'false') === 'true';
 const maxTitleLength = Math.max(36, Math.min(80, Math.floor(numberArg('max-title-length', 56))));
@@ -38,6 +39,7 @@ const translationBatchSize = Math.max(1, Math.min(80, Math.floor(numberArg('tran
 
 const DETAIL_HOSTS = new Set(['itemcdn.tmall.com']);
 const MOBILE_HOSTS = new Set(['m.1688.com']);
+const DESKTOP_HOSTS = new Set(['detail.1688.com', 'www.1688.com']);
 function safeDetailUrl(value) {
   try {
     const url = new URL(String(value || ''));
@@ -52,6 +54,16 @@ function safeMobileUrl(value) {
   try {
     const url = new URL(String(value || ''));
     if (url.protocol !== 'https:' || !MOBILE_HOSTS.has(url.hostname.toLowerCase()) || !/^\/offer\/\d{6,20}\.html$/i.test(url.pathname)) return '';
+    return url.href;
+  } catch {
+    return '';
+  }
+}
+
+function safeDesktopUrl(value) {
+  try {
+    const url = new URL(String(value || ''));
+    if (url.protocol !== 'https:' || !DESKTOP_HOSTS.has(url.hostname.toLowerCase()) || !/^\/offer\/\d{6,20}\.html$/i.test(url.pathname)) return '';
     return url.href;
   } catch {
     return '';
@@ -92,6 +104,23 @@ async function fetchMobileSafe(url) {
   if (!response.ok) throw new Error(`HTTP ${response.status}`);
   if (blockedResponse(text)) { const error = new Error('1688 mobile yêu cầu CAPTCHA/xác thực phiên'); error.code = 'CAPTCHA'; throw error; }
   if (!text.includes('window.__INIT_DATA')) throw new Error('Trang mobile 1688 không trả payload sản phẩm.');
+  return text;
+}
+async function fetchDesktopSafe(url) {
+  const target = safeDesktopUrl(url);
+  if (!target) throw new Error('URL offer desktop 1688 không nằm trong allowlist.');
+  const response = await fetch(target, {
+    headers: {
+      accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+      'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/125 Safari/537.36',
+    },
+    redirect: 'error',
+    signal: AbortSignal.timeout(25000),
+  });
+  const text = await response.text();
+  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (blockedResponse(text)) { const error = new Error('1688 desktop yêu cầu CAPTCHA/xác thực phiên'); error.code = 'CAPTCHA'; throw error; }
   return text;
 }
 function detailUrlFromText(text, offerId) {
@@ -222,6 +251,38 @@ for (const product of selected) {
     }
   }
 
+  // A logged-in browser export may expose a richer desktop payload than the
+  // shop list (including all offerImgList entries and the signed description
+  // URL). Accept it directly, and optionally try the public desktop page as a
+  // best-effort fallback. CAPTCHA/empty responses are checkpointed and never
+  // overwrite already verified media.
+  const supplied = manifest[offerId] || manifest[product.sku] || null;
+  const suppliedOfferHtml = supplied?.offerHtml || supplied?.offerPageHtml || supplied?.desktopHtml || '';
+  if (suppliedOfferHtml) {
+    const desktop = Importer.parseDesktopOfferDocument(suppliedOfferHtml);
+    if (desktop.gallery?.length || desktop.descriptionUrl) {
+      enrichment = {
+        ...enrichment,
+        gallery: desktop.gallery?.length ? [...new Set([...(enrichment.gallery || []), ...desktop.gallery])] : enrichment.gallery,
+        descriptionUrl: desktop.descriptionUrl || enrichment.descriptionUrl,
+        source: { ...(enrichment.source || {}), desktopUrl: `https://detail.1688.com/offer/${offerId}.html`, desktopExportedAt: new Date().toISOString(), detailStatus: desktop.descriptionUrl ? 'desktop_available' : enrichment.source?.detailStatus },
+      };
+    }
+  } else if (fetchDesktop && (!enrichment.descriptionUrl || (enrichment.gallery?.length || 0) <= 3)) {
+    try {
+      const desktopText = await fetchDesktopSafe(`https://detail.1688.com/offer/${offerId}.html`);
+      const desktop = Importer.parseDesktopOfferDocument(desktopText);
+      enrichment = {
+        ...enrichment,
+        gallery: desktop.gallery?.length ? [...new Set([...(enrichment.gallery || []), ...desktop.gallery])] : enrichment.gallery,
+        descriptionUrl: desktop.descriptionUrl || enrichment.descriptionUrl,
+        source: { ...(enrichment.source || {}), desktopUrl: `https://detail.1688.com/offer/${offerId}.html`, detailStatus: desktop.descriptionUrl ? 'desktop_available' : enrichment.source?.detailStatus },
+      };
+    } catch (error) {
+      checkpoint.blocked[offerId] = { reason: error.code === 'CAPTCHA' ? 'captcha_desktop' : `desktop: ${error.message}`, at: new Date().toISOString() };
+    }
+  }
+
   // Fetch the verified SKU/stock matrix from the official MTop service.  A
   // failed call is recorded, but never replaced with generated combinations.
   if (fetchSku && detailClient) {
@@ -246,12 +307,21 @@ for (const product of selected) {
     }
   }
 
-  const supplied = manifest[offerId] || manifest[product.sku] || null;
+  if (supplied && (Array.isArray(supplied.gallery) || Array.isArray(supplied.detailImages) || supplied.descriptionHtml)) {
+    enrichment = {
+      ...enrichment,
+      ...(Array.isArray(supplied.gallery) && supplied.gallery.length ? { gallery: [...new Set([...(enrichment.gallery || []), ...supplied.gallery])] } : {}),
+      ...(Array.isArray(supplied.detailImages) && supplied.detailImages.length ? { detailImages: supplied.detailImages } : {}),
+      ...(typeof supplied.descriptionHtml === 'string' && supplied.descriptionHtml.trim() ? { descriptionHtml: supplied.descriptionHtml } : {}),
+      ...(supplied.descriptionUrl ? { descriptionUrl: supplied.descriptionUrl } : {}),
+      source: { ...(enrichment.source || {}), manifestMedia: true },
+    };
+  }
   let detailText = supplied?.description || supplied?.html || '';
   let parsedDescriptionText = '';
   let detailPayload = supplied?.payload || supplied?.body || null;
   let descriptionUrl = supplied?.descriptionUrl || enrichment.descriptionUrl || product?.source?.descriptionUrl || '';
-  if (!detailText && !detailPayload && !supplied && descriptionUrl) {
+  if (!detailText && !detailPayload && descriptionUrl) {
     try { detailText = await fetchSafe(descriptionUrl); }
     catch (error) { checkpoint.blocked[offerId] = { reason: error.code === 'CAPTCHA' ? 'captcha' : error.message, at: new Date().toISOString() }; }
   }

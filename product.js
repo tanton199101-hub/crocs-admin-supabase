@@ -121,13 +121,17 @@
     return text.split(/\n{2,}|\r?\n/).filter(Boolean).map(part => `<p>${commerce.escape(part.trim())}</p>`).join('');
   }
   function detailMediaFor(item) {
+    const MAX_DETAIL_IMAGES = 120;
     const direct = Array.isArray(item?.detailImages) ? item.detailImages : [];
     const html = String(item?.descriptionHtml || '');
-    const embedded = [
-      ...[...html.matchAll(/(?:src|data-src|data-lazy-src|data-lazyload-src|data-original)\s*=\s*["']([^"']+)["']/gi)].map(match => match[1]),
-      ...[...html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)].map(match => match[1]),
-    ];
-    return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(Boolean))].slice(0, 40);
+    const embedded = [];
+    for (const match of html.matchAll(/([\w-]+)\s*=\s*(["'])([\s\S]*?)\2/gi)) {
+      const name = String(match[1] || '').toLowerCase();
+      if (!['src', 'data-src', 'data-lazy-src', 'data-lazyload-src', 'data-ks-lazyload', 'data-img', 'data-image', 'data-original', 'srcset', 'data-srcset'].includes(name)) continue;
+      embedded.push(...(name === 'srcset' || name === 'data-srcset' ? match[3].split(',').map(value => value.trim().split(/\s+/)[0]) : [match[3]]));
+    }
+    for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)) embedded.push(match[1]);
+    return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
   }
   function displayPrice(current) {
     if (current) return commerce.money(current.price);
@@ -162,7 +166,6 @@
     const sizeValues = commerce.sizesFor(product);
     const media = mediaFor(product);
     selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
-    const heroImage = media[selectedMediaIndex] || commerce.image(product.image);
     const detailImages = detailMediaFor(product);
     const related = commerce.products.filter(item => item.id !== product.id && item.status === 'Active' && item.category === product.category).slice(0, 4);
     updateStructuredData(variants, current);
@@ -171,8 +174,13 @@
       <div class="product-breadcrumbs"><a href="index.html">${t('home', 'Home')}</a><span aria-hidden="true"> / </span><a href="index.html#new-arrivals">${t('newArrivals', 'New arrivals')}</a><span aria-hidden="true"> / </span><span>${commerce.escape(product.title)}</span></div>
       <section class="product-detail" aria-labelledby="productTitle">
         <div class="product-gallery">
-          <div class="product-hero-image"><img id="productHeroImage" src="${commerce.escape(heroImage)}" alt="${commerce.escape(product.imageAlt || product.title)}" width="900" height="720"></div>
-          ${media.length > 1 ? `<div class="product-thumbnails" role="list" aria-label="Product images">${media.map((src, index) => `<button type="button" class="product-thumbnail${index === selectedMediaIndex ? ' is-selected' : ''}" data-gallery-index="${index}" aria-label="View product image ${index + 1}" aria-pressed="${index === selectedMediaIndex}"><img src="${commerce.escape(src)}" alt="" loading="lazy"></button>`).join('')}</div>` : ''}
+          <div class="product-gallery-viewport product-hero-image" id="productGallery" tabindex="0" role="region" aria-roledescription="carousel" aria-label="Product images">
+            <div class="product-gallery-track">
+              ${media.map((src, index) => `<figure class="product-gallery-slide" data-gallery-slide="${index}" aria-label="Image ${index + 1} of ${media.length}"><img${index === 0 ? ' id="productHeroImage"' : ''} src="${commerce.escape(src)}" alt="${commerce.escape(product.imageAlt || product.title)} — image ${index + 1}" width="900" height="1200" loading="${index === 0 ? 'eager' : 'lazy'}" draggable="false"></figure>`).join('')}
+            </div>
+            ${media.length > 1 ? `<button class="product-gallery-control product-gallery-control--prev" type="button" data-gallery-prev aria-label="Previous product image">‹</button><button class="product-gallery-control product-gallery-control--next" type="button" data-gallery-next aria-label="Next product image">›</button>` : ''}
+          </div>
+          ${media.length > 1 ? `<div class="product-gallery-status" aria-live="polite"><span data-gallery-current>${selectedMediaIndex + 1}</span><span aria-hidden="true"> / </span><span>${media.length}</span></div><div class="product-thumbnails" role="list" aria-label="Product images">${media.map((src, index) => `<button type="button" class="product-thumbnail${index === selectedMediaIndex ? ' is-selected' : ''}" data-gallery-index="${index}" aria-label="View product image ${index + 1}"${index === selectedMediaIndex ? ' aria-current="true"' : ''}><img src="${commerce.escape(src)}" alt="" loading="lazy" draggable="false"></button>`).join('')}</div>` : ''}
           <p class="product-gallery-note">Product code ${commerce.escape(current?.sku || product.sku || product.id)}${media.length > 1 ? ` · ${media.length} ảnh sản phẩm` : ''}</p>
         </div>
         <div class="product-copy">
@@ -208,13 +216,43 @@
     updateStructuredData(activeVariants(), variant);
   }
   function bind() {
-    main.querySelectorAll('[data-gallery-index]').forEach(button => button.addEventListener('click', () => {
-      selectedMediaIndex = Number(button.dataset.galleryIndex) || 0;
-      const hero = main.querySelector('#productHeroImage');
-      const source = mediaFor(product)[selectedMediaIndex];
-      if (hero && source) hero.src = source;
-      main.querySelectorAll('[data-gallery-index]').forEach(item => { const active = item === button; item.classList.toggle('is-selected', active); item.setAttribute('aria-pressed', String(active)); });
-    }));
+    const gallery = main.querySelector('#productGallery');
+    const slides = [...main.querySelectorAll('[data-gallery-slide]')];
+    const thumbnails = [...main.querySelectorAll('[data-gallery-index]')];
+    const syncGalleryState = () => {
+      slides.forEach((slide, index) => slide.setAttribute('aria-hidden', String(index !== selectedMediaIndex)));
+      thumbnails.forEach(item => {
+        const active = Number(item.dataset.galleryIndex) === selectedMediaIndex;
+        item.classList.toggle('is-selected', active);
+        if (active) item.setAttribute('aria-current', 'true'); else item.removeAttribute('aria-current');
+      });
+      const current = main.querySelector('[data-gallery-current]');
+      if (current) current.textContent = String(selectedMediaIndex + 1);
+    };
+    const goToGalleryIndex = (index, smooth = true) => {
+      if (!slides.length) return;
+      selectedMediaIndex = (index + slides.length) % slides.length;
+      const target = slides[selectedMediaIndex];
+      if (gallery && target) gallery.scrollTo({ left: target.offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
+      syncGalleryState();
+    };
+    thumbnails.forEach(button => button.addEventListener('click', () => goToGalleryIndex(Number(button.dataset.galleryIndex) || 0)));
+    main.querySelector('[data-gallery-prev]')?.addEventListener('click', () => goToGalleryIndex(selectedMediaIndex - 1));
+    main.querySelector('[data-gallery-next]')?.addEventListener('click', () => goToGalleryIndex(selectedMediaIndex + 1));
+    gallery?.addEventListener('scroll', () => {
+      if (!slides.length || !gallery.clientWidth) return;
+      window.requestAnimationFrame(() => {
+        const index = Math.max(0, Math.min(slides.length - 1, Math.round(gallery.scrollLeft / gallery.clientWidth)));
+        if (index !== selectedMediaIndex) { selectedMediaIndex = index; syncGalleryState(); }
+      });
+    }, { passive: true });
+    gallery?.addEventListener('keydown', event => {
+      if (event.key === 'ArrowLeft') { event.preventDefault(); goToGalleryIndex(selectedMediaIndex - 1); }
+      if (event.key === 'ArrowRight') { event.preventDefault(); goToGalleryIndex(selectedMediaIndex + 1); }
+      if (event.key === 'Home') { event.preventDefault(); goToGalleryIndex(0); }
+      if (event.key === 'End') { event.preventDefault(); goToGalleryIndex(slides.length - 1); }
+    });
+    goToGalleryIndex(selectedMediaIndex, false);
     main.querySelectorAll('[data-option-id]').forEach(button => button.addEventListener('click', () => {
       selectedValues[button.dataset.optionId] = button.dataset.optionValue;
       const variant = currentVariant();
