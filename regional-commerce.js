@@ -207,11 +207,21 @@
   }
   function mountPickers() {
     if (!root.document) return;
-    root.document.querySelectorAll('[data-regional-picker]').forEach(renderPicker);
+    // Keep the full picker in the desktop header, but give the storefront
+    // drawer its own mount so mobile can reach the same controls without
+    // forcing two native selects into the narrow header row.
     if (!root.document.querySelector('[data-regional-picker]')) {
       const host = root.document.querySelector('.site-header .header-tools, .commerce-header-actions, .checkout-header');
       if (host) { const mount = root.document.createElement('div'); mount.dataset.regionalPicker = ''; host.prepend(mount); renderPicker(mount); }
     }
+    const mobileHost = root.document.querySelector('.menu-drawer .drawer-links');
+    if (mobileHost && !mobileHost.querySelector('[data-regional-picker-mobile]')) {
+      const mobileMount = root.document.createElement('div');
+      mobileMount.dataset.regionalPicker = '';
+      mobileMount.dataset.regionalPickerMobile = '';
+      mobileHost.prepend(mobileMount);
+    }
+    root.document.querySelectorAll('[data-regional-picker]').forEach(renderPicker);
   }
   function updateDocument() { translateStatic(); mountPickers(); }
   function setLanguage(next) {
