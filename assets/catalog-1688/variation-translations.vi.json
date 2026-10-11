@@ -4539,5 +4539,16 @@
   "外套+短裤+脖链": "Áo khoác + quần short + dây chuyền đeo cổ",
   "外套+短裤+中筒袜+脖链": "Áo khoác + quần đùi + tất dài đến bắp chân + dây chuyền đeo cổ",
   "外套+短裤+中筒袜+背心+脖链": "Áo khoác + quần đùi + tất dài đến bắp chân + áo vest + dây chuyền đeo cổ",
-  "外套+裤子+背心+脖链": "Áo khoác + quần + áo vest + vòng cổ"
+  "外套+裤子+背心+脖链": "Áo khoác + quần + áo vest + vòng cổ",
+  "男（上衣+短裤+眼镜+挂饰）": "Nam (áo + quần + kính + phụ kiện)",
+  "男（上衣+短裤+眼镜+帽子）": "Nam (áo + quần + kính + mũ)",
+  "男（上衣+短裤+眼镜+头巾）": "Nam (áo + quần + kính + khăn trùm đầu)",
+  "男（上衣+短裤+挂饰+袜子）": "Nam (áo + quần short + phụ kiện + tất)",
+  "男（上衣+短裤+挂饰+帽子）": "Nam (áo + quần short + phụ kiện + mũ)",
+  "男（上衣+短裤+挂饰+头巾）": "Nam (áo + quần short + phụ kiện + khăn trùm đầu)",
+  "女（上衣+短裙+挂饰）": "Nữ (áo + váy + phụ kiện)",
+  "女（上衣+短裙+发箍+头巾）": "Nữ (áo + váy + băng đô + khăn trùm đầu)",
+  "女（上衣+短裙+发箍+挂饰）": "Nữ (áo + váy + băng đô + phụ kiện)",
+  "女（上衣+短裙+头巾+挂饰）": "Nữ (áo + váy + khăn trùm đầu + phụ kiện)",
+  "女（上衣+短裙+挂饰+袜子）": "Nữ (áo + váy + phụ kiện + tất)"
 }

@@ -44,9 +44,9 @@
   // storefront renderer deliberately conservative: only known fields and hex
   // colours are applied, and all copy goes through textContent.
   const themeImages = {
-    cozy: { desktop: 'assets/sally-kids-hero.png', mobile: 'assets/sally-kids-hero.png' },
-    crocband: { desktop: 'assets/sally-kids-play.png', mobile: 'assets/sally-kids-play.png' },
-    ninjago: { desktop: 'assets/sally-kids-school.png', mobile: 'assets/sally-kids-school.png' },
+    cozy: { desktop: 'assets/sally-kids-hero-1600.avif', desktopWebp: 'assets/sally-kids-hero-1600.webp', mobile: 'assets/sally-kids-hero-900.webp', mobileAvif: 'assets/sally-kids-hero-900.avif' },
+    crocband: { desktop: 'assets/sally-kids-play-1200.avif', desktopWebp: 'assets/sally-kids-play-1200.webp', mobile: 'assets/sally-kids-play-720.webp', mobileAvif: 'assets/sally-kids-play-720.avif' },
+    ninjago: { desktop: 'assets/sally-kids-school-1200.avif', desktopWebp: 'assets/sally-kids-school-1200.webp', mobile: 'assets/sally-kids-school-720.webp', mobileAvif: 'assets/sally-kids-school-720.avif' },
   };
   const legacyBrandWords = /crocs|jibbitz|heydude|clog|crocband|unfurgettable|mckenna grace/i;
   const safeThemeText = (value, fallback = '') => typeof value === 'string' && !legacyBrandWords.test(value) ? value.trim().slice(0, 180) : fallback;
@@ -69,9 +69,12 @@
     if (heroButton) heroButton.textContent = safeThemeText(theme.heroButton, heroButton.textContent);
     if (announcement && typeof theme.announcement === 'string') announcement.textContent = safeThemeText(theme.announcement, announcement.textContent);
     const image = themeImages[theme.campaign] || themeImages.cozy;
-    const source = hero?.querySelector('source');
+    const sources = hero?.querySelectorAll('source') || [];
     const heroImage = hero?.querySelector('img');
-    if (source) source.srcset = image.desktop;
+    if (sources[0]) sources[0].srcset = image.desktop;
+    if (sources[1]) sources[1].srcset = image.desktopWebp || image.desktop;
+    if (sources[2]) sources[2].srcset = image.mobileAvif || image.mobile;
+    if (sources[3]) sources[3].srcset = image.mobile;
     if (heroImage) { heroImage.src = image.mobile; heroImage.alt = safeThemeText(theme.heroTitle, heroImage.alt); }
     [['.classics', theme.showClassics], ['.arrivals', theme.showArrivals], ['.collabs', theme.showCollabs], ['.club', theme.showClub]].forEach(([selector, visible]) => {
       const section = document.querySelector(selector);

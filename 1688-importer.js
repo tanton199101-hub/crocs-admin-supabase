@@ -551,16 +551,23 @@
   }
 
   function mapVariantValues(rawValues, options, translations = {}) {
+    // Keep the supplier's raw labels while parsing the signed payload. The
+    // enrichment pass owns translation and option normalization; translating
+    // here with the deterministic fallback can create labels that no longer
+    // match the normalized option values (for example `EXOMũ`).
+    const valueFor = value => Object.keys(translations || {}).length
+      ? localizedOptionValue(value, translations)
+      : clean(value, 80);
     const entries = Object.entries(rawValues || {});
     if (Array.isArray(rawValues?.__ordered)) {
-      return Object.fromEntries(options.map((option, index) => [option.id, localizedOptionValue(rawValues.__ordered[index], translations)]).filter(([, value]) => value));
+      return Object.fromEntries(options.map((option, index) => [option.id, valueFor(rawValues.__ordered[index])]).filter(([, value]) => value));
     }
     const single = rawValues?.__single || (entries.length === 1 && !String(entries[0][0]).trim() ? entries[0][1] : '');
-    if (options.length === 1 && single) return { [options[0].id]: localizedOptionValue(single, translations) };
+    if (options.length === 1 && single) return { [options[0].id]: valueFor(single) };
     return Object.fromEntries(options.map(option => {
-      const exact = entries.find(([key, value]) => String(key).trim() !== '__single' && (String(key).trim() === option.sourceName || optionName(key, 0) === option.name || option.values.includes(localizedOptionValue(value, translations))))
-        || (entries.find(([, value]) => option.values.includes(localizedOptionValue(value, translations))) || null);
-      return [option.id, exact ? localizedOptionValue(exact[1], translations) : ''];
+      const exact = entries.find(([key, value]) => String(key).trim() !== '__single' && (String(key).trim() === option.sourceName || optionName(key, 0) === option.name || option.values.includes(valueFor(value))))
+        || (entries.find(([, value]) => option.values.includes(valueFor(value))) || null);
+      return [option.id, exact ? valueFor(exact[1]) : ''];
     }).filter(([, value]) => value));
   }
 
@@ -735,6 +742,12 @@
       };
     }).filter(variant => !options.length || Object.keys(variant.values).length === options.length).slice(0, MAX_IMPORT_VARIANTS);
     const variantImages = deriveVariantImages(variants, options, optionImages);
+    // The mobile SKU service does not repeat the offer's hero gallery, but it
+    // does expose the verified image for each colour/model value. Include
+    // those images in the product gallery as well as optionImages so a
+    // product still has a useful media set when the desktop offer page is
+    // rate-limited or protected by a challenge.
+    const skuGallery = Object.values(optionImages).flatMap(values => Object.values(values || {}));
     const directAttributes = first(
       offer.featureAttributes,
       ...scopes.map(scope => scope?.productAttributes?.fields?.attributes),
@@ -745,7 +758,7 @@
     return {
       offerId: clean(offer.offerId || dataModel?.offerBaseInfo?.offerId || rootData?.tempModel?.offerId || body.offerId, 30),
       title: clean(offer.subject || offer.title || dataModel?.offerBaseInfo?.title || dataModel?.tempModel?.offerTitle || dataModel?.shareModel?.subject || body.title, 500),
-      gallery: [...new Set(gallery)].slice(0, MAX_GALLERY_IMAGES),
+      gallery: [...new Set([...gallery, ...skuGallery])].slice(0, MAX_GALLERY_IMAGES),
       videos,
       options: options.map(({ sourceName, ...option }) => option),
       variants,

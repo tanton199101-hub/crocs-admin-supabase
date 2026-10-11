@@ -80,6 +80,9 @@ svg { display: block; }
 .admin-brand { display: flex; align-items: end; gap: 10px; padding: 0 10px; }
 .admin-brand img { width: 94px; filter: brightness(0) invert(1) sepia(1) saturate(0) brightness(1.7) hue-rotate(35deg); }
 .admin-brand span { margin-bottom: 5px; color: #aab6a9; font-size: 12px; letter-spacing: .02em; }
+.admin-brand .admin-brand-word { margin: 0; color: #fff; font: 900 25px/1 var(--admin-body); letter-spacing: -.08em; white-space: nowrap; }
+.admin-brand-word b { color: #ffd45c; font: 800 15px/1 var(--admin-body); letter-spacing: -.04em; }
+.admin-brand-word i { color: #ff907d; font: normal 12px/1 Arial; vertical-align: top; }
 .store-switcher { min-height: 60px; display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 1px solid #354139; border-radius: 10px; color: #f3f8f1; background: #202920; text-align: left; }
 .store-switcher:hover, .store-switcher:focus-visible { border-color: #8dbd55; background: #273229; }
 .store-avatar, .user-avatar, .topbar-avatar { display: grid; place-items: center; flex: none; border-radius: 9px; color: #1e281d; background: var(--admin-green); font-weight: 900; }
@@ -215,6 +218,9 @@ svg { display: block; }
 
 .admin-scrim { position: fixed; z-index: 19; inset: 0; background: rgba(8, 14, 9, .46); }.admin-drawer { position: fixed; z-index: 40; top: 0; right: 0; bottom: 0; width: min(450px, 100vw); padding: 24px; overflow-y: auto; color: var(--admin-ink); background: #fff; box-shadow: -16px 0 36px rgba(17, 26, 18, .16); transform: translateX(105%); transition: transform .23s ease; }.admin-drawer[aria-hidden="false"] { transform: translateX(0); }.drawer-heading { display: flex; align-items: start; justify-content: space-between; gap: 18px; padding-bottom: 21px; border-bottom: 1px solid var(--admin-line); }.drawer-heading h2 { font-size: 24px; letter-spacing: -.04em; }.drawer-heading .icon-button { color: var(--admin-muted); font-size: 27px; }.admin-drawer form { display: grid; gap: 17px; padding-top: 21px; }.admin-drawer form > label { display: grid; gap: 7px; color: var(--admin-ink-soft); font-size: 12px; font-weight: 700; }.drawer-actions { display: flex; justify-content: end; gap: 8px; padding-top: 8px; }
 .admin-toast { position: fixed; z-index: 50; right: 26px; bottom: 25px; max-width: min(360px, calc(100vw - 32px)); padding: 13px 17px; border: 1px solid #354738; border-radius: 9px; color: #eff7ea; background: #1d2b20; box-shadow: 0 12px 26px rgba(15,25,16,.18); font-size: 12px; font-weight: 700; opacity: 0; pointer-events: none; transform: translateY(12px); transition: opacity .18s ease, transform .18s ease; }.admin-toast.is-visible { opacity: 1; transform: translateY(0); }
+
+/* Keep the static theme preview on brand when JavaScript is still loading. */
+.preview-hero { background-image: url("assets/sally-kids-hero-900.webp"); }
 
 :focus-visible { outline: 3px solid #f1c83f; outline-offset: 2px; }
 

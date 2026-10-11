@@ -11,7 +11,7 @@
     const meta = S?.CURRENCIES?.[code] || { decimals: 2, locale: settings.locale || 'en-US' };
     return { code, decimals: Number.isInteger(meta.decimals) ? meta.decimals : 2, locale: settings.locale || meta.locale || 'en-US' };
   };
-  const assets = ['arrival-classic-clog-100.png', 'arrival-crocband-runner-5AD.png', 'arrival-kids-classic-0DA.png', 'arrival-platform-bloom-001.png', 'arrival-getaway-001.png', 'arrival-ballet-6UR.png', 'icon-lined-206.png', 'jibbitz-sporty-90H.png'];
+  const assets = ['sally-kids-hero-900.webp', 'sally-kids-play-720.webp', 'sally-kids-school-720.webp'];
   const input = (name, label, value = '', attrs = '') => `<label class="field"><span>${label}</span><input name="${name}" value="${esc(value)}" ${attrs}></label>`;
   const decimal = value => value == null ? '' : (value / 100).toFixed(2);
   const priceAttrs = 'type="number" min="0" max="1000000" step="0.01" inputmode="decimal"';
@@ -24,7 +24,7 @@
     const amount = (value, label = 'Giá') => M.amount(value, label, currency.decimals);
     const priceAttrs = `type="number" min="0" max="1000000" step="${currency.decimals ? `0.${'0'.repeat(Math.max(0, currency.decimals - 1))}1` : '1'}" inputmode="decimal"`;
     const original = M.clone(product);
-    let draft = { brand: 'Crocs', imageAlt: '', compareAt: null, cost: null, options: [], variants: [], ...M.clone(product), seo: { title: '', description: '', noindex: false, ...product.seo } };
+    let draft = { brand: 'Sally Kids', imageAlt: '', compareAt: null, cost: null, options: [], variants: [], ...M.clone(product), seo: { title: '', description: '', noindex: false, ...product.seo } };
     let selected = new Set(), filter = '', undo = null, saving = false, slugManual = !!draft.slug;
     let optionsPending = false;
     draft.slug ||= M.slugify(draft.title);

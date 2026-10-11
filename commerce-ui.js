@@ -4,6 +4,7 @@
   const commerce = root.CrocsCommerce;
   const regional = root.CrocsRegional;
   const toastTimers = new WeakMap();
+  const cleanPath = (clean, fallback) => root.location?.protocol === 'file:' || /\.html$/i.test(root.location?.pathname || '') ? fallback : clean;
 
   function toast(message) {
     const element = document.querySelector('#commerceToast');
@@ -33,16 +34,16 @@
   function bottomNavMarkup(t) {
     return `
       <nav class="mobile-bottom-nav" data-mobile-bottom-nav aria-label="Mobile store navigation">
-        <a class="mobile-bottom-nav__item" data-nav-key="home" href="index.html" aria-label="${t('home', 'Home')}">
+        <a class="mobile-bottom-nav__item" data-nav-key="home" href="${cleanPath('/', 'index.html')}" aria-label="${t('home', 'Home')}">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>${t('home', 'Home')}</span>
         </a>
-        <a class="mobile-bottom-nav__item" data-nav-key="shop" href="shop.html" aria-label="${t('shop', 'Shop')}">
+        <a class="mobile-bottom-nav__item" data-nav-key="shop" href="${cleanPath('/shop', 'shop.html')}" aria-label="${t('shop', 'Shop')}">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9h16l-1 11H5L4 9Z"/><path d="M8 9a4 4 0 0 1 8 0M9 13h.01M15 13h.01"/></svg><span>${t('shop', 'Shop')}</span>
         </a>
         <button class="mobile-bottom-nav__item" type="button" data-mobile-nav-action="search" aria-label="${t('search', 'Search')}">
           <svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg><span>${t('search', 'Search')}</span>
         </button>
-        <a class="mobile-bottom-nav__item" data-nav-key="bag" href="checkout.html" aria-label="${t('bag', 'Bag')}">
+        <a class="mobile-bottom-nav__item" data-nav-key="bag" href="${cleanPath('/checkout', 'checkout.html')}" aria-label="${t('bag', 'Bag')}">
           <span class="mobile-bottom-nav__icon"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M5 8h14l-1 13H6L5 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg><b class="mobile-bottom-nav__badge" data-bag-count hidden>0</b></span><span data-bag-label>${t('bag', 'Bag')}</span>
         </a>
         <button class="mobile-bottom-nav__item" type="button" data-mobile-nav-action="menu" aria-label="${t('menu', 'Menu')}">
@@ -54,8 +55,8 @@
   function activeBottomNavKey() {
     const path = String(root.location.pathname || '').toLowerCase();
     const hash = String(root.location.hash || '').toLowerCase();
-    if (path.endsWith('/checkout.html') || path.endsWith('checkout.html')) return '';
-    if (path.endsWith('/product.html') || path.endsWith('product.html') || path.endsWith('/shop.html') || path.endsWith('shop.html') || hash === '#catalog' || hash === '#new-arrivals' || hash === '#shop') return 'shop';
+    if (path.endsWith('/checkout.html') || path.endsWith('checkout.html') || path === '/checkout') return '';
+    if (path.endsWith('/product.html') || path.endsWith('product.html') || path === '/product' || path.endsWith('/shop.html') || path.endsWith('shop.html') || path === '/shop' || hash === '#catalog' || hash === '#new-arrivals' || hash === '#shop') return 'shop';
     return 'home';
   }
 
@@ -122,17 +123,17 @@
       const t = (key, fallback) => commerce?.t?.(key, fallback) || fallback;
       mount.innerHTML = `
         <header class="commerce-header">
-          <a class="commerce-logo" href="index.html" aria-label="Sally Kids trang chủ">
+          <a class="commerce-logo" href="${cleanPath('/', 'index.html')}" aria-label="Sally Kids trang chủ">
             <span class="commerce-brand" aria-hidden="true"><span>sally</span><b>Kids</b><i>✦</i></span>
           </a>
           <nav class="commerce-nav" aria-label="Store navigation">
-            <a href="shop.html?sort=newest">${t('newArrivals', 'Mới về')}</a>
-            <a href="shop.html">${t('shopClassics', 'Khám phá shop')}</a>
-            <a href="index.html#club">Sally Club</a>
+            <a href="${cleanPath('/shop', 'shop.html')}?sort=newest">${t('newArrivals', 'Mới về')}</a>
+            <a href="${cleanPath('/shop', 'shop.html')}">${t('shopClassics', 'Khám phá shop')}</a>
+            <a href="${cleanPath('/', 'index.html')}#club">Sally Club</a>
           </nav>
           <div class="commerce-header-actions">
-            <a class="commerce-back" href="index.html" aria-label="Back to shop">${t('continueShopping', 'Back to shop')}</a>
-            <a class="commerce-bag" href="checkout.html" aria-label="Open shopping bag">
+            <a class="commerce-back" href="${cleanPath('/', 'index.html')}" aria-label="Back to shop">${t('continueShopping', 'Back to shop')}</a>
+            <a class="commerce-bag" href="${cleanPath('/checkout', 'checkout.html')}" aria-label="Open shopping bag">
               <span data-bag-label>${t('bag', 'Bag')}</span><span class="commerce-bag-count" data-bag-count hidden>0</span>
             </a>
           </div>
@@ -145,8 +146,8 @@
     document.querySelectorAll('[data-store-footer]').forEach((mount) => {
       mount.innerHTML = `
           <footer class="commerce-footer">
-          <div><a class="commerce-footer-brand" href="index.html" aria-label="Sally Kids trang chủ"><span>sally</span><b>Kids</b><i>✦</i></a><p>Mặc vui lớn khôn, mỗi ngày một khám phá.</p></div>
-          <div class="commerce-footer-links"><a href="index.html#footer">${commerce.t('help', 'Hỗ trợ & câu hỏi')}</a><a href="index.html#footer">${commerce.t('privacy', 'Bảo mật')}</a><a href="index.html#footer">${commerce.escape(regional?.region?.name || 'Việt Nam')}</a></div>
+          <div><a class="commerce-footer-brand" href="${cleanPath('/', 'index.html')}" aria-label="Sally Kids trang chủ"><span>sally</span><b>Kids</b><i>✦</i></a><p>Mặc vui lớn khôn, mỗi ngày một khám phá.</p></div>
+          <div class="commerce-footer-links"><a href="${cleanPath('/', 'index.html')}#footer">${commerce.t('help', 'Hỗ trợ & câu hỏi')}</a><a href="${cleanPath('/', 'index.html')}#footer">${commerce.t('privacy', 'Bảo mật')}</a><a href="${cleanPath('/', 'index.html')}#footer">${commerce.escape(regional?.region?.name || 'Việt Nam')}</a></div>
         </footer>`;
     });
   }

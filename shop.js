@@ -17,72 +17,73 @@
   const filterClose = document.querySelector('#shopSidebarClose');
   const filterBackdrop = document.querySelector('#shopFilterBackdrop');
   const params = new URLSearchParams(root.location.search);
-  const state = { query: params.get('query') || '', collection: params.get('collection') || '', sort: params.get('sort') || 'featured', price: params.get('price') || 'all', limit: 24, collections: [] };
+  const state = {
+    query: params.get('query') || '', collection: params.get('collection') || '',
+    sort: ['featured', 'newest', 'price-asc', 'price-desc', 'name'].includes(params.get('sort')) ? params.get('sort') : 'featured',
+    price: ['all', 'under-200', '200-500', 'over-500'].includes(params.get('price')) ? params.get('price') : 'all',
+    cursor: '', total: 0, activeTotal: 0, collections: [], server: true, loading: false,
+  };
   let products = [];
   let searchTimer = 0;
+  let requestId = 0;
+  let filterFocus;
   const cardThemes = ['cream', 'sky', 'pink', 'yellow', 'mint', 'sand', 'lavender'];
   const labelForCollection = value => ({ 'New arrivals': 'Mới về', 'Cozy favourites': 'Được yêu thích', 'Tất cả sản phẩm 1688': 'Tất cả sản phẩm' }[value] || value || 'Bộ sưu tập');
   const normalize = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const escape = value => commerce?.escape ? commerce.escape(value) : String(value ?? '').replace(/[&<>"']/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-  const productUrl = product => `product.html?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`;
-  const priceBandThresholds = () => String(commerce?.currency || 'USD').toUpperCase() === 'VND' ? [200000, 500000] : [20000, 50000];
+  const cleanPath = (name, fallback) => root.location.protocol === 'file:' || /\.html$/i.test(root.location.pathname) ? fallback : name;
+  const productUrl = product => `${cleanPath('product', 'product.html')}?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`;
+  const isMobileFilters = () => root.matchMedia?.('(max-width: 980px)')?.matches;
+
+  function readUrlState() {
+    const next = new URLSearchParams(root.location.search);
+    state.query = next.get('query') || ''; state.collection = next.get('collection') || '';
+    state.sort = ['featured', 'newest', 'price-asc', 'price-desc', 'name'].includes(next.get('sort')) ? next.get('sort') : 'featured';
+    state.price = ['all', 'under-200', '200-500', 'over-500'].includes(next.get('price')) ? next.get('price') : 'all';
+  }
 
   function pushUrl() {
     const query = new URLSearchParams();
-    if (state.query) query.set('query', state.query);
-    if (state.collection) query.set('collection', state.collection);
-    if (state.sort !== 'featured') query.set('sort', state.sort);
-    if (state.price !== 'all') query.set('price', state.price);
-    const next = `${root.location.pathname}${query.toString() ? `?${query}` : ''}`;
-    root.history.replaceState({}, '', next);
+    if (state.query) query.set('query', state.query); if (state.collection) query.set('collection', state.collection);
+    if (state.sort !== 'featured') query.set('sort', state.sort); if (state.price !== 'all') query.set('price', state.price);
+    const path = cleanPath('shop', 'shop.html'); root.history.replaceState({}, '', `${path}${query.toString() ? `?${query}` : ''}`);
   }
 
-  function selectedCollection() { return state.collections.find(item => item.id === state.collection) || null; }
+  function selectedCollection() {
+    return state.collections.find(item => item.id === state.collection) || (state.collection.startsWith('category:') ? { id: state.collection, title: state.collection.slice(9), category: state.collection.slice(9), productIds: [] } : null);
+  }
 
   function categoryOptions() {
-    const collectionItems = state.collections.filter(item => item.status !== 'Draft' && Array.isArray(item.productIds) && item.productIds.length);
+    const collectionItems = state.collections.filter(item => item.status !== 'Draft' && (item.count || item.productIds?.length));
     if (collectionItems.length) {
       const seenLabels = new Set();
       return collectionItems.filter(item => {
         if (/tất cả sản phẩm 1688/i.test(String(item.title || ''))) return false;
-        const label = labelForCollection(item.title);
-        if (seenLabels.has(label)) return false;
-        seenLabels.add(label);
-        return true;
+        const label = labelForCollection(item.title); if (seenLabels.has(label)) return false; seenLabels.add(label); return true;
       }).slice(0, 10);
     }
     const categories = [...new Set(products.map(product => String(product.category || '').trim()).filter(Boolean))];
-    return categories.map((category, index) => ({ id: `category:${category}`, title: category, productIds: products.filter(product => product.category === category).map(product => product.id), category }));
+    return categories.map(category => ({ id: `category:${category}`, title: category, category, productIds: products.filter(product => product.category === category).map(product => product.id), count: products.filter(product => product.category === category).length }));
   }
 
   function renderCollections() {
     if (!collectionsMount) return;
-    const options = categoryOptions();
-    const allCount = products.length;
-    collectionsMount.innerHTML = `<button type="button" class="shop-collection-button${state.collection ? '' : ' is-active'}" data-collection=""><span>Tất cả sản phẩm</span><b>${allCount}</b></button>${options.map(item => `<button type="button" class="shop-collection-button${state.collection === item.id ? ' is-active' : ''}" data-collection="${escape(item.id)}"><span>${escape(labelForCollection(item.title))}</span><b>${Array.isArray(item.productIds) ? item.productIds.length : 0}</b></button>`).join('')}`;
-    collectionsMount.querySelectorAll('[data-collection]').forEach(button => button.addEventListener('click', () => {
-      state.collection = button.dataset.collection || '';
-      state.limit = 24;
-      pushUrl();
-      render();
-      closeFilters();
-    }));
+    const options = categoryOptions(); const allCount = state.server ? state.activeTotal || state.total : products.length;
+    collectionsMount.innerHTML = `<button type="button" class="shop-collection-button${state.collection ? '' : ' is-active'}" data-collection=""><span>Tất cả sản phẩm</span><b>${allCount.toLocaleString('vi-VN')}</b></button>${options.map(item => `<button type="button" class="shop-collection-button${state.collection === item.id ? ' is-active' : ''}" data-collection="${escape(item.id)}"><span>${escape(labelForCollection(item.title))}</span><b>${Number(item.count ?? item.productIds?.length ?? 0).toLocaleString('vi-VN')}</b></button>`).join('')}`;
+    collectionsMount.querySelectorAll('[data-collection]').forEach(button => button.addEventListener('click', () => { state.collection = button.dataset.collection || ''; pushUrl(); closeFilters(); fetchPage(); }));
   }
 
-  function filteredProducts() {
-    const collection = selectedCollection();
-    const collectionIds = collection ? new Set(collection.productIds || []) : null;
-    const query = normalize(state.query);
-    let result = products.filter(product => {
+  function filteredFallback() {
+    const collection = selectedCollection(); const ids = collection && !collection.id.startsWith('category:') ? new Set(collection.productIds || []) : null;
+    const query = normalize(state.query); const thresholds = String(commerce?.currency || 'USD').toUpperCase() === 'VND' ? [200000, 500000] : [20000, 50000];
+    const result = products.filter(product => {
       if (collection?.id?.startsWith('category:') && product.category !== collection.category) return false;
-      if (collectionIds && !collection.id.startsWith('category:') && !collectionIds.has(product.id)) return false;
-      const value = normalize(`${product.title} ${product.category || ''} ${product.brand || ''} ${product.description || ''}`);
-      if (query && !value.includes(query)) return false;
+      if (ids && !ids.has(product.id)) return false;
+      if (query && !normalize(`${product.title} ${product.category || ''} ${product.brand || ''} ${product.description || ''}`).includes(query)) return false;
       const price = Number(product.price || 0);
-      const [under, over] = priceBandThresholds();
-      if (state.price === 'under-200' && price >= under) return false;
-      if (state.price === '200-500' && (price < under || price > over)) return false;
-      if (state.price === 'over-500' && price <= over) return false;
+      if (state.price === 'under-200' && price >= thresholds[0]) return false;
+      if (state.price === '200-500' && (price < thresholds[0] || price > thresholds[1])) return false;
+      if (state.price === 'over-500' && price <= thresholds[1]) return false;
       return product.status === 'Active';
     });
     result.sort((left, right) => {
@@ -96,23 +97,20 @@
   }
 
   function productCard(product, index) {
-    const variants = commerce?.variantsFor?.(product) || [];
-    const actionLabel = variants.length || product.hasVariants ? 'Xem lựa chọn' : 'Thêm vào túi';
-    const image = commerce?.image?.(product.image) || 'assets/sally-kids-hero.png';
-    const price = variants.length ? Math.min(...variants.map(item => item.price)) : product.price;
+    const variants = commerce?.variantsFor?.(product) || []; const hasOptions = variants.length || product.hasVariants;
+    const image = commerce?.image?.(product.image) || 'assets/sally-kids-hero.png'; const price = variants.length ? Math.min(...variants.map(item => item.price)) : product.price;
     const badge = state.sort === 'newest' || index < 2 ? '<span class="shop-product-badge">Mới</span>' : '';
-    return `<article class="shop-product-card" data-product-id="${escape(product.id)}"><a class="shop-product-link" href="${productUrl(product)}"><div class="shop-product-media shop-product-media--${cardThemes[index % cardThemes.length]}">${badge}<img data-smart-fit src="${escape(image)}" alt="${escape(product.imageAlt || product.title)}" width="520" height="693" loading="lazy" decoding="async"></div><div class="shop-product-copy"><p class="shop-product-category">${escape(product.category || 'Sally Kids')}</p><h3>${escape(product.title)}</h3><p class="shop-product-price">${commerce?.money?.(price) || ''}</p></div></a><button class="shop-product-action" type="button" data-shop-action="add" data-product-id="${escape(product.id)}" data-has-options="${variants.length || product.hasVariants ? 'true' : 'false'}">${actionLabel}<span aria-hidden="true">+</span></button></article>`;
+    return `<article class="shop-product-card" data-product-id="${escape(product.id)}"><a class="shop-product-link" href="${productUrl(product)}"><div class="shop-product-media shop-product-media--${cardThemes[index % cardThemes.length]}">${badge}<img data-smart-fit src="${escape(image)}" alt="${escape(product.imageAlt || product.title)}" width="520" height="693" loading="lazy" decoding="async"></div><div class="shop-product-copy"><p class="shop-product-category">${escape(product.category || 'Sally Kids')}</p><h3>${escape(product.title)}</h3><p class="shop-product-price">${commerce?.money?.(price) || ''}</p></div></a><button class="shop-product-action" type="button" data-shop-action="add" data-product-id="${escape(product.id)}" data-has-options="${hasOptions ? 'true' : 'false'}">${hasOptions ? 'Xem lựa chọn' : 'Thêm vào túi'}<span aria-hidden="true">+</span></button></article>`;
   }
 
   function renderActiveFilters() {
     if (!activeFilters) return;
-    const chips = [];
-    const collection = selectedCollection();
+    const chips = []; const collection = selectedCollection();
     if (state.query) chips.push(`<button type="button" data-clear-filter="query">Tìm: “${escape(state.query)}” <span>×</span></button>`);
     if (collection) chips.push(`<button type="button" data-clear-filter="collection">${escape(labelForCollection(collection.title))} <span>×</span></button>`);
     if (state.price !== 'all') chips.push(`<button type="button" data-clear-filter="price">${state.price === 'under-200' ? 'Dưới 200K' : state.price === '200-500' ? '200K – 500K' : 'Trên 500K'} <span>×</span></button>`);
     activeFilters.innerHTML = chips.join('');
-    activeFilters.querySelectorAll('[data-clear-filter]').forEach(button => button.addEventListener('click', () => { const key = button.dataset.clearFilter; state[key] = key === 'price' ? 'all' : ''; state.limit = 24; pushUrl(); syncControls(); render(); }));
+    activeFilters.querySelectorAll('[data-clear-filter]').forEach(button => button.addEventListener('click', () => { const key = button.dataset.clearFilter; state[key] = key === 'price' ? 'all' : ''; pushUrl(); syncControls(); fetchPage(); }));
   }
 
   function syncControls() {
@@ -121,52 +119,58 @@
     document.querySelectorAll('input[name="price"]').forEach(input => { input.checked = input.value === state.price; });
   }
 
+  function renderLoading() { if (grid && state.loading && !products.length) grid.innerHTML = '<div class="shop-loading"><span class="shop-loading-orbit" aria-hidden="true"></span><p>Đang chuẩn bị những món đồ thật vui…</p></div>'; }
+
   function render() {
-    const all = filteredProducts();
-    const visible = all.slice(0, state.limit);
-    const collection = selectedCollection();
+    const all = state.server ? products : filteredFallback(); const collection = selectedCollection();
     if (title) title.textContent = collection ? labelForCollection(collection.title) : state.query ? `Kết quả cho “${state.query}”` : 'Tất cả sản phẩm';
-    if (resultCount) resultCount.textContent = `${all.length.toLocaleString('vi-VN')} sản phẩm${all.length ? '' : ' phù hợp'}`;
-    renderCollections();
-    renderActiveFilters();
-    if (grid) grid.innerHTML = visible.length ? visible.map(productCard).join('') : `<div class="shop-empty"><span aria-hidden="true">☼</span><h3>Chưa có món đồ phù hợp</h3><p>Thử xoá bớt bộ lọc hoặc tìm bằng một từ khoá khác nhé.</p><button type="button" class="shop-secondary-button" data-clear-all>Xoá bộ lọc</button></div>`;
-    if (loadMore) loadMore.hidden = visible.length >= all.length || !all.length;
+    const count = state.server ? state.total : all.length; if (resultCount) resultCount.textContent = `${Number(count || 0).toLocaleString('vi-VN')} sản phẩm${count ? '' : ' phù hợp'}`;
+    renderCollections(); renderActiveFilters();
+    if (grid && !state.loading) grid.innerHTML = all.length ? all.map(productCard).join('') : `<div class="shop-empty"><span aria-hidden="true">☼</span><h3>Chưa có món đồ phù hợp</h3><p>Thử xoá bớt bộ lọc hoặc tìm bằng một từ khoá khác nhé.</p><button type="button" class="shop-secondary-button" data-clear-all>Xoá bộ lọc</button></div>`;
+    if (loadMore) { loadMore.hidden = state.server ? !state.cursor : all.length >= products.length || !all.length; loadMore.disabled = state.loading; loadMore.textContent = state.loading ? 'Đang tải…' : 'Xem thêm sản phẩm'; }
     commerce?.enhanceImages?.(grid);
   }
 
-  function openFilters() { sidebar?.classList.add('is-open'); sidebar?.setAttribute('aria-hidden', 'false'); filterBackdrop?.removeAttribute('hidden'); filterToggle?.setAttribute('aria-expanded', 'true'); document.body.classList.add('shop-filters-open'); }
-  function closeFilters() { sidebar?.classList.remove('is-open'); sidebar?.setAttribute('aria-hidden', 'false'); if (filterBackdrop) filterBackdrop.hidden = true; filterToggle?.setAttribute('aria-expanded', 'false'); document.body.classList.remove('shop-filters-open'); }
-  function reset() { state.query = ''; state.collection = ''; state.price = 'all'; state.sort = 'featured'; state.limit = 24; pushUrl(); syncControls(); render(); }
-
-  searchInput?.addEventListener('input', event => { window.clearTimeout(searchTimer); searchTimer = window.setTimeout(() => { state.query = event.target.value.trim(); state.limit = 24; pushUrl(); render(); }, 160); });
-  sortInput?.addEventListener('change', event => { state.sort = event.target.value; state.limit = 24; pushUrl(); render(); });
-  document.querySelectorAll('input[name="price"]').forEach(input => input.addEventListener('change', event => { state.price = event.target.value; state.limit = 24; pushUrl(); render(); }));
-  loadMore?.addEventListener('click', () => { state.limit += 24; render(); });
-  clearButton?.addEventListener('click', reset);
-  grid?.addEventListener('click', event => {
-    const clear = event.target.closest('[data-clear-all]');
-    if (clear) { reset(); return; }
-    const button = event.target.closest('[data-shop-action="add"]');
-    if (!button || !commerce) return;
-    const product = commerce.product(button.dataset.productId);
-    if (!product) return;
-    if (button.dataset.hasOptions === 'true') { root.location.href = productUrl(product); return; }
-    try { const size = commerce.sizesFor(product)[0]; commerce.add(product.id, size, 1); ui?.toast?.(`${product.title} đã được thêm vào túi`); } catch (error) { ui?.toast?.(error.message); }
-  });
-  filterToggle?.addEventListener('click', openFilters);
-  filterClose?.addEventListener('click', closeFilters);
-  filterBackdrop?.addEventListener('click', closeFilters);
-  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeFilters(); if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) { event.preventDefault(); searchInput?.focus(); } });
-
-  function receiveCatalog(event) {
-    products = Array.isArray(event?.detail?.products) ? event.detail.products : commerce?.products || [];
-    state.collections = Array.isArray(event?.detail?.collections) ? event.detail.collections.filter(item => item.status !== 'Draft') : state.collections;
-    if (state.collection && !state.collections.some(item => item.id === state.collection)) state.collection = '';
-    syncControls();
-    render();
+  async function fetchPage({ append = false } = {}) {
+    const currentRequest = ++requestId; if (state.loading) return; state.loading = true;
+    if (!append) { state.cursor = ''; products = []; renderLoading(); }
+    try {
+      if (!commerce?.loadCatalogPage) throw new Error('API catalogue chưa sẵn sàng.');
+      const data = await commerce.loadCatalogPage({ query: state.query, collection: state.collection, sort: state.sort, price: state.price, limit: 24, cursor: append ? state.cursor : '' });
+      if (currentRequest !== requestId) return;
+      const incoming = Array.isArray(data.products) ? data.products : []; const merged = append ? [...products, ...incoming] : incoming; const seen = new Set();
+      products = merged.filter(item => item?.id && !seen.has(item.id) && seen.add(item.id)); state.server = true;
+      state.total = Number(data.total || products.length); state.activeTotal = Number(data.activeTotal || state.total); state.cursor = data.nextCursor || '';
+      state.collections = Array.isArray(data.collections) ? data.collections.filter(item => item.status !== 'Draft') : state.collections;
+      if (state.collection && !state.collections.some(item => item.id === state.collection)) state.collection = '';
+      syncControls(); render();
+    } catch (error) {
+      if (currentRequest !== requestId) return;
+      try { await commerce?.ready; products = commerce?.products || []; state.server = false; state.cursor = ''; state.total = products.length; state.activeTotal = products.length; state.collections = []; syncControls(); render(); }
+      catch { if (!products.length && grid) grid.innerHTML = `<div class="shop-empty"><h3>Catalog đang tạm thời chưa sẵn sàng</h3><p>${escape(error.message || 'Vui lòng thử lại sau.')}</p><button type="button" class="shop-secondary-button" data-clear-all>Thử lại</button></div>`; }
+    } finally { if (currentRequest === requestId) { state.loading = false; render(); } }
   }
-  root.addEventListener('crocs:catalog', receiveCatalog);
-  root.addEventListener('crocs:region-change', () => { products = commerce?.products || products; render(); });
-  root.addEventListener('crocs:language-change', () => { products = commerce?.products || products; render(); });
-  commerce?.ready?.then(() => { products = commerce.products || []; syncControls(); render(); }).catch(() => { products = commerce?.products || []; syncControls(); render(); });
+
+  function openFilters() { filterFocus = document.activeElement; sidebar?.classList.add('is-open'); sidebar?.setAttribute('aria-hidden', 'false'); sidebar?.removeAttribute('inert'); filterBackdrop?.removeAttribute('hidden'); filterToggle?.setAttribute('aria-expanded', 'true'); document.body.classList.add('shop-filters-open'); if (isMobileFilters()) requestAnimationFrame(() => searchInput?.focus()); }
+  function closeFilters() { sidebar?.classList.remove('is-open'); const mobile = isMobileFilters(); sidebar?.setAttribute('aria-hidden', String(mobile)); if (mobile) sidebar?.setAttribute('inert', ''); else sidebar?.removeAttribute('inert'); if (filterBackdrop) filterBackdrop.hidden = true; filterToggle?.setAttribute('aria-expanded', 'false'); document.body.classList.remove('shop-filters-open'); if (mobile && filterFocus instanceof HTMLElement) filterFocus.focus(); filterFocus = null; }
+  function reset() { state.query = ''; state.collection = ''; state.price = 'all'; state.sort = 'featured'; pushUrl(); syncControls(); fetchPage(); }
+
+  searchInput?.addEventListener('input', event => { window.clearTimeout(searchTimer); searchTimer = window.setTimeout(() => { state.query = event.target.value.trim(); pushUrl(); fetchPage(); }, 220); });
+  sortInput?.addEventListener('change', event => { state.sort = event.target.value; pushUrl(); fetchPage(); });
+  document.querySelectorAll('input[name="price"]').forEach(input => input.addEventListener('change', event => { state.price = event.target.value; pushUrl(); fetchPage(); }));
+  loadMore?.addEventListener('click', () => state.server ? fetchPage({ append: true }) : render()); clearButton?.addEventListener('click', reset);
+  grid?.addEventListener('click', async event => {
+    const clear = event.target.closest('[data-clear-all]'); if (clear) { reset(); return; }
+    const button = event.target.closest('[data-shop-action="add"]'); if (!button || !commerce || button.disabled) return;
+    const listed = products.find(item => item.id === button.dataset.productId); if (!listed) return;
+    if (button.dataset.hasOptions === 'true') { root.location.href = productUrl(listed); return; }
+    button.disabled = true;
+    try { const product = await commerce.loadProduct(listed.id); commerce.add(product.id, commerce.sizesFor(product)[0], 1); ui?.toast?.(`${product.title} đã được thêm vào túi`); }
+    catch (error) { ui?.toast?.(error.message); } finally { button.disabled = false; }
+  });
+  filterToggle?.addEventListener('click', openFilters); filterClose?.addEventListener('click', closeFilters); filterBackdrop?.addEventListener('click', closeFilters);
+  document.addEventListener('keydown', event => { if (event.key === 'Escape') closeFilters(); if (event.key === '/' && !/input|textarea|select/i.test(document.activeElement?.tagName || '')) { event.preventDefault(); searchInput?.focus(); } });
+  root.addEventListener('popstate', () => { readUrlState(); syncControls(); fetchPage(); }); root.addEventListener('resize', () => { if (!isMobileFilters()) closeFilters(); }, { passive: true });
+  root.addEventListener('crocs:region-change', () => { if (state.server) fetchPage(); else { products = commerce?.products || products; render(); } }); root.addEventListener('crocs:language-change', () => { products = commerce?.products || products; render(); });
+  syncControls(); renderLoading(); fetchPage();
 })(window);
