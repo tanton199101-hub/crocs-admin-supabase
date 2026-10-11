@@ -202,7 +202,8 @@ for (const product of selected) {
   const hasDetail = Array.isArray(product.detailImages) && product.detailImages.length > 0 && product.source?.detailStatus === 'available';
   const hasVideo = Array.isArray(product.videos) && product.videos.length > 0;
   const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
-  if (!force && previous?.gallery && previous?.detail && previous?.variants > 0 && previous?.video === hasVideo && hasGallery && hasDetail && hasVariants) continue;
+  const hasVariantMedia = !hasVariants || Object.keys(product.optionImages || {}).length > 0 || Object.keys(product.variantImages || {}).length > 0;
+  if (!force && previous?.gallery && previous?.detail && previous?.variants > 0 && previous?.video === hasVideo && hasGallery && hasDetail && hasVariants && hasVariantMedia) continue;
   let enrichment = { source: { detailStatus: 'not_requested' } };
   const offer = offersById.get(offerId);
   if (offer) {
@@ -234,8 +235,12 @@ for (const product of selected) {
       enrichment = {
         ...enrichment,
         videos: Array.isArray(mobile.videos) ? mobile.videos : enrichment.videos,
-        gallery: mobileGallery.length ? mobileGallery : enrichment.gallery,
-        image: mobileGallery[0] || enrichment.image || product?.source?.imageUrl,
+        optionImages: mobile.optionImages || enrichment.optionImages,
+        // Mobile pages often expose only the five hero images.  Keep the
+        // verified shop/desktop gallery and add the mobile entries instead
+        // of replacing a richer list with a shortened response.
+        gallery: [...new Set([...(enrichment.gallery || []), ...mobileGallery])],
+        image: enrichment.image || mobileGallery[0] || product?.source?.imageUrl,
         attributes: mobile.attributes?.length ? mobile.attributes : enrichment.attributes,
         descriptionUrl: mobile.descriptionUrl || enrichment.descriptionUrl,
         priceCny: mobile.priceCny || enrichment.priceCny || 0,
@@ -243,7 +248,7 @@ for (const product of selected) {
           ...(enrichment.source || {}),
           offerId,
           imageUrl: mobileGallery[0] || enrichment.source?.imageUrl || product?.source?.imageUrl || '',
-          imageUrls: mobileGallery.length ? mobileGallery : enrichment.source?.imageUrls || [],
+          imageUrls: [...new Set([...(enrichment.source?.imageUrls || []), ...mobileGallery])],
           detailStatus: 'mobile_available',
           mobileUrl: `https://m.1688.com/offer/${offerId}.html`,
         },
@@ -299,6 +304,8 @@ for (const product of selected) {
         gallery: enrichment.gallery?.length ? enrichment.gallery : parsedSku.gallery,
         videos: enrichment.videos?.length ? enrichment.videos : parsedSku.videos,
         attributes: enrichment.attributes?.length ? enrichment.attributes : parsedSku.attributes,
+        optionImages: parsedSku.optionImages || enrichment.optionImages,
+        variantImages: parsedSku.variantImages || enrichment.variantImages,
         descriptionUrl: enrichment.descriptionUrl || parsedSku.descriptionUrl,
         // SKU/stock data is a verified detail layer, but it is not the same
         // thing as the supplier's rich description.  Keep the distinction so
@@ -312,12 +319,14 @@ for (const product of selected) {
     }
   }
 
-  if (supplied && (Array.isArray(supplied.gallery) || Array.isArray(supplied.detailImages) || Array.isArray(supplied.videos) || supplied.descriptionHtml)) {
+  if (supplied && (Array.isArray(supplied.gallery) || Array.isArray(supplied.detailImages) || Array.isArray(supplied.videos) || supplied.descriptionHtml || supplied.optionImages || supplied.variantImages)) {
     enrichment = {
       ...enrichment,
       ...(Array.isArray(supplied.gallery) && supplied.gallery.length ? { gallery: [...new Set([...(enrichment.gallery || []), ...supplied.gallery])] } : {}),
       ...(Array.isArray(supplied.detailImages) && supplied.detailImages.length ? { detailImages: supplied.detailImages } : {}),
       ...(Array.isArray(supplied.videos) && supplied.videos.length ? { videos: supplied.videos } : {}),
+      ...(supplied.optionImages ? { optionImages: supplied.optionImages } : {}),
+      ...(supplied.variantImages ? { variantImages: supplied.variantImages } : {}),
       ...(typeof supplied.descriptionHtml === 'string' && supplied.descriptionHtml.trim() ? { descriptionHtml: supplied.descriptionHtml } : {}),
       ...(supplied.descriptionUrl ? { descriptionUrl: supplied.descriptionUrl } : {}),
       source: { ...(enrichment.source || {}), manifestMedia: true },

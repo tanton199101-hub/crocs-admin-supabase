@@ -105,6 +105,8 @@
 .size-option.is-selected { background: var(--commerce-ink); color: #fff; border-color: var(--commerce-ink); }
 .size-option:disabled { opacity: .38; cursor: not-allowed; text-decoration: line-through; }
 .size-option { min-height: 46px; padding: 8px 6px; border: 1px solid #aeb4b8; border-radius: 7px; color: var(--commerce-ink); background: #fff; font-weight: 700; }
+.size-option--image { display: inline-flex; align-items: center; gap: 8px; text-align: left; }
+.size-option--image img { width: 42px; height: 42px; flex: 0 0 42px; border-radius: 5px; object-fit: cover; background: #f3f3f3; }
 .size-option:hover, .size-option[aria-pressed="true"] { border-color: var(--commerce-ink); box-shadow: inset 0 0 0 1px var(--commerce-ink); background: #f7f8f8; }
 .size-option.is-selected, .size-option.is-selected:hover { color: #fff; background: var(--commerce-ink); border-color: var(--commerce-ink); }
 .quantity-control { width: 132px; min-height: 46px; border: 1px solid #aeb4b8; border-radius: 7px; display: flex; align-items: center; justify-content: space-between; overflow: hidden; }

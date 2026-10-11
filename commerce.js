@@ -8,6 +8,7 @@
   const CATALOG_CACHE_KEY = 'crocs-catalog-v1';
   const CATALOG_CACHE_TTL = 60 * 1000;
   const STATIC_CATALOG_PATH = 'assets/catalog-1688';
+  const STOREFRONT_API_PATH = '/api/storefront';
   const MAX_GALLERY_IMAGES = 50;
   const MAX_DETAIL_IMAGES = 120;
   const MAX_VIDEOS = 8;
@@ -21,7 +22,7 @@
   const normalizeImageReference = value => String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/').replace(/&quot;/gi, '"').trim();
   const image = value => {
     const raw = normalizeImageReference(value);
-    if (/^assets\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(raw) || /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(raw)) return raw;
+    if (/^(?:\/?assets)\/[\w.-]+\.(png|jpe?g|webp|avif|svg)$/i.test(raw) || /^data:image\/(png|jpeg|webp|avif);base64,[A-Za-z0-9+/=]+$/.test(raw)) return raw.replace(/^\//, '');
     try {
       const parsed = new URL(raw, root.location?.origin || 'https://store.invalid');
       if (parsed.origin === (root.location?.origin || 'https://store.invalid') && parsed.pathname === '/api/1688-image') {
@@ -57,6 +58,29 @@
     for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\(\s*["']?([^\)"']+)/gi)) result.push(match[1]);
     return result.filter(Boolean);
   };
+  const mediaImageValue = value => {
+    if (typeof value === 'string') return value;
+    if (!value || typeof value !== 'object') return '';
+    return value.imageUrl || value.imgUrl || value.imageURI || value.fullPathImageURI || value.url || '';
+  };
+  const normalizeOptionImageMap = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).map(([optionId, rawValues]) => {
+      if (!rawValues || typeof rawValues !== 'object' || Array.isArray(rawValues)) return null;
+      const mapped = Object.fromEntries(Object.entries(rawValues).map(([optionValue, rawImage]) => {
+        const candidate = image(mediaImageValue(rawImage));
+        return candidate ? [String(optionValue), candidate] : null;
+      }).filter(Boolean));
+      return Object.keys(mapped).length ? [String(optionId), mapped] : null;
+    }).filter(Boolean));
+  };
+  const normalizeVariantImageMap = value => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    return Object.fromEntries(Object.entries(value).map(([variantId, rawImage]) => {
+      const candidate = image(mediaImageValue(Array.isArray(rawImage) ? rawImage[0] : rawImage));
+      return candidate ? [String(variantId), candidate] : null;
+    }).filter(Boolean));
+  };
   const colourNames = { p1: 'White', p2: 'Lilac', p3: 'Multi', p4: 'Black', p5: 'Black', p6: 'Pink', p7: 'Espresso', p8: 'Multi' };
   const optionsFor = p => Array.isArray(p?.options) ? p.options : [];
   const variantsFor = p => Array.isArray(p?.variants) ? p.variants.filter(v => v && v.enabled !== false) : [];
@@ -79,7 +103,15 @@
   function normalize(p) {
     if (!p || typeof p.id !== 'string' || !p.title || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0) throw new Error('Invalid product data.');
     const basePrice = Number.isSafeInteger(p.basePrice) ? p.basePrice : p.price;
-    const variants = Array.isArray(p.variants) ? p.variants.map(v => ({ ...v, basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false })).filter(v => v.id) : [];
+    const options = optionsFor(p);
+    const optionImages = normalizeOptionImageMap(p.optionImages);
+    const variantImages = normalizeVariantImageMap(p.variantImages);
+    const variants = Array.isArray(p.variants) ? p.variants.map(v => {
+      const explicitRaw = variantImages[String(v?.id || v?.sku || '')] || mediaImageValue(v?.image || v?.imageUrl);
+      const explicitImage = explicitRaw ? image(explicitRaw) : '';
+      const optionImage = options.map(option => optionImages?.[option.id]?.[v?.values?.[option.id]]).find(Boolean);
+      return { ...v, ...(explicitImage || optionImage ? { image: explicitImage || optionImage } : {}), basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false };
+    }).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
     const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
     const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
@@ -87,7 +119,7 @@
     const videos = [...new Set((Array.isArray(p.videos) ? p.videos : []).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
     const requestedBrand = String(p.brand || '').trim();
     const brand = !requestedBrand || /crocs|1688|supplier|nhà cung cấp/i.test(requestedBrand) ? 'Sally Kids' : requestedBrand;
-    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
+    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options, optionImages, variantImages: Object.fromEntries(Object.entries({ ...variantImages, ...Object.fromEntries(variants.map(v => [String(v.id || v.sku), v.image]).filter(([, value]) => value)) }).filter(([, value]) => value)), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
 
@@ -125,6 +157,7 @@
         stock: Number(row[stockIndex] || 0),
         enabled: row[flagIndex] !== 0,
         barcode: '',
+        ...(product.variantImages?.[sku] ? { image: product.variantImages[sku] } : {}),
         ...(Object.keys(regionalPrices).length ? { regionalPrices } : {}),
       };
     }).filter(Boolean);
@@ -135,7 +168,7 @@
     return expanded;
   }
   async function fetchStaticJson(file) {
-    const response = await fetch(`${STATIC_CATALOG_PATH}/${file}`, { cache: 'no-store', signal: AbortSignal.timeout(15000) });
+    const response = await fetch(`${STATIC_CATALOG_PATH}/${file}`, { cache: 'force-cache', signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`Static catalogue ${response.status}`);
     return response.json();
   }
@@ -299,6 +332,26 @@
     const shipping = shippingCost(subtotal, method);
     return { items, subtotal, shipping, total: subtotal + shipping };
   }
+  async function storefrontApi(params = {}) {
+    if (root.location?.protocol === 'file:') throw new Error('Storefront API is unavailable in a local file preview.');
+    const query = new URLSearchParams(Object.entries(params).filter(([, value]) => value !== undefined && value !== null && value !== ''));
+    const response = await fetch(`${STOREFRONT_API_PATH}?${query}`, {
+      headers: { Accept: 'application/json' }, cache: 'default', signal: AbortSignal.timeout(12000),
+    });
+    const value = await response.json().catch(() => ({}));
+    if (!response.ok) throw Object.assign(new Error(value.error || 'The storefront catalogue is unavailable.'), { status: response.status });
+    return value;
+  }
+  async function loadCatalogPage(options = {}) {
+    const data = await storefrontApi({
+      view: 'list', limit: Math.min(24, Math.max(1, Number(options.limit) || 24)),
+      query: options.query || '', collection: options.collection || '', sort: options.sort || 'featured',
+      price: options.price || 'all', cursor: options.cursor || '', region: regional?.region?.id || '',
+    });
+    const localization = { ...(data.store?.localization || {}), ...(data.localization || {}) };
+    const normalizedProducts = (Array.isArray(data.products) ? data.products : []).filter(item => item?.status === 'Active').map(item => localizeProduct(normalize(item)));
+    return { ...data, products: normalizedProducts, localization };
+  }
   async function rpc(name, payload) {
     const config = root.CrocsSupabaseConfig;
     if (!config?.url || !config?.publishableKey) throw new Error('The store is not connected. Please try again later.');
@@ -335,7 +388,10 @@
       } catch { /* The live catalog remains usable when the mirror is unavailable. */ }
     }
     const localization = { ...(data.store?.localization || {}), ...(data.localization || {}), currency: data.localization?.currency || data.store?.currency || data.settings?.currency };
-    if (regional?.configure) await regional.configure(localization);
+    // Do not hold the first paint behind the optional geo lookup. The regional
+    // module swaps prices/copy when its promise settles, while the catalog can
+    // render immediately with the configured default region.
+    if (regional?.configure) regional.configure(localization).catch(() => {});
     catalog = localizeCatalog(data.products.filter(p => p.status === 'Active').map(normalize));
     source = nextSource;
     problem = nextSource === 'cache' ? 'Showing a recent catalogue while we check live availability.' : '';
@@ -357,20 +413,29 @@
       try { await setCatalog(cached, 'cache'); } catch { /* Ignore an invalid stale cache. */ }
     }
     try {
-      const data = await rpc('storefront_catalog_v1', {});
-      await setCatalog(data, 'supabase');
+      // The edge endpoint returns only the first page needed for the home
+      // shell. It keeps the browser from downloading a 600KB+ catalog before
+      // the shopper has even opened Shop. RPC/static mirrors remain resilient
+      // fallbacks for local previews and degraded networks.
+      const data = await loadCatalogPage({ limit: 48 });
+      await setCatalog(data, 'storefront-api');
       saveCatalogCache(data);
     } catch {
       try {
-        const staticData = await loadStaticSummary();
-        await setCatalog(staticData, 'static');
-        saveCatalogCache(staticData);
+        const data = await rpc('storefront_catalog_v1', {});
+        await setCatalog(data, 'supabase');
+        saveCatalogCache(data);
       } catch {
-        if (!cached) {
-          source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.';
-          if (regional?.ready) await regional.ready.catch(() => {});
-          catalog = localizeCatalog(catalog);
-          root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
+        try {
+          const staticData = await loadStaticSummary();
+          await setCatalog(staticData, 'static');
+          saveCatalogCache(staticData);
+        } catch {
+          if (!cached) {
+            source = 'sample'; problem = 'Preview catalogue — live availability will be checked at checkout.';
+            catalog = localizeCatalog(catalog);
+            root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
+          }
         }
       }
     }
@@ -391,12 +456,15 @@
       if (index >= 0) catalog[index] = detail; else catalog.push(detail);
       return detail;
     };
-    const request = rpc('storefront_product_v1', { p_product_id: productId }).then(async payload => {
+    const hydrateFromLive = payload => rpc('storefront_product_v1', { p_product_id: productId }).then(async livePayload => {
+      payload = livePayload;
       const value = Array.isArray(payload) ? payload[0] : (payload || {});
       try {
         const mirror = await loadStaticProduct(productId);
         // Keep live price/stock/variant rows authoritative while taking the
         // verified localized presentation and detail media from the mirror.
+        const mergeMedia = (left, right) => [...new Set([...(Array.isArray(left) ? left : []), ...(Array.isArray(right) ? right : [])])];
+        const mergeMap = (left, right) => Object.fromEntries(Object.entries({ ...(left && typeof left === 'object' ? left : {}), ...(right && typeof right === 'object' ? right : {}) }).map(([key, values]) => [key, values && typeof values === 'object' && !Array.isArray(values) ? { ...(left?.[key] || {}), ...values } : values]));
         return applyDetail({
           ...mirror,
           ...value,
@@ -405,15 +473,22 @@
           slug: mirror.slug || value.slug,
           description: mirror.description || value.description,
           descriptionHtml: mirror.descriptionHtml || value.descriptionHtml,
-          detailImages: mirror.detailImages?.length ? mirror.detailImages : value.detailImages,
-          videos: mirror.videos?.length ? mirror.videos : value.videos,
-          gallery: mirror.gallery?.length ? mirror.gallery : value.gallery,
-          attributes: mirror.attributes?.length ? mirror.attributes : value.attributes,
+          detailImages: mergeMedia(value.detailImages, mirror.detailImages),
+          videos: mergeMedia(value.videos, mirror.videos),
+          gallery: mergeMedia(value.gallery, mirror.gallery),
+          optionImages: mergeMap(value.optionImages, mirror.optionImages),
+          variantImages: mergeMap(value.variantImages, mirror.variantImages),
+          attributes: mergeMedia(value.attributes, mirror.attributes),
           options: mirror.options?.length ? mirror.options : value.options,
           seo: mirror.seo || value.seo,
         });
       } catch { return applyDetail(payload); }
+    });
+    const request = storefrontApi({ view: 'product', id: productId }).then(applyDetail).catch(async apiError => {
+      try { return await hydrateFromLive(); } catch { /* Continue to the static mirror below. */ }
+      throw apiError;
     }).catch(async error => {
+      if (error?.status === 404) throw error;
       try { return applyDetail(await loadStaticProduct(productId)); } catch { throw error; }
     }).finally(() => detailRequests.delete(productId));
     detailRequests.set(productId, request);
@@ -435,7 +510,7 @@
     root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
   });
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
+  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;

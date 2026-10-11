@@ -24,9 +24,19 @@ for (const file of files) {
     const gallery = [...new Set((Array.isArray(override.gallery) ? override.gallery : []).map(value => Importer.imageUrl(value, { proxy: true })).filter(Boolean))].slice(0, Importer.MAX_GALLERY_IMAGES);
     const detailImages = [...new Set((Array.isArray(override.detailImages) ? override.detailImages : product.detailImages || []).map(value => Importer.imageUrl(value, { proxy: true })).filter(Boolean))].slice(0, Importer.MAX_DETAIL_IMAGES);
     const videos = [...new Set((Array.isArray(override.videos) ? override.videos : product.videos || []).map(value => Importer.videoUrl(value, { proxy: true })).filter(Boolean))].slice(0, Importer.MAX_VIDEOS);
+    const optionImages = Object.fromEntries(Object.entries(override.optionImages || {}).map(([optionId, values]) => [optionId, Object.fromEntries(Object.entries(values || {}).map(([optionValue, value]) => {
+      const image = Importer.imageUrl(value, { proxy: true });
+      return image ? [optionValue, image] : null;
+    }).filter(Boolean))]).filter(([, values]) => Object.keys(values).length));
+    const variantImages = Object.fromEntries(Object.entries(override.variantImages || {}).map(([variantId, value]) => {
+      const image = Importer.imageUrl(value, { proxy: true });
+      return image ? [variantId, image] : null;
+    }).filter(Boolean));
     if (gallery.length) { product.gallery = gallery; product.image = gallery[0]; }
     if (detailImages.length) product.detailImages = detailImages;
     if (videos.length) product.videos = videos;
+    if (Object.keys(optionImages).length) product.optionImages = optionImages;
+    if (Object.keys(variantImages).length) product.variantImages = variantImages;
     if (override.descriptionHtml) product.descriptionHtml = Importer.proxyDescriptionHtml(override.descriptionHtml);
     if (override.description) product.description = String(override.description).slice(0, 12000);
     if (gallery.length || detailImages.length || videos.length) {

@@ -296,6 +296,18 @@
         image: imageUrl(item?.imgUrl || item?.imageURI || item),
       }))
       .filter(item => item.image);
+    const mobileSkuProps = Array.isArray(main.skuProps)
+      ? main.skuProps
+      : Array.isArray(main.skuModel?.skuProps) ? main.skuModel.skuProps : [];
+    const optionImages = Object.fromEntries(mobileSkuProps.map(prop => {
+      const name = clean(prop?.prop || prop?.name || prop?.propName, 80);
+      const values = Object.fromEntries(listValues(prop?.value || prop?.values).map(value => {
+        const valueName = clean(value?.name || value?.value || value?.valueName || value, 80);
+        const image = imageUrl(imageValue(value));
+        return valueName && image ? [valueName, image] : null;
+      }).filter(Boolean));
+      return name && Object.keys(values).length ? [name, values] : null;
+    }).filter(Boolean));
     const gallery = [...new Set([...galleryCandidates, ...skuImages.map(item => item.image)].map(imageUrl).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
     const inlineSkuModel = [
       main.skuModel,
@@ -318,6 +330,7 @@
       title,
       gallery,
       skuImages,
+      optionImages,
       videos,
       descriptionUrl,
       attributes,
@@ -560,6 +573,73 @@
     }).filter(attribute => attribute.name && attribute.value).slice(0, 80);
   }
 
+  // 1688 attaches a representative image to values of the colour/model
+  // option (skuProps[].value[].imageUrl).  Keep that relationship separate
+  // from the compact SKU rows so it survives both static generation and the
+  // Supabase wire format without duplicating the same URL hundreds of times.
+  function imageValue(value) {
+    if (typeof value === 'string') return value;
+    if (!value || typeof value !== 'object') return '';
+    return value.imageUrl || value.imgUrl || value.imageURI || value.fullPathImageURI || value.url || '';
+  }
+
+  function normalizeOptionImages(value, options = [], translations = {}, { proxy = false } = {}) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const result = {};
+    const optionList = Array.isArray(options) ? options : [];
+    Object.entries(value).forEach(([rawOptionKey, rawValues]) => {
+      const key = String(rawOptionKey || '').trim();
+      if (!key || !rawValues || typeof rawValues !== 'object' || Array.isArray(rawValues)) return;
+      const optionIndex = optionList.findIndex((option, index) => {
+        const id = String(option?.id || '').trim();
+        const name = String(option?.name || '').trim();
+        const sourceName = String(option?.sourceName || '').trim();
+        return id === key || name === key || sourceName === key || optionId(key, index) === id || optionName(key, index) === name;
+      });
+      const option = optionList[optionIndex];
+      const optionIdValue = option?.id || key.replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 40);
+      if (!optionIdValue) return;
+      const mapped = {};
+      Object.entries(rawValues).forEach(([rawValue, rawImage]) => {
+        const localizedValue = localizedOptionValue(rawValue, translations);
+        const candidate = imageUrl(imageValue(rawImage), { proxy });
+        if (localizedValue && candidate) mapped[localizedValue] = candidate;
+      });
+      if (Object.keys(mapped).length) result[optionIdValue] = { ...(result[optionIdValue] || {}), ...mapped };
+    });
+    return result;
+  }
+
+  function normalizeVariantImages(value, { proxy = false } = {}) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const result = {};
+    Object.entries(value).forEach(([key, rawImage]) => {
+      const candidate = imageUrl(Array.isArray(rawImage) ? rawImage[0] : imageValue(rawImage), { proxy });
+      if (String(key || '').trim() && candidate) result[String(key).trim()] = candidate;
+    });
+    return result;
+  }
+
+  function deriveVariantImages(variants = [], options = [], optionImages = {}, existing = {}) {
+    const result = { ...normalizeVariantImages(existing, { proxy: false }) };
+    (Array.isArray(variants) ? variants : []).forEach(variant => {
+      const id = String(variant?.id || variant?.sku || '').trim();
+      if (!id || result[id]) return;
+      const image = options.map(option => optionImages?.[option.id]?.[variant?.values?.[option.id]]).find(Boolean);
+      if (image) result[id] = image;
+    });
+    return result;
+  }
+
+  function attachVariantImages(variants = [], options = [], optionImages = {}, variantImages = {}) {
+    const normalized = normalizeVariantImages(variantImages, { proxy: true });
+    return (Array.isArray(variants) ? variants : []).map(variant => {
+      const key = String(variant?.id || variant?.sku || '').trim();
+      const image = normalized[key] || options.map(option => optionImages?.[option.id]?.[variant?.values?.[option.id]]).find(Boolean);
+      return image ? { ...variant, image } : variant;
+    });
+  }
+
   function detailPayload(body = {}) {
     // Browser exports produced by the 1688 detail page are already reduced to
     // this shape.  Accept them directly so a CAPTCHA-free user export can be
@@ -577,6 +657,8 @@
         })),
         descriptionUrl: normalizeDescriptionUrl(body.descriptionUrl),
         attributes: normalizeAttributes(body.attributes),
+        optionImages: body.optionImages || {},
+        variantImages: body.variantImages || {},
         priceCny: Number.isFinite(Number(body.priceCny)) ? Number(body.priceCny) : 0,
       };
     }
@@ -614,6 +696,15 @@
       const values = [...new Set(listValues(prop?.value || prop?.values).map(value => clean(value?.name || value?.value || value?.valueName || value, 80)).filter(Boolean))];
       return { id: optionId(sourceName, index), name: optionName(sourceName, index), sourceName, values };
     }).filter(option => option.values.length).slice(0, 3);
+    const optionImages = Object.fromEntries(optionDrafts.map(option => {
+      const source = skuProps.find(prop => clean(prop?.prop || prop?.name || prop?.propName, 80) === option.sourceName);
+      const values = Object.fromEntries(listValues(source?.value || source?.values).map(value => {
+        const name = clean(value?.name || value?.value || value?.valueName || value, 80);
+        const image = imageUrl(imageValue(value));
+        return name && image ? [name, image] : null;
+      }).filter(Boolean));
+      return [option.id, values];
+    }).filter(([, values]) => Object.keys(values).length));
     const options = optionDrafts.map(({ sourceName, ...option }) => ({ ...option, sourceName }));
     const tradeModels = scopes.map(scope => scope?.mainPrice?.fields?.finalPriceModel?.tradeWithoutPromotion).filter(Boolean);
     const skuMap = first(
@@ -643,6 +734,7 @@
         sourceSpec: clean(decodeEntities(sku?.specAttrs || sku?.spec || JSON.stringify(skuSpecValues(sku))), 500),
       };
     }).filter(variant => !options.length || Object.keys(variant.values).length === options.length).slice(0, MAX_IMPORT_VARIANTS);
+    const variantImages = deriveVariantImages(variants, options, optionImages);
     const directAttributes = first(
       offer.featureAttributes,
       ...scopes.map(scope => scope?.productAttributes?.fields?.attributes),
@@ -657,6 +749,8 @@
       videos,
       options: options.map(({ sourceName, ...option }) => option),
       variants,
+      optionImages,
+      variantImages,
       descriptionUrl: normalizeDescriptionUrl(offer.detailUrl || dataModel.description?.fields?.detailUrl || dataModel.description?.detailUrl || dataModel.detailModel?.detailUrl || rootData?.detailModel?.detailUrl || body.descriptionUrl),
       attributes: normalizeAttributes(directAttributes),
       priceCny: Number.isFinite(defaultPrice) ? defaultPrice : 0,
@@ -1137,6 +1231,22 @@
       });
     }
 
+    const localizedOptionImages = normalizeOptionImages(current.optionImages, normalizedOptions, translations, { proxy: true });
+    const localizedVariantImages = normalizeVariantImages(current.variantImages, { proxy: true });
+    current.optionImages = localizedOptionImages;
+    current.variantImages = Object.fromEntries(
+      Object.entries({
+        ...localizedVariantImages,
+        ...Object.fromEntries((Array.isArray(current.variants) ? current.variants : []).map(variant => [
+          String(variant?.id || variant?.sku || ''),
+          variant?.image || variant?.imageUrl || '',
+        ]).filter(([key, value]) => key && value)),
+      }).filter(([, value]) => value),
+    );
+    if (Array.isArray(current.variants) && current.variants.length) {
+      current.variants = attachVariantImages(current.variants, normalizedOptions, localizedOptionImages, current.variantImages);
+    }
+
     if (is1688 && current.title) {
       current.imageAlt = `${current.title} — ảnh sản phẩm`;
       const slug = current.title.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
@@ -1162,7 +1272,12 @@
     if (title.length < 3) throw new Error('Cần tiêu đề sản phẩm.');
     const translations = input.translationMap && typeof input.translationMap === 'object' ? input.translationMap : {};
     const options = normalizeOptions(optionValues(input), translations);
-    const variants = normalizeVariants(input, options, sku, translations);
+    const optionImages = normalizeOptionImages(input.optionImages, options, translations, { proxy: true });
+    const variantImageMap = normalizeVariantImages(input.variantImages, { proxy: true });
+    const variants = attachVariantImages(normalizeVariants(input, options, sku, translations), options, optionImages, {
+      ...variantImageMap,
+      ...deriveVariantImages(input.variants, options, optionImages, variantImageMap),
+    });
     const galleryDirect = [...new Set((Array.isArray(input.gallery) ? input.gallery : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, MAX_GALLERY_IMAGES);
     const detailImagesDirect = [...new Set((Array.isArray(input.detailImages) ? input.detailImages : []).map(value => imageUrl(value)).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
     const videosDirect = [...new Set((Array.isArray(input.videos) ? input.videos : collectVideoUrls(input.videoUrl || input.video)).map(value => videoUrl(value)).filter(Boolean))].slice(0, MAX_VIDEOS);
@@ -1171,6 +1286,10 @@
     const videos = videosDirect.map(value => videoUrl(value, { proxy: true })).filter(Boolean);
     const price = safeNumber(input.priceMinor ?? input.basePriceMinor, variants.length ? Math.min(...variants.map(variant => variant.price)) : 0);
     const stock = variants.length ? variants.reduce((sum, variant) => sum + variant.stock, 0) : safeNumber(input.stock, 0);
+    const outputVariantImages = {
+      ...variantImageMap,
+      ...Object.fromEntries(variants.map(variant => [variant.id, variant.image]).filter(([, value]) => value)),
+    };
     const titleLanguage = clean(input.titleLanguage || (input.titleVietnamese || input.titleVi ? 'vi' : input.titleEnglish || input.englishTitle ? 'en' : 'vi'), 12).toLowerCase();
     const source = {
       platform: '1688', offerId, shopId: clean(input.shopId, 120), shopName: clean(input.shopName || DEFAULT_SHOP_NAME, 160),
@@ -1190,6 +1309,8 @@
       price, stock, status: ['Active', 'Draft', 'Archived'].includes(input.status) ? input.status : 'Draft',
       image: (/^assets\/[\w.-]+\.(png|jpe?g|webp|svg)$/i.test(String(input.image || '')) ? input.image : '') || imageUrl(input.image, { proxy: true }) || gallery[0] || imageUrl(input.imageUrl || input.sourceImageUrl, { proxy: true }) || FALLBACK_IMAGE,
       ...(gallery.length ? { gallery } : {}), ...(detailImages.length ? { detailImages } : {}), ...(videos.length ? { videos } : {}),
+      ...(Object.keys(optionImages).length ? { optionImages } : {}),
+      ...(Object.keys(outputVariantImages).length ? { variantImages: outputVariantImages } : {}),
       ...(Array.isArray(input.attributes) && input.attributes.length ? { attributes: input.attributes.slice(0, 80) } : {}),
       ...(clean(input.descriptionHtml, 200000) ? { descriptionHtml: proxyDescriptionHtml(input.descriptionHtml) } : {}),
       imageAlt: clean(input.imageAlt || `${title} — ảnh sản phẩm`, 180), brand: clean(input.brand || 'Nhà cung cấp 1688', 100),
@@ -1248,8 +1369,8 @@
     if (description) current.description = description;
     if (typeof enrichment.descriptionHtml === 'string' && enrichment.descriptionHtml.trim()) current.descriptionHtml = clean(enrichment.descriptionHtml, 200000);
     if (Array.isArray(enrichment.attributes) && enrichment.attributes.length) current.attributes = enrichment.attributes.slice(0, 80);
+    const translations = enrichment.translationMap && typeof enrichment.translationMap === 'object' ? enrichment.translationMap : {};
     if (Array.isArray(enrichment.options) && enrichment.options.length && Array.isArray(enrichment.variants) && enrichment.variants.length) {
-      const translations = enrichment.translationMap && typeof enrichment.translationMap === 'object' ? enrichment.translationMap : {};
       const options = normalizeOptions(enrichment.options, translations);
       const source = current.source && typeof current.source === 'object' ? current.source : {};
       const enrichmentSource = enrichment.source && typeof enrichment.source === 'object' ? enrichment.source : {};
@@ -1270,6 +1391,15 @@
         current.price = enabled.length ? Math.min(...enabled.map(variant => variant.price)) : 0;
         current.stock = enabled.reduce((sum, variant) => sum + variant.stock, 0);
       }
+    }
+    const mediaOptions = Array.isArray(current.options) && current.options.length ? current.options : (Array.isArray(enrichment.options) ? enrichment.options : []);
+    const optionImages = normalizeOptionImages({ ...(current.optionImages || {}), ...(enrichment.optionImages || {}) }, mediaOptions, translations, { proxy: true });
+    const suppliedVariantImages = normalizeVariantImages({ ...(current.variantImages || {}), ...(enrichment.variantImages || {}) }, { proxy: true });
+    const derivedVariantImages = deriveVariantImages(current.variants, mediaOptions, optionImages, suppliedVariantImages);
+    current.optionImages = optionImages;
+    current.variantImages = Object.fromEntries(Object.entries({ ...suppliedVariantImages, ...derivedVariantImages }).filter(([, value]) => value));
+    if (Array.isArray(current.variants) && current.variants.length) {
+      current.variants = attachVariantImages(current.variants, mediaOptions, optionImages, current.variantImages);
     }
     current.source = {
       ...(current.source || {}),
@@ -1300,6 +1430,8 @@
       videos: [...new Set([...(input.videos || []), ...(detailData.videos || []), ...(descriptionData.videos || [])])].slice(0, MAX_VIDEOS),
       options: detailData.options?.length ? detailData.options : input.options,
       variants: detailData.variants?.length ? detailData.variants : input.variants,
+      optionImages: detailData.optionImages || input.optionImages,
+      variantImages: detailData.variantImages || input.variantImages,
       attributes: detailData.attributes?.length ? detailData.attributes : input.attributes,
       descriptionUrl: detailData.descriptionUrl || input.descriptionUrl,
       description: descriptionData.text || input.description,

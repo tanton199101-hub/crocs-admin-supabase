@@ -47,7 +47,12 @@
       ...regions.map(region => variant.regionalPrices?.[region] ?? null),
       variant.enabled === false ? 0 : 1,
     ]);
-    const packed = { ...product, variantEncoding: VARIANT_ENCODING, variantRegions: regions, variantsPacked: rows };
+    const variantImages = {
+      ...(product.variantImages && typeof product.variantImages === 'object' ? product.variantImages : {}),
+      ...Object.fromEntries(product.variants.map(variant => [variant.id || variant.sku, variant.image || variant.imageUrl]).filter(([, image]) => image)),
+    };
+    const packed = { ...product, variantEncoding: VARIANT_ENCODING, variantRegions: regions, variantsPacked: rows,
+      ...(Object.keys(variantImages).length ? { variantImages } : {}) };
     delete packed.variants;
     return packed;
   }
@@ -81,6 +86,7 @@
         stock: Number(row[stockIndex] || 0),
         enabled: row[flagIndex] !== 0,
         barcode: '',
+        ...(product.variantImages?.[sku] ? { image: product.variantImages[sku] } : {}),
         ...(Object.keys(regionalPrices).length ? { regionalPrices } : {}),
       };
     }).filter(Boolean);

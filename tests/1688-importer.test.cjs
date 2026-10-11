@@ -94,15 +94,18 @@ test('1688 detail parser keeps gallery/detail images and maps SKU specs to optio
   assert.equal(parsedDescription.images.length, 2);
   assert.match(Importer.proxyDescriptionHtml('<img src="https://cbu01.alicdn.com/img/ibank/detail.jpg">'), /\/api\/1688-image\?/);
   const parsed = Importer.detailPayload({
-    offerModel: { offerDetail: { subject: 'Áo biểu diễn', skuProps: [{ prop: '颜色', value: [{ name: 'Đỏ' }] }, { prop: '尺码', value: [{ name: 'S' }] }] } },
+    offerModel: { offerDetail: { subject: 'Áo biểu diễn', skuProps: [{ prop: '颜色', value: [{ name: 'Đỏ', imageUrl: 'https://cbu01.alicdn.com/img/ibank/red.jpg' }] }, { prop: '尺码', value: [{ name: 'S' }] }] } },
     dataModel: { mainPrice: { fields: { finalPriceModel: { tradeWithoutPromotion: { skuMapOriginal: [{ skuId: 'sku-1', specAttrs: '颜色:Đỏ;尺码:S', price: '12.50', canBookCount: 4 }] } } } } },
   });
   assert.deepEqual(parsed.options.map(item => item.name), ['Màu sắc', 'Kích thước']);
   assert.deepEqual(parsed.variants[0].values, { 'option-1': 'Đỏ', 'option-2': 'S' });
-  const product = Importer.toProduct({ offerId: '123456789', sku: 'DETAIL-01', titleVietnamese: 'Áo biểu diễn', exchangeRateCnyBase: .13, exchangeRateCnyVnd: 3800, priceMultiplier: 2, options: parsed.options, variants: parsed.variants, gallery: ['https://cbu01.alicdn.com/img/ibank/main.jpg'], detailImages: parsedDescription.images, description: parsedDescription.text });
+  assert.match(parsed.optionImages['option-1'].Đỏ, /red\.jpg$/);
+  assert.match(parsed.variantImages['sku-1'], /red\.jpg$/);
+  const product = Importer.toProduct({ offerId: '123456789', sku: 'DETAIL-01', titleVietnamese: 'Áo biểu diễn', exchangeRateCnyBase: .13, exchangeRateCnyVnd: 3800, priceMultiplier: 2, options: parsed.options, variants: parsed.variants, optionImages: parsed.optionImages, variantImages: parsed.variantImages, gallery: ['https://cbu01.alicdn.com/img/ibank/main.jpg'], detailImages: parsedDescription.images, description: parsedDescription.text });
   assert.match(product.image, /^\/api\/1688-image\?/);
   assert.equal(product.gallery.length, 1);
   assert.equal(product.detailImages.length, 2);
+  assert.match(product.variants[0].image, /^\/api\/1688-image\?/);
   assert.equal(product.variants[0].regionalPrices.vn, 95000);
   const data = Store.seed(); data.products[0] = { ...product, id: data.products[0].id };
   assert.doesNotThrow(() => Store.validate(data));

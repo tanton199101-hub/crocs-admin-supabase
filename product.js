@@ -8,6 +8,12 @@
   const main = document.querySelector('#productMain');
   const query = new URLSearchParams(root.location.search);
   const requestedId = query.get('id') || 'p1';
+  const bootstrappedProduct = (() => {
+    try {
+      const node = document.querySelector('#productBootstrap');
+      return node?.textContent ? JSON.parse(node.textContent) : null;
+    } catch { return null; }
+  })();
   let product;
   let quantity = 1;
   let selectedSize = '';
@@ -47,6 +53,7 @@
   function updateStructuredData(variantList, current) {
     const base = new URL(root.location.href);
     base.hash = '';
+    if (root.location.protocol !== 'file:' && /\/product\.html$/i.test(base.pathname)) base.pathname = base.pathname.replace(/\/product\.html$/i, '/product');
     base.search = `?id=${encodeURIComponent(product.id)}`;
     const canonical = new URL(base.href);
     canonical.searchParams.set('slug', product.slug || product.id);
@@ -67,7 +74,7 @@
       '@type': 'Offer', url: urlFor(variant), priceCurrency: commerce.currency || 'USD', price: (variant.price / (10 ** (regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2))).toFixed(regional?.CURRENCIES?.[commerce.currency || 'USD']?.decimals ?? 2),
       availability: variant.stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock', itemCondition: 'https://schema.org/NewCondition'
     });
-    const media = mediaFor(product);
+    const media = mediaFor(product, current);
     const imageUrl = absolute(media[0] || commerce.image(product.image));
     ensureProperty('og:type', 'product');
     ensureProperty('og:site_name', 'Sally Kids');
@@ -101,8 +108,15 @@
 
   function activeVariants() { return commerce.variantsFor(product); }
   function currentVariant() { return activeVariants().length ? commerce.variantFor(product, { values: selectedValues }) : null; }
-  function mediaFor(item) {
-    const values = [item?.image, ...(Array.isArray(item?.gallery) ? item.gallery : [])]
+  function optionImageFor(item, option, value) {
+    return item?.optionImages?.[option?.id]?.[value] || '';
+  }
+  function variantImageFor(item, variant) {
+    if (!variant) return '';
+    return variant.image || variant.imageUrl || item?.variantImages?.[variant.id] || item?.variantImages?.[variant.sku] || commerce.optionsFor(item).map(option => optionImageFor(item, option, variant.values?.[option.id])).find(Boolean) || '';
+  }
+  function mediaFor(item, variant = null) {
+    const values = [variantImageFor(item, variant), item?.image, ...(Array.isArray(item?.gallery) ? item.gallery : [])]
       .map(value => commerce.image(value)).filter(Boolean);
     return [...new Set(values)];
   }
@@ -149,7 +163,8 @@
       const values = { ...selectedValues, [option.id]: value };
       const variant = commerce.variantFor(product, { values });
       const disabled = !variant || variant.stock < 1;
-      return `<button class="size-option${selectedValues[option.id] === value ? ' is-selected' : ''}" type="button" data-option-id="${commerce.escape(option.id)}" data-option-value="${commerce.escape(value)}" aria-pressed="${selectedValues[option.id] === value}" ${disabled ? 'disabled' : ''}>${commerce.escape(value)}</button>`;
+      const image = optionImageFor(product, option, value);
+      return `<button class="size-option${image ? ' size-option--image' : ''}${selectedValues[option.id] === value ? ' is-selected' : ''}" type="button" data-option-id="${commerce.escape(option.id)}" data-option-value="${commerce.escape(value)}" aria-pressed="${selectedValues[option.id] === value}" ${disabled ? 'disabled' : ''}>${image ? `<img data-smart-fit src="${commerce.escape(commerce.image(image))}" alt="" width="42" height="42" loading="lazy" decoding="async">` : ''}<span>${commerce.escape(value)}</span></button>`;
     }).join('')}</div></fieldset>`).join('');
   }
 
@@ -167,7 +182,7 @@
     }
     const current = currentVariant();
     const sizeValues = commerce.sizesFor(product);
-    const media = mediaFor(product);
+    const media = mediaFor(product, current);
     selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
     const detailImages = detailMediaFor(product);
     const videos = videoMediaFor(product);
@@ -264,6 +279,7 @@
     goToGalleryIndex(selectedMediaIndex, false);
     main.querySelectorAll('[data-option-id]').forEach(button => button.addEventListener('click', () => {
       selectedValues[button.dataset.optionId] = button.dataset.optionValue;
+      selectedMediaIndex = 0;
       const variant = currentVariant();
       syncVariantUrl(variant);
       render();
@@ -292,7 +308,12 @@
   (async () => {
     try {
       await commerce.ready;
-      product = await commerce.loadProduct(requestedId);
+      // The clean product route can be server-rendered with a compact product
+      // payload. Hydrating it avoids a duplicate network round trip while the
+      // API/RPC path remains the fallback for direct static HTML visits.
+      if (bootstrappedProduct?.id === requestedId) {
+        product = commerce.localizeProduct(commerce.normalize({ ...bootstrappedProduct, _detailLoaded: true }));
+      } else product = await commerce.loadProduct(requestedId);
       render();
     } catch (error) { renderMissing(error.message); }
   })();

@@ -1,3 +1,5 @@
+import sharp from 'sharp';
+
 const ALLOWED_HOSTS = new Set(['cbu01.alicdn.com', 'gw.alicdn.com', 'img.alicdn.com', 'itemcdn.tmall.com', 'img01.1688.com', 'img02.1688.com']);
 const ALICDN_HOST_RE = /(?:^|\.)alicdn\.com$/i;
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -19,6 +21,16 @@ function allowedUrl(raw) {
 function requestedUrl(req) {
   const raw = req?.query?.url || new URL(req?.url || '/', 'https://store.invalid').searchParams.get('url');
   return allowedUrl(raw);
+}
+
+function requestedTransform(req) {
+  const query = req?.query || Object.fromEntries(new URL(req?.url || '/', 'https://store.invalid').searchParams.entries());
+  const width = Number(query.w || query.width || 0);
+  const format = String(query.format || '').toLowerCase();
+  return {
+    width: Number.isFinite(width) && width >= 64 && width <= 1600 ? Math.round(width) : 0,
+    format: format === 'webp' || format === 'avif' ? format : '',
+  };
 }
 
 export default async function handler(req, res) {
@@ -54,8 +66,22 @@ export default async function handler(req, res) {
     res.setHeader('Cache-Control', 'public, s-maxage=86400, max-age=3600, stale-while-revalidate=604800');
     res.setHeader('X-Content-Type-Options', 'nosniff');
     if (req.method === 'HEAD') return res.status(200).end();
-    const buffer = Buffer.from(await upstream.arrayBuffer());
+    let buffer = Buffer.from(await upstream.arrayBuffer());
     if (buffer.length > MAX_BYTES) return res.status(413).json({ error: 'Image is too large' });
+    const transform = requestedTransform(req);
+    if (transform.width || transform.format) {
+      try {
+        let pipeline = sharp(buffer, { failOn: 'none' });
+        if (transform.width) pipeline = pipeline.resize({ width: transform.width, fit: 'inside', withoutEnlargement: true });
+        if (transform.format === 'avif') pipeline = pipeline.avif({ quality: 58, effort: 4 });
+        if (transform.format === 'webp') pipeline = pipeline.webp({ quality: 78, effort: 4 });
+        buffer = await pipeline.toBuffer();
+        res.setHeader('Content-Type', transform.format === 'avif' ? 'image/avif' : 'image/webp');
+      } catch {
+        // If an upstream image is malformed, keep the original validated bytes
+        // available instead of turning a card into a broken image.
+      }
+    }
     return res.status(200).send(buffer);
   } catch {
     return res.status(504).json({ error: 'Image fetch timed out' });

@@ -45,6 +45,8 @@ const products = sourceProducts.map(product => is1688(product)
       descriptionHtml: override.descriptionHtml,
       description: override.description,
       descriptionUrl: override.descriptionUrl,
+      optionImages: override.optionImages,
+      variantImages: override.variantImages,
       detailFetchedAt: override.detailFetchedAt,
       detailStatus: override.detailStatus || 'available',
       source: { ...(override.source || {}), mediaOverride: true },
@@ -76,7 +78,12 @@ function packVariants(product) {
     ...regions.map(region => variant.regionalPrices?.[region] ?? null),
     variant.enabled === false ? 0 : 1,
   ]);
-  const packed = { ...product, variantEncoding, variantRegions: regions, variantsPacked: rows };
+  const variantImages = {
+    ...(product.variantImages && typeof product.variantImages === 'object' ? product.variantImages : {}),
+    ...Object.fromEntries(product.variants.map(variant => [variant.id || variant.sku, variant.image || variant.imageUrl]).filter(([, image]) => image)),
+  };
+  const packed = { ...product, variantEncoding, variantRegions: regions, variantsPacked: rows,
+    ...(Object.keys(variantImages).length ? { variantImages } : {}) };
   delete packed.variants;
   return packed;
 }
@@ -106,6 +113,8 @@ function projection(product, chunk) {
     pricesByRegion: value.pricesByRegion || {},
     seo: value.seo || {},
     options: Array.isArray(value.options) ? value.options : [],
+    optionImages: value.optionImages && typeof value.optionImages === 'object' ? value.optionImages : {},
+    variantImages: value.variantImages && typeof value.variantImages === 'object' ? value.variantImages : {},
     ...(value.variantEncoding === variantEncoding
       ? { variantEncoding, variantRegions: value.variantRegions || [], variantsPacked: value.variantsPacked || [] }
       : { variants: Array.isArray(value.variants) ? value.variants : [] }),
