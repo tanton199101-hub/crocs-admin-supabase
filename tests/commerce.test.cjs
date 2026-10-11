@@ -68,3 +68,44 @@ test('hydrated bootstrap is registered for cart validation and later product loa
   assert.equal(quote.subtotal, 2400);
   assert.throws(() => Commerce.hydrateProduct({ ...packedProduct(), status: 'Draft' }), /not available/);
 });
+
+test('product media drops campaign banners and keeps verified gallery and variant photos', () => {
+  const front = 'https://cbu01.alicdn.com/product-front.jpg';
+  const detail = 'https://cbu01.alicdn.com/product-detail.jpg';
+  const blue = 'https://cbu01.alicdn.com/product-blue.jpg';
+  const input = {
+    id: 'no-banner-media', title: 'Set pastel', price: 1000, stock: 3, status: 'Active',
+    image: 'assets/sally-kids-hero-1983.webp',
+    gallery: ['assets/sally-kids-hero.png', 'assets/sally-kids-play-720.webp', 'invalid-image', front],
+    detailImages: ['assets/sally-kids-school-720.webp', detail],
+    descriptionHtml: '<img src="assets/sally-kids-hero-1600.avif"><img data-src="https://cbu01.alicdn.com/product-detail.jpg"><img src="javascript:alert(1)">',
+    options: [{ id: 'colour', name: 'Màu sắc', values: ['Đỏ', 'Xanh'] }],
+    optionImages: { colour: { Đỏ: 'assets/sally-kids-play.png', Xanh: blue } },
+    variantImages: { red: 'assets/sally-kids-school.png' },
+    variants: [
+      { id: 'red', sku: 'SET-RED', values: { colour: 'Đỏ' }, price: 1000, stock: 1, image: 'assets/sally-kids-hero-900.webp', imageUrl: 'assets/sally-kids-play-720.webp' },
+      { id: 'blue', sku: 'SET-BLUE', values: { colour: 'Xanh' }, price: 1000, stock: 2 },
+    ],
+  };
+  const product = Commerce.normalize(input);
+  assert.equal(product.image, front, 'Use a real gallery photo when the main image is a banner');
+  assert.deepEqual(product.gallery, [front]);
+  assert.deepEqual(product.detailImages, [detail]);
+  assert.deepEqual(product.optionImages, { colour: { Xanh: blue } });
+  assert.deepEqual(product.variantImages, { blue });
+  assert.equal(product.variants[0].image, undefined);
+  assert.equal(product.variants[0].imageUrl, undefined);
+  assert.equal(product.variants[1].image, blue);
+  assert.equal(input.variants[0].image, 'assets/sally-kids-hero-900.webp', 'Do not mutate source records');
+  assert.deepEqual(Commerce.normalize(product), product);
+});
+
+test('missing product photos use a dedicated placeholder, never the homepage hero', () => {
+  const placeholder = 'assets/sally-kids-product-placeholder.svg';
+  assert.equal(Commerce.image('javascript:alert(1)'), placeholder);
+  assert.equal(Commerce.image(''), placeholder);
+  const product = Commerce.normalize({ id: 'no-photo', title: 'Ảnh đang cập nhật', price: 1000, stock: 1, image: 'assets/sally-kids-hero.png', gallery: ['assets/sally-kids-school.png'] });
+  assert.equal(product.image, placeholder);
+  assert.deepEqual(product.gallery, []);
+  assert.ok(Commerce.seeds.every(item => !/sally-kids-(?:hero|play|school)/i.test(item.image)));
+});

@@ -1,13 +1,15 @@
 import { createHash } from 'node:crypto';
+import { buildFacets, matchesFacet, parseSelections, productSearchText, productTaxonomy } from './product-taxonomy.mjs';
 
-export const fold = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
+export const fold = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const safeJson = value => JSON.stringify(value).replace(/</g, '\\u003c');
 export const PRODUCT_PLACEHOLDER = 'assets/sally-kids-product-placeholder.svg';
+
 const isBannerAsset = value => /(?:^|[\\/])(?:sally-kids-(?:hero|play|school)(?:-[\w]+)?|crocs-(?:hero|cozy|crocband|pokemon|ninjago)(?:-[\w]+)?)\.(?:png|jpe?g|webp|avif)(?:[?#].*)?$/i.test(String(value || '').trim());
 const mediaValue = value => typeof value === 'string' ? value : value && typeof value === 'object' ? value.imageUrl || value.imgUrl || value.imageURI || value.fullPathImageURI || value.url || '' : '';
 const safeProductImage = value => {
-  const raw = mediaValue(value).trim();
+  const raw = String(mediaValue(value) || '').trim();
   return raw && !isBannerAsset(raw) ? raw : '';
 };
 const safeProductImageList = value => [...new Set((Array.isArray(value) ? value : []).map(safeProductImage).filter(Boolean))];
@@ -27,11 +29,20 @@ const safeProductImageMap = (value, nested = false) => {
   }).filter(Boolean));
 };
 const sanitizeProductMedia = product => {
-  const result = { ...product, image: safeProductImage(product?.image) || PRODUCT_PLACEHOLDER };
-  if (Array.isArray(product?.gallery)) result.gallery = safeProductImageList(product.gallery);
+  const gallery = Array.isArray(product?.gallery) ? safeProductImageList(product.gallery) : [];
+  const result = { ...product, image: safeProductImage(product?.image) || gallery[0] || PRODUCT_PLACEHOLDER };
+  if (Array.isArray(product?.gallery)) result.gallery = gallery;
   if (Array.isArray(product?.detailImages)) result.detailImages = safeProductImageList(product.detailImages);
   if (product?.optionImages && typeof product.optionImages === 'object') result.optionImages = safeProductImageMap(product.optionImages, true);
   if (product?.variantImages && typeof product.variantImages === 'object') result.variantImages = safeProductImageMap(product.variantImages);
+  if (Array.isArray(product?.variants)) result.variants = product.variants.map(variant => {
+    const clean = { ...variant };
+    for (const key of ['image', 'imageUrl']) {
+      const image = safeProductImage(variant?.[key]);
+      if (image) clean[key] = image; else delete clean[key];
+    }
+    return clean;
+  });
   return result;
 };
 const decimals = code => code === 'VND' || code === 'JPY' || code === 'KRW' ? 0 : 2;
@@ -64,6 +75,7 @@ export function publicCollections(collections, products) {
 
 export function catalogPage(catalog, params = new URLSearchParams()) {
   const query = fold(params.get('query')).slice(0, 120);
+  const queryTokens = query.split(/\s+/).filter(Boolean).slice(0, 12);
   const collection = (catalog.collections || []).find(c => c.id === params.get('collection') && c.status === 'Active');
   const allowed = collection ? new Set(collection.productIds) : null;
   const localization = catalog.localization || {};
@@ -71,14 +83,23 @@ export function catalogPage(catalog, params = new URLSearchParams()) {
   const thresholds = region?.currency === 'VND' ? [200000, 500000] : [200 * 10 ** decimals(region?.currency), 500 * 10 ** decimals(region?.currency)];
   const band = params.get('price') || 'all';
   const sort = params.get('sort') || 'featured';
+  const selections = {
+    category: parseSelections(params, 'category'),
+    type: parseSelections(params, 'type'),
+    audience: parseSelections(params, 'audience'),
+    occasion: parseSelections(params, 'occasion'),
+    size: parseSelections(params, 'size'),
+    color: parseSelections(params, 'color'),
+  };
   const active = catalog.products.filter(p => p.status === 'Active');
-  const products = active.filter(p => {
+  const baseProducts = active.filter(p => {
     if (params.get('collection') && !collection) return false;
     if (allowed && !allowed.has(p.id)) return false;
-    if (query && !fold(`${p.title} ${p.category} ${p.brand} ${p.sku}`).includes(query)) return false;
+    if (queryTokens.length && !queryTokens.every(token => productSearchText(p).includes(token))) return false;
     const price = regionalPrice(p, localization, region?.id);
     return band === 'under-200' ? price < thresholds[0] : band === '200-500' ? price >= thresholds[0] && price <= thresholds[1] : band === 'over-500' ? price > thresholds[1] : true;
   });
+  const products = baseProducts.filter(p => Object.entries(selections).every(([dimension, values]) => matchesFacet(p, dimension, values)));
   products.sort((a,b) => {
     const diff = sort === 'price-asc' ? regionalPrice(a, localization, region?.id) - regionalPrice(b, localization, region?.id)
       : sort === 'price-desc' ? regionalPrice(b, localization, region?.id) - regionalPrice(a, localization, region?.id)
@@ -87,7 +108,7 @@ export function catalogPage(catalog, params = new URLSearchParams()) {
       : Number(b.stock) - Number(a.stock);
     return diff || a.id.localeCompare(b.id);
   });
-  const fingerprint = createHash('sha256').update(JSON.stringify([query, collection?.id, band, sort, region?.id, products.map(p => [p.id,p.price,p.stock])])).digest('hex').slice(0, 12);
+  const fingerprint = createHash('sha256').update(JSON.stringify([query, collection?.id, band, sort, region?.id, selections, products.map(p => [p.id,p.price,p.stock])])).digest('hex').slice(0, 12);
   let offset = 0;
   if (params.get('cursor')) {
     try {
@@ -100,6 +121,7 @@ export function catalogPage(catalog, params = new URLSearchParams()) {
   const limit = Number.isFinite(requestedLimit) ? Math.min(24, Math.max(1, Math.floor(requestedLimit))) : 24;
   const next = offset + limit;
   return { products: products.slice(offset, next).map(product => summary(product, localization, region?.id)), total: products.length, activeTotal: active.length,
+    facets: buildFacets(baseProducts, selections),
     collections: publicCollections(catalog.collections, active), localization, store: catalog.store,
     nextCursor: next < products.length ? Buffer.from(JSON.stringify({ key: fingerprint, offset: next })).toString('base64url') : null,
     source: 'live', generatedAt: new Date().toISOString() };
@@ -107,13 +129,16 @@ export function catalogPage(catalog, params = new URLSearchParams()) {
 
 export function summary(p, localization = {}, regionId) {
   const localizedPrice = regionId ? regionalPrice(p, localization, regionId) : p.price;
+  const taxonomy = productTaxonomy(p);
   return Object.fromEntries([
     ['id', p.id], ['title', p.title], ['sku', p.sku], ['price', localizedPrice],
-    ['basePrice', p.price], ['stock', p.stock], ['status', p.status], ['image', safeProductImage(p.image) || PRODUCT_PLACEHOLDER],
+    ['basePrice', p.price], ['stock', p.stock], ['status', p.status], ['image', safeProductImage(p.image) || safeProductImageList(p.gallery)[0] || PRODUCT_PLACEHOLDER],
     ['imageAlt', p.imageAlt], ['brand', p.brand], ['slug', p.slug], ['category', p.category],
     ['hasVariants', p.hasVariants], ['regionalPrices', p.regionalPrices], ['priceByRegion', p.priceByRegion],
     ['pricesByRegion', p.pricesByRegion], ['createdAt', p.createdAt], ['updatedAt', p.updatedAt],
-    ['seo', p.seo],
+    ['seo', p.seo], ['categoryId', taxonomy.categoryId], ['categoryTitle', taxonomy.categoryTitle],
+    ['typeId', taxonomy.typeId], ['typeTitle', taxonomy.typeTitle], ['audience', taxonomy.audience],
+    ['occasions', taxonomy.occasions], ['sizes', taxonomy.sizes], ['colors', taxonomy.colors],
   ]);
 }
 

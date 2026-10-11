@@ -67,7 +67,11 @@
   const isBannerAsset = value => /(?:^|[\/])(?:sally-kids-(?:hero|play|school)(?:-[\w]+)?|crocs-(?:hero|cozy|crocband|pokemon|ninjago)(?:-[\w]+)?)\.(?:png|jpe?g|webp|avif)(?:[?#].*)?$/i.test(normalizeImageReference(value));
   const safeProductImage = value => {
     const raw = normalizeImageReference(mediaImageValue(value));
-    return raw && !isBannerAsset(raw) ? image(raw) : '';
+    if (!raw || isBannerAsset(raw)) return '';
+    const candidate = image(raw);
+    // Invalid gallery/variant URLs must be dropped, not expanded into repeated
+    // fallback images. The placeholder is only used for the main product photo.
+    return candidate === PRODUCT_PLACEHOLDER && raw.replace(/^\//, '') !== PRODUCT_PLACEHOLDER ? '' : candidate;
   };
   const normalizeOptionImageMap = value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
@@ -116,10 +120,10 @@
     const optionImages = normalizeOptionImageMap(p.optionImages);
     const variantImages = normalizeVariantImageMap(p.variantImages);
     const variants = Array.isArray(p.variants) ? p.variants.map(v => {
-      const explicitRaw = variantImages[String(v?.id || v?.sku || '')] || mediaImageValue(v?.image || v?.imageUrl);
-      const explicitImage = explicitRaw ? safeProductImage(explicitRaw) : '';
+      const explicitImage = variantImages[String(v?.id || v?.sku || '')] || safeProductImage(v?.image) || safeProductImage(v?.imageUrl);
       const optionImage = options.map(option => optionImages?.[option.id]?.[v?.values?.[option.id]]).find(Boolean);
-      return { ...v, ...(explicitImage || optionImage ? { image: explicitImage || optionImage } : {}), basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false };
+      const { image: originalImage, imageUrl: originalImageUrl, ...variant } = v;
+      return { ...variant, ...(explicitImage || optionImage ? { image: explicitImage || optionImage } : {}), basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false };
     }).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
     const gallery = Array.isArray(p.gallery) ? p.gallery.map(safeProductImage).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
@@ -128,7 +132,7 @@
     const videos = [...new Set((Array.isArray(p.videos) ? p.videos : []).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
     const requestedBrand = String(p.brand || '').trim();
     const brand = !requestedBrand || /crocs|1688|supplier|nhà cung cấp/i.test(requestedBrand) ? 'Sally Kids' : requestedBrand;
-    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: safeProductImage(p.image) || PRODUCT_PLACEHOLDER, gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options, optionImages, variantImages: Object.fromEntries(Object.entries({ ...variantImages, ...Object.fromEntries(variants.map(v => [String(v.id || v.sku), v.image]).filter(([, value]) => value)) }).filter(([, value]) => value)), variants };
+    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: safeProductImage(p.image) || gallery[0] || PRODUCT_PLACEHOLDER, gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options, optionImages, variantImages: Object.fromEntries(Object.entries({ ...variantImages, ...Object.fromEntries(variants.map(v => [String(v.id || v.sku), v.image]).filter(([, value]) => value)) }).filter(([, value]) => value)), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
 
@@ -358,6 +362,12 @@
       view: 'list', limit: Math.min(24, Math.max(1, Number(options.limit) || 24)),
       query: options.query || '', collection: options.collection || '', sort: options.sort || 'featured',
       price: options.price || 'all', cursor: options.cursor || '', region: regional?.region?.id || '',
+      category: Array.isArray(options.category) ? options.category.join(',') : options.category || '',
+      type: Array.isArray(options.type) ? options.type.join(',') : options.type || '',
+      audience: Array.isArray(options.audience) ? options.audience.join(',') : options.audience || '',
+      occasion: Array.isArray(options.occasion) ? options.occasion.join(',') : options.occasion || '',
+      size: Array.isArray(options.size) ? options.size.join(',') : options.size || '',
+      color: Array.isArray(options.color) ? options.color.join(',') : options.color || '',
     });
     const localization = { ...(data.store?.localization || {}), ...(data.localization || {}) };
     const normalizedProducts = (Array.isArray(data.products) ? data.products : []).filter(item => item?.status === 'Active').map(item => localizeProduct(normalize(item)));

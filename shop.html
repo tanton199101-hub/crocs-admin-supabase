@@ -49,8 +49,11 @@
         <aside class="shop-sidebar" id="shopSidebar" aria-label="Bộ lọc sản phẩm" aria-hidden="false">
           <div class="shop-sidebar-heading"><div><p class="shop-filter-kicker">Tìm đúng món bé thích</p><h2>Bộ lọc</h2></div><button type="button" class="shop-sidebar-close" id="shopSidebarClose" aria-label="Đóng bộ lọc">×</button></div>
           <label class="shop-search-field" for="shopSearch"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg><input id="shopSearch" type="search" placeholder="Tìm váy, áo, mũ…" autocomplete="off"><kbd>/</kbd></label>
-          <div class="shop-filter-block"><div class="shop-filter-title">Danh mục</div><div class="shop-collection-list" id="shopCollections"></div></div>
+          <div class="shop-filter-block"><div class="shop-filter-title">Bộ sưu tập</div><div class="shop-collection-list" id="shopCollections"></div></div>
+          <div class="shop-filter-block shop-filter-block--taxonomy"><div class="shop-filter-title">Danh mục</div><div class="shop-taxonomy-list" id="shopCategories"></div></div>
+          <div class="shop-filter-facets" id="shopFacetMount"></div>
           <div class="shop-filter-block"><div class="shop-filter-title">Khoảng giá</div><div class="shop-price-list"><label><input type="radio" name="price" value="all" checked><span>Tất cả mức giá</span></label><label><input type="radio" name="price" value="under-200"><span>Dưới 200.000 ₫</span></label><label><input type="radio" name="price" value="200-500"><span>200.000 – 500.000 ₫</span></label><label><input type="radio" name="price" value="over-500"><span>Trên 500.000 ₫</span></label></div></div>
+          <button class="shop-mobile-apply" id="shopFilterApply" type="button">Xem sản phẩm phù hợp</button>
           <button class="shop-clear-button" id="shopClear" type="button">Xoá bộ lọc</button>
           <div class="shop-sidebar-note"><span aria-hidden="true">✦</span><p>Miễn phí đổi size trong 7 ngày cho đơn hàng của Sally Kids.</p></div>
         </aside>

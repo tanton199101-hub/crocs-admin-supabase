@@ -139,7 +139,7 @@
   function detailMediaFor(item) {
     const MAX_DETAIL_IMAGES = 120;
     const direct = Array.isArray(item?.detailImages) ? item.detailImages : [];
-    const html = String(item?.descriptionHtml || '');
+    const html = String(item?.descriptionHtml || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
     const embedded = [];
     for (const match of html.matchAll(/([\w-]+)\s*=\s*(["'])([\s\S]*?)\2/gi)) {
       const name = String(match[1] || '').toLowerCase();
@@ -147,7 +147,7 @@
       embedded.push(...(name === 'srcset' || name === 'data-srcset' ? match[3].split(',').map(value => value.trim().split(/\s+/)[0]) : [match[3]]));
     }
     for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)) embedded.push(match[1]);
-    return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(productMediaValue))].slice(0, MAX_DETAIL_IMAGES);
+    return [...new Set([...direct, ...embedded].filter(productMediaValue).map(value => commerce.image(value)).filter(value => productMediaValue(value) && value !== 'assets/sally-kids-product-placeholder.svg'))].slice(0, MAX_DETAIL_IMAGES);
   }
   function videoMediaFor(item) {
     return [...new Set((Array.isArray(item?.videos) ? item.videos : []).map(value => commerce.video?.(value)).filter(Boolean))].slice(0, 8);

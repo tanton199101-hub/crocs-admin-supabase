@@ -80,7 +80,7 @@ test('presentation merges partial live media with the verified 1688 mirror', () 
   assert.equal(result.descriptionHtml, mirror.descriptionHtml);
 });
 
-test('presentation filters storefront banners from product media and uses a product placeholder', () => {
+test('presentation filters storefront banners and prefers real product photos', () => {
   const live = {
     id: 'banner-media', title: 'Set pastel', price: 100, stock: 7, status: 'Active',
     image: 'assets/sally-kids-hero-900.webp',
@@ -88,11 +88,48 @@ test('presentation filters storefront banners from product media and uses a prod
     detailImages: ['assets/crocs-cozy.webp', 'https://img.example/detail.jpg'],
     optionImages: { colour: { Đỏ: 'assets/sally-kids-play-720.webp', Xanh: 'https://img.example/blue.jpg' } },
     variantImages: { 'sku-red': 'assets/sally-kids-school-720.webp', 'sku-blue': 'https://img.example/blue.jpg' },
+    variants: [
+      { id: 'sku-red', image: 'assets/sally-kids-hero.png', imageUrl: 'assets/sally-kids-school-720.webp' },
+      { id: 'sku-blue', image: 'https://img.example/blue.jpg' },
+    ],
   };
   const result = Core.presentation(live, null);
-  assert.equal(result.image, Core.PRODUCT_PLACEHOLDER);
+  assert.equal(result.image, 'https://img.example/product-front.jpg');
   assert.deepEqual(result.gallery, ['https://img.example/product-front.jpg']);
   assert.deepEqual(result.detailImages, ['https://img.example/detail.jpg']);
   assert.deepEqual(result.optionImages, { colour: { Xanh: 'https://img.example/blue.jpg' } });
   assert.deepEqual(result.variantImages, { 'sku-blue': 'https://img.example/blue.jpg' });
+  assert.deepEqual(result.variants, [{ id: 'sku-red' }, { id: 'sku-blue', image: 'https://img.example/blue.jpg' }]);
+  assert.equal(Core.summary(live).image, result.image);
+  assert.equal(Core.presentation({ ...live, gallery: [] }, null).image, Core.PRODUCT_PLACEHOLDER);
+});
+
+test('catalog taxonomy splits imported children products and exposes contextual facets', () => {
+  const value = {
+    localization,
+    products: [
+      { id: 'jazz', title: 'Trang phục biểu diễn jazz bé gái', sku: 'JAZZ', price: 250, stock: 2, status: 'Active', category: 'Thời trang trẻ em', options: [{ id: 'size', name: 'Chiều cao', values: ['110cm', '120cm'] }, { id: 'colour', name: 'Màu sắc', values: ['Đỏ', 'Đen'] }] },
+      { id: 'hat', title: 'Mũ hip hop', sku: 'HAT', price: 80, stock: 3, status: 'Active', category: 'Thời trang trẻ em', options: [{ id: 'colour', name: 'Màu sắc', values: ['Đen'] }] },
+      { id: 'shirt', title: 'Áo pastel đi học bé trai', sku: 'SHIRT', price: 120, stock: 4, status: 'Active', category: 'Thời trang trẻ em' },
+    ],
+    collections: [],
+    store: { name: 'Sally Kids' },
+  };
+  const page = Core.catalogPage(value, new URLSearchParams('category=performance&type=performance-jazz&audience=girls&size=110cm&color=do'));
+  assert.deepEqual(page.products.map(item => item.id), ['jazz']);
+  assert.equal(page.products[0].categoryTitle, 'Trang phục biểu diễn');
+  assert.equal(page.products[0].typeTitle, 'Jazz / sân khấu');
+  assert.equal(page.facets.categories[0].children[0].id, 'performance-jazz');
+  assert.equal(page.facets.sizes[0].id, '110cm');
+  assert.ok(page.facets.colors.some(item => item.id === 'do'));
+  const query = Core.catalogPage(value, new URLSearchParams('query=hip hop'));
+  assert.deepEqual(query.products.map(item => item.id), ['hat']);
+  const allTokens = Core.catalogPage(value, new URLSearchParams('query=hip jazz'));
+  assert.equal(allTokens.total, 0, 'Every search token must match the same product');
+});
+
+test('catalog cursor is tied to every facet selection', () => {
+  const first = Core.catalogPage(catalog(), new URLSearchParams('limit=1'));
+  assert.ok(first.nextCursor);
+  assert.throws(() => Core.catalogPage(catalog(), new URLSearchParams(`limit=1&category=dresses&cursor=${encodeURIComponent(first.nextCursor)}`)), error => error.status === 409);
 });
