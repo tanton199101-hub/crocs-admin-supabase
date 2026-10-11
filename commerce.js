@@ -84,7 +84,7 @@
   const colourNames = { p1: 'White', p2: 'Lilac', p3: 'Multi', p4: 'Black', p5: 'Black', p6: 'Pink', p7: 'Espresso', p8: 'Multi' };
   const optionsFor = p => Array.isArray(p?.options) ? p.options : [];
   const variantsFor = p => Array.isArray(p?.variants) ? p.variants.filter(v => v && v.enabled !== false) : [];
-  const sizeOption = p => optionsFor(p).find(o => /size|maat|number/i.test(`${o.id} ${o.name}`));
+  const sizeOption = p => optionsFor(p).find(o => /size|maat|number|height|kích thước|chiều cao|cỡ/i.test(`${o.id} ${o.name}`));
   const variantTitle = (p, v) => optionsFor(p).map(o => v?.values?.[o.id]).filter(Boolean).join(' / ') || v?.title || v?.sku || 'Variant';
   const variantSize = (p, v) => String(v?.values?.[sizeOption(p)?.id] || variantTitle(p, v));
   function sizesFor(p) {
@@ -101,6 +101,9 @@
     return variants.find(v => optionsFor(p).every(o => !values[o.id] || v.values?.[o.id] === values[o.id])) || null;
   }
   function normalize(p) {
+    // SSR bootstrap and API responses share the compact SKU wire format.
+    // Decode here so every entry point retains options, images and stock.
+    p = unpackPackedProduct(p);
     if (!p || typeof p.id !== 'string' || !p.title || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0) throw new Error('Invalid product data.');
     const basePrice = Number.isSafeInteger(p.basePrice) ? p.basePrice : p.price;
     const options = optionsFor(p);
@@ -168,7 +171,9 @@
     return expanded;
   }
   async function fetchStaticJson(file) {
-    const response = await fetch(`${STATIC_CATALOG_PATH}/${file}`, { cache: 'force-cache', signal: AbortSignal.timeout(15000) });
+    // These JSON filenames are reused by every sync/deploy, unlike hashed
+    // assets. Revalidate even if a previous deployment cached them as immutable.
+    const response = await fetch(`${STATIC_CATALOG_PATH}/${file}`, { cache: 'no-cache', signal: AbortSignal.timeout(15000) });
     if (!response.ok) throw new Error(`Static catalogue ${response.status}`);
     return response.json();
   }
@@ -442,20 +447,21 @@
     return catalog;
   }
   const detailRequests = new Map();
+  function hydrateProduct(payload) {
+    const value = Array.isArray(payload) ? payload[0] : (payload || {});
+    if (!value?.id || value.status !== 'Active') throw new Error('This product is not available right now.');
+    const detail = localizeProduct(normalize({ ...value, _detailLoaded: true }));
+    const index = catalog.findIndex(item => item.id === detail.id);
+    if (index >= 0) catalog[index] = detail; else catalog.push(detail);
+    return detail;
+  }
   async function loadProduct(id) {
     const productId = String(id || '').trim();
     if (!productId) throw new Error('The product reference is invalid.');
     const current = catalog.find(item => item.id === productId);
     if (current?._detailLoaded) return current;
     if (detailRequests.has(productId)) return detailRequests.get(productId);
-    const applyDetail = payload => {
-      const value = Array.isArray(payload) ? payload[0] : (payload || {});
-      if (!value?.id || value.status !== 'Active') throw new Error('This product is not available right now.');
-      const detail = localizeProduct(normalize({ ...unpackPackedProduct(value), _detailLoaded: true }));
-      const index = catalog.findIndex(item => item.id === productId);
-      if (index >= 0) catalog[index] = detail; else catalog.push(detail);
-      return detail;
-    };
+    const applyDetail = hydrateProduct;
     const hydrateFromLive = payload => rpc('storefront_product_v1', { p_product_id: productId }).then(async livePayload => {
       payload = livePayload;
       const value = Array.isArray(payload) ? payload[0] : (payload || {});
@@ -510,7 +516,7 @@
     root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
   });
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
+  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, hydrateProduct, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;

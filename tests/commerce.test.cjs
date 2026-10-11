@@ -27,3 +27,44 @@ test('commerce normalizes verified 1688 product videos through the same-origin p
   assert.equal(product.videos.length, 1);
   assert.match(product.videos[0], /^\/api\/1688-video\?/);
 });
+
+function packedProduct() {
+  return {
+    id: 'packed-bootstrap', title: 'Áo trẻ em', sku: '1688-123456789',
+    price: 1000, stock: 9, status: 'Active',
+    image: 'assets/arrival-classic-clog-100.png',
+    options: [
+      { id: 'option-1', name: 'Màu sắc', values: ['Trắng', 'Đen'] },
+      { id: 'option-2', name: 'Chiều cao', values: ['110cm'] },
+    ],
+    optionImages: { 'option-1': { Trắng: '/api/1688-image?url=https%3A%2F%2Fcbu01.alicdn.com%2Fwhite.jpg' } },
+    variantImages: { 'sku-black': '/api/1688-image?url=https%3A%2F%2Fcbu01.alicdn.com%2Fblack.jpg' },
+    variantEncoding: 'crocs-1688-v3', variantRegions: ['vn'],
+    variantsPacked: [['sku-white', 0, 0, 1000, 4, 200000, 1], ['sku-black', 1, 0, 1200, 5, 240000, 1]],
+  };
+}
+
+test('SSR product normalization decodes packed SKUs and keeps Vietnamese sizes and images', () => {
+  const input = packedProduct();
+  const product = Commerce.normalize(input);
+  assert.equal(product.variants.length, 2);
+  assert.equal(product.hasVariants, true);
+  assert.equal(product.variantEncoding, undefined);
+  assert.deepEqual(Commerce.sizesFor(product), ['110cm']);
+  assert.equal(Commerce.variantSize(product, product.variants[1]), '110cm');
+  assert.equal(product.variants[0].image, input.optionImages['option-1'].Trắng);
+  assert.equal(product.variants[1].image, input.variantImages['sku-black']);
+  assert.equal(product.variants[1].regionalPrices.vn, 240000);
+  assert.deepEqual(Commerce.normalize(product), product);
+  assert.equal(input.variants, undefined, 'Do not mutate the bootstrap payload');
+});
+
+test('hydrated bootstrap is registered for cart validation and later product loads', async () => {
+  const product = Commerce.hydrateProduct(packedProduct());
+  assert.equal(Commerce.product(product.id), product);
+  assert.equal(await Commerce.loadProduct(product.id), product);
+  const quote = Commerce.quote([{ productId: product.id, variantId: 'sku-black', size: '110cm', quantity: 2 }]);
+  assert.equal(quote.items[0].unitPrice, 1200);
+  assert.equal(quote.subtotal, 2400);
+  assert.throws(() => Commerce.hydrateProduct({ ...packedProduct(), status: 'Draft' }), /not available/);
+});

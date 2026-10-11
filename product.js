@@ -117,7 +117,7 @@
   }
   function mediaFor(item, variant = null) {
     const values = [variantImageFor(item, variant), item?.image, ...(Array.isArray(item?.gallery) ? item.gallery : [])]
-      .map(value => commerce.image(value)).filter(Boolean);
+      .filter(Boolean).map(value => commerce.image(value)).filter(Boolean);
     return [...new Set(values)];
   }
   function attributeMarkup(item) {
@@ -312,13 +312,18 @@
       // payload. Hydrating it avoids a duplicate network round trip while the
       // API/RPC path remains the fallback for direct static HTML visits.
       if (bootstrappedProduct?.id === requestedId) {
-        product = commerce.localizeProduct(commerce.normalize({ ...bootstrappedProduct, _detailLoaded: true }));
+        product = commerce.hydrateProduct(bootstrappedProduct);
       } else product = await commerce.loadProduct(requestedId);
       render();
     } catch (error) { renderMissing(error.message); }
   })();
   root.addEventListener('crocs:catalog', event => {
-    if (product && event.detail?.products) { product = event.detail.products.find(item => item.id === product.id) || product; render(); }
+    if (product && event.detail?.products) {
+      const next = event.detail.products.find(item => item.id === product.id);
+      // A list refresh must not replace loaded SKU/media with a summary row.
+      product = next?._detailLoaded ? next : commerce.localizeProduct(product);
+      render();
+    }
   });
   root.addEventListener('crocs:language-change', () => { if (product) render(); });
 })(window);
