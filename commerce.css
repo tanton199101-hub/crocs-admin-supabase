@@ -73,7 +73,7 @@
 .product-gallery-note { margin-top: 12px; color: var(--commerce-muted); font-size: 12px; }
 .product-copy { padding-top: 8px; }
 .product-kicker { margin-bottom: 10px; color: var(--commerce-blue); font-size: 13px; font-weight: 800; letter-spacing: .03em; }
-.product-copy h1 { max-width: 11ch; font-size: clamp(36px, 5vw, 66px); line-height: .98; letter-spacing: -.04em; }
+.product-copy h1 { max-width: 11ch; font-family: var(--font-body); font-size: clamp(36px, 5vw, 66px); font-weight: 400; line-height: 1.04; letter-spacing: -.02em; }
 .product-price { margin-top: 17px; font-size: 25px; font-weight: 900; }
 .product-description { max-width: 44ch; margin-top: 20px; color: var(--commerce-muted); font-size: 16px; line-height: 1.6; }
 .product-information { display: block; margin-top: clamp(46px, 8vw, 92px); padding-top: 34px; border-top: 1px solid var(--commerce-line); }
@@ -123,7 +123,7 @@
 .related-card { min-width: 0; }
 .related-card-image { aspect-ratio: 3 / 4; border-radius: 18px; background: var(--commerce-lilac); overflow: hidden; }
 .related-card-image img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
-.related-card h3 { margin-top: 11px; font-size: 16px; }
+.related-card h3 { margin-top: 11px; font-family: var(--font-body); font-size: 16px; font-weight: 400; letter-spacing: 0; line-height: 1.25; }
 .related-card p { margin-top: 3px; color: var(--commerce-muted); font-size: 14px; }
 
 .commerce-footer { padding: 40px clamp(18px, 4vw, 64px); border-top: 1px solid var(--commerce-line); display: flex; align-items: flex-start; justify-content: space-between; gap: 28px; color: var(--commerce-muted); font-size: 13px; }
@@ -168,7 +168,7 @@
 .checkout-line { display: grid; grid-template-columns: 64px 1fr auto; gap: 11px; align-items: center; }
 .checkout-line-image { width: 64px; height: 60px; border-radius: 9px; background: var(--commerce-lilac); overflow: hidden; }
 .checkout-line-image img { width: 100%; height: 100%; object-fit: contain; mix-blend-mode: multiply; }
-.checkout-line h3 { font-size: 14px; line-height: 1.2; }
+.checkout-line h3 { font-family: var(--font-body); font-size: 14px; font-weight: 400; letter-spacing: 0; line-height: 1.25; }
 .checkout-line p { margin-top: 4px; color: var(--commerce-muted); font-size: 12px; }
 .checkout-line strong { align-self: start; font-size: 14px; white-space: nowrap; }
 .line-actions { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
@@ -234,6 +234,58 @@
   .checkout-summary { padding: 17px; border-radius: 13px; }
   .form-grid { grid-template-columns: 1fr; gap: 15px; }
   .checkout-footer { display: grid; gap: 7px; padding: 16px; }
+}
+
+/* Compact product detail rhythm for phones. Keep the 3:4 gallery intact,
+   but reduce chrome, gaps and control heights so the title and buy action
+   arrive sooner without sacrificing tap targets. */
+@media (max-width: 520px) {
+  .product-page { padding: 16px 14px 62px; }
+  .product-breadcrumbs { display: flex; gap: 4px; margin-bottom: 13px; overflow: hidden; font-size: 11px; line-height: 1.3; white-space: nowrap; }
+  .product-breadcrumbs > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .product-detail { gap: 20px; }
+  .product-gallery-viewport { border-radius: 16px; }
+  .product-gallery-control { width: 34px; height: 34px; font-size: 22px; }
+  .product-gallery-control--prev { left: 8px; }
+  .product-gallery-control--next { right: 8px; }
+  .product-gallery-status { margin-top: 5px; font-size: 11px; }
+  .product-thumbnails { flex-wrap: nowrap; gap: 6px; margin-top: 6px; padding-bottom: 2px; overflow-x: auto; scrollbar-width: none; }
+  .product-thumbnails::-webkit-scrollbar { display: none; }
+  .product-thumbnail { flex: 0 0 50px; width: 50px; border-radius: 7px; }
+  .product-gallery-note { margin-top: 8px; font-size: 11px; }
+  .product-copy { padding-top: 0; }
+  .product-kicker { margin-bottom: 5px; font-size: 11px; }
+  .product-copy h1 { max-width: none; font-size: clamp(28px, 8.6vw, 34px); line-height: 1.06; }
+  .product-price { margin-top: 9px; font-size: 20px; }
+  .product-description { max-width: none; margin-top: 10px; font-size: 14px; line-height: 1.45; }
+  .product-meta { gap: 6px; margin-top: 14px; padding: 12px 0; }
+  .product-meta-row { gap: 12px; font-size: 12px; line-height: 1.35; }
+  .commerce-form-label { margin: 17px 0 7px; font-size: 13px; }
+  .variant-option-group { margin-top: 16px; }
+  .variant-option-group legend { margin-bottom: 7px; font-size: 12px; }
+  .size-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+  .size-option { min-height: 42px; padding: 7px 5px; border-radius: 6px; font-size: 13px; }
+  .size-option--image { gap: 6px; }
+  .size-option--image img { width: 32px; height: 32px; flex-basis: 32px; }
+  .quantity-control { width: 116px; min-height: 42px; }
+  .quantity-control button { width: 36px; height: 40px; font-size: 20px; }
+  .commerce-primary { min-height: 48px; margin-top: 18px; padding: 12px 18px; font-size: 15px; }
+  .shipping-note { margin-top: 10px; padding: 10px 12px; font-size: 12px; line-height: 1.4; }
+  .product-information { margin-top: 40px; padding-top: 24px; }
+  .product-information h2 { font-size: 27px; }
+  .product-information p { margin-top: 10px; font-size: 14px; line-height: 1.55; }
+  .product-attributes { margin-top: 17px; }
+  .product-attributes > div { grid-template-columns: minmax(92px, .42fr) minmax(0, 1fr); gap: 10px; padding: 9px 0; font-size: 12px; }
+  .product-detail-media { margin-top: 24px; padding-top: 18px; }
+  .product-detail-media-heading { margin-bottom: 10px; font-size: 11px; }
+  .product-detail-media-heading strong { font-size: 14px; }
+  .product-detail-images { gap: 9px; }
+  .product-video-media { margin-top: 24px; padding-top: 18px; }
+  .related-products { margin-top: 56px; }
+  .related-products h2 { font-size: 28px; }
+  .related-grid { margin-top: 16px; gap: 12px; }
+  .related-card h3 { margin-top: 8px; font-size: 14px; }
+  .related-card p { font-size: 12px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

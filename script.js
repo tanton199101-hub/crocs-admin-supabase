@@ -44,7 +44,7 @@
   // storefront renderer deliberately conservative: only known fields and hex
   // colours are applied, and all copy goes through textContent.
   const themeImages = {
-    cozy: { desktop: 'assets/sally-kids-hero-1600.avif', desktopWebp: 'assets/sally-kids-hero-1600.webp', mobile: 'assets/sally-kids-hero-900.webp', mobileAvif: 'assets/sally-kids-hero-900.avif' },
+    cozy: { desktop: 'assets/sally-kids-hero-1983.avif', desktopWebp: 'assets/sally-kids-hero-1983.webp', mobile: 'assets/sally-kids-hero-1600.webp', mobileAvif: 'assets/sally-kids-hero-1600.avif' },
     crocband: { desktop: 'assets/sally-kids-play-1200.avif', desktopWebp: 'assets/sally-kids-play-1200.webp', mobile: 'assets/sally-kids-play-720.webp', mobileAvif: 'assets/sally-kids-play-720.avif' },
     ninjago: { desktop: 'assets/sally-kids-school-1200.avif', desktopWebp: 'assets/sally-kids-school-1200.webp', mobile: 'assets/sally-kids-school-720.webp', mobileAvif: 'assets/sally-kids-school-720.avif' },
   };
@@ -61,7 +61,7 @@
     if (background) document.documentElement.style.setProperty('--lilac', background);
     const hero = document.querySelector('.hero-card--main');
     const heroTitle = document.querySelector('.hero-content h1');
-    const heroSubtitle = document.querySelector('.hero-content p');
+    const heroSubtitle = document.querySelector('.hero-content .hero-subtitle');
     const heroButton = document.querySelector('.hero-content .button');
     const announcement = document.querySelector('.promo-bar p');
     if (heroTitle) heroTitle.textContent = safeThemeText(theme.heroTitle, heroTitle.textContent);
@@ -287,7 +287,7 @@
         quantity: line.quantity,
         name: product ? `${product.title}${variant ? ` — ${commerce.variantTitle(product, variant)}` : ''}` : card?.querySelector('h3')?.textContent || 'Sally Kids product',
         price: variant?.price || product?.price || Math.round(Number(card?.querySelector('.add-button')?.dataset.price || 0) * 100),
-        image: product?.image || card?.querySelector('img')?.getAttribute('src') || 'assets/sally-kids-hero.png'
+        image: product?.image || card?.querySelector('img')?.getAttribute('src') || 'assets/sally-kids-product-placeholder.svg'
       };
     });
   };

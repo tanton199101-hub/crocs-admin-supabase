@@ -39,7 +39,7 @@ export default async function handler(req, res) {
       const url = `${origin}/product?id=${encodeURIComponent(product.id)}&slug=${encodeURIComponent(product.slug || product.id)}`;
       const title = product.seo?.title || `${product.title} | Sally Kids`;
       const description = String(product.seo?.description || product.description || `${product.title}. Xem hình ảnh, chọn màu và kích thước phù hợp cho bé.`).slice(0, 320);
-      const image = new URL(product.image || '/assets/sally-kids-hero.png', origin).href;
+      const image = new URL(product.image || '/assets/sally-kids-product-placeholder.svg', origin).href;
       const schema = { '@context': 'https://schema.org', '@type': 'Product', name: product.title, description, image, sku: product.sku, brand: { '@type': 'Brand', name: product.brand || 'Sally Kids' }, url };
       const metadata = `<link rel="canonical" href="${esc(url)}"><meta name="robots" content="${product.seo?.noindex || params.has('preview') ? 'noindex,follow' : 'index,follow'}"><meta property="og:type" content="product"><meta property="og:site_name" content="Sally Kids"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${esc(url)}"><meta property="og:image" content="${esc(image)}"><meta name="twitter:card" content="summary_large_image"><script id="productStructuredData" type="application/ld+json">${safeJson(schema)}</script><script id="productBootstrap" type="application/json">${safeJson(product)}</script>`;
       const imageUrl = image.startsWith(origin + '/api/1688-image?') ? `${image}&w=960&format=webp` : image;

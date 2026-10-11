@@ -12,6 +12,7 @@
   const MAX_GALLERY_IMAGES = 50;
   const MAX_DETAIL_IMAGES = 120;
   const MAX_VIDEOS = 8;
+  const PRODUCT_PLACEHOLDER = 'assets/sally-kids-product-placeholder.svg';
   const regional = root.CrocsRegional;
   const baseMoney = cents => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(cents / 100);
   const money = cents => regional?.formatMoney ? regional.formatMoney(cents) : baseMoney(cents);
@@ -27,10 +28,10 @@
       const parsed = new URL(raw, root.location?.origin || 'https://store.invalid');
       if (parsed.origin === (root.location?.origin || 'https://store.invalid') && parsed.pathname === '/api/1688-image') {
         const source = new URL(parsed.searchParams.get('url') || '');
-        return source.protocol === 'https:' && allowedRemoteHost(source.hostname) && !/^\/1688offer\//i.test(source.pathname) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : 'assets/sally-kids-hero.png';
+        return source.protocol === 'https:' && allowedRemoteHost(source.hostname) && !/^\/1688offer\//i.test(source.pathname) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : PRODUCT_PLACEHOLDER;
       }
-      return parsed.protocol === 'https:' && allowedRemoteHost(parsed.hostname) && !/^\/1688offer\//i.test(parsed.pathname) ? parsed.href : 'assets/sally-kids-hero.png';
-    } catch { return 'assets/sally-kids-hero.png'; }
+      return parsed.protocol === 'https:' && allowedRemoteHost(parsed.hostname) && !/^\/1688offer\//i.test(parsed.pathname) ? parsed.href : PRODUCT_PLACEHOLDER;
+    } catch { return PRODUCT_PLACEHOLDER; }
   };
   const video = value => {
     const raw = normalizeImageReference(value);
@@ -63,12 +64,17 @@
     if (!value || typeof value !== 'object') return '';
     return value.imageUrl || value.imgUrl || value.imageURI || value.fullPathImageURI || value.url || '';
   };
+  const isBannerAsset = value => /(?:^|[\/])(?:sally-kids-(?:hero|play|school)(?:-[\w]+)?|crocs-(?:hero|cozy|crocband|pokemon|ninjago)(?:-[\w]+)?)\.(?:png|jpe?g|webp|avif)(?:[?#].*)?$/i.test(normalizeImageReference(value));
+  const safeProductImage = value => {
+    const raw = normalizeImageReference(mediaImageValue(value));
+    return raw && !isBannerAsset(raw) ? image(raw) : '';
+  };
   const normalizeOptionImageMap = value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return Object.fromEntries(Object.entries(value).map(([optionId, rawValues]) => {
       if (!rawValues || typeof rawValues !== 'object' || Array.isArray(rawValues)) return null;
       const mapped = Object.fromEntries(Object.entries(rawValues).map(([optionValue, rawImage]) => {
-        const candidate = image(mediaImageValue(rawImage));
+        const candidate = safeProductImage(rawImage);
         return candidate ? [String(optionValue), candidate] : null;
       }).filter(Boolean));
       return Object.keys(mapped).length ? [String(optionId), mapped] : null;
@@ -77,7 +83,7 @@
   const normalizeVariantImageMap = value => {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return Object.fromEntries(Object.entries(value).map(([variantId, rawImage]) => {
-      const candidate = image(mediaImageValue(Array.isArray(rawImage) ? rawImage[0] : rawImage));
+      const candidate = safeProductImage(Array.isArray(rawImage) ? rawImage[0] : rawImage);
       return candidate ? [String(variantId), candidate] : null;
     }).filter(Boolean));
   };
@@ -111,18 +117,18 @@
     const variantImages = normalizeVariantImageMap(p.variantImages);
     const variants = Array.isArray(p.variants) ? p.variants.map(v => {
       const explicitRaw = variantImages[String(v?.id || v?.sku || '')] || mediaImageValue(v?.image || v?.imageUrl);
-      const explicitImage = explicitRaw ? image(explicitRaw) : '';
+      const explicitImage = explicitRaw ? safeProductImage(explicitRaw) : '';
       const optionImage = options.map(option => optionImages?.[option.id]?.[v?.values?.[option.id]]).find(Boolean);
       return { ...v, ...(explicitImage || optionImage ? { image: explicitImage || optionImage } : {}), basePrice: Number.isSafeInteger(v.basePrice) ? v.basePrice : (Number.isSafeInteger(v.price) ? v.price : basePrice), price: Number.isSafeInteger(v.price) ? v.price : basePrice, stock: Number.isSafeInteger(v.stock) ? v.stock : 0, enabled: v.enabled !== false };
     }).filter(v => v.id) : [];
     const active = variants.filter(v => v.enabled);
-    const gallery = Array.isArray(p.gallery) ? p.gallery.map(image).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
+    const gallery = Array.isArray(p.gallery) ? p.gallery.map(safeProductImage).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
     const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
-    const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(image).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
+    const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(safeProductImage).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
     const videos = [...new Set((Array.isArray(p.videos) ? p.videos : []).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
     const requestedBrand = String(p.brand || '').trim();
     const brand = !requestedBrand || /crocs|1688|supplier|nhà cung cấp/i.test(requestedBrand) ? 'Sally Kids' : requestedBrand;
-    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options, optionImages, variantImages: Object.fromEntries(Object.entries({ ...variantImages, ...Object.fromEntries(variants.map(v => [String(v.id || v.sku), v.image]).filter(([, value]) => value)) }).filter(([, value]) => value)), variants };
+    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: safeProductImage(p.image) || PRODUCT_PLACEHOLDER, gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options, optionImages, variantImages: Object.fromEntries(Object.entries({ ...variantImages, ...Object.fromEntries(variants.map(v => [String(v.id || v.sku), v.image]).filter(([, value]) => value)) }).filter(([, value]) => value)), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
 
@@ -235,12 +241,12 @@
     return scope;
   }
   const seeds = [
-    ['p1','Set váy hoa nắng','SK-001',18900,8,'sally-kids-hero.png','Bé gái'],
-    ['p2','Áo thun cầu vồng','SK-002',9900,64,'sally-kids-play.png','Bé trai'],
-    ['p4','Set đôi cuối tuần','SK-004',24900,5,'sally-kids-school.png','Đồ đôi'],
-    ['p5','Áo khoác gió pastel','SK-005',21900,42,'sally-kids-play.png','Đi học'],
-    ['p6','Mũ bucket hoa nhỏ','SK-006',7900,27,'sally-kids-hero.png','Phụ kiện'],
-    ['p7','Túi mini đi chơi','SK-007',12900,12,'sally-kids-school.png','Phụ kiện']
+    ['p1','Set váy hoa nắng','SK-001',18900,8,'sally-kids-product-placeholder.svg','Bé gái'],
+    ['p2','Áo thun cầu vồng','SK-002',9900,64,'sally-kids-product-placeholder.svg','Bé trai'],
+    ['p4','Set đôi cuối tuần','SK-004',24900,5,'sally-kids-product-placeholder.svg','Đồ đôi'],
+    ['p5','Áo khoác gió pastel','SK-005',21900,42,'sally-kids-product-placeholder.svg','Đi học'],
+    ['p6','Mũ bucket hoa nhỏ','SK-006',7900,27,'sally-kids-product-placeholder.svg','Phụ kiện'],
+    ['p7','Túi mini đi chơi','SK-007',12900,12,'sally-kids-product-placeholder.svg','Phụ kiện']
   ].map(([id,title,sku,price,stock,img,category]) => normalize({ id,title,sku,price,stock,image:`assets/${img}`,category,status:'Active',brand:'Sally Kids',description:'Thiết kế mềm mại, dễ mặc và sẵn sàng cho mọi cuộc khám phá.' }));
   let catalog = seeds, source = 'sample', problem = '';
   let staticSummary = null;

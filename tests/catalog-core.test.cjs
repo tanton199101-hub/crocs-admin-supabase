@@ -79,3 +79,20 @@ test('presentation merges partial live media with the verified 1688 mirror', () 
   assert.equal(result.variantImages['sku-blue'], 'mirror-blue.jpg');
   assert.equal(result.descriptionHtml, mirror.descriptionHtml);
 });
+
+test('presentation filters storefront banners from product media and uses a product placeholder', () => {
+  const live = {
+    id: 'banner-media', title: 'Set pastel', price: 100, stock: 7, status: 'Active',
+    image: 'assets/sally-kids-hero-900.webp',
+    gallery: ['assets/sally-kids-hero-1600.webp', 'https://img.example/product-front.jpg'],
+    detailImages: ['assets/crocs-cozy.webp', 'https://img.example/detail.jpg'],
+    optionImages: { colour: { Đỏ: 'assets/sally-kids-play-720.webp', Xanh: 'https://img.example/blue.jpg' } },
+    variantImages: { 'sku-red': 'assets/sally-kids-school-720.webp', 'sku-blue': 'https://img.example/blue.jpg' },
+  };
+  const result = Core.presentation(live, null);
+  assert.equal(result.image, Core.PRODUCT_PLACEHOLDER);
+  assert.deepEqual(result.gallery, ['https://img.example/product-front.jpg']);
+  assert.deepEqual(result.detailImages, ['https://img.example/detail.jpg']);
+  assert.deepEqual(result.optionImages, { colour: { Xanh: 'https://img.example/blue.jpg' } });
+  assert.deepEqual(result.variantImages, { 'sku-blue': 'https://img.example/blue.jpg' });
+});

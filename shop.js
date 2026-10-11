@@ -98,7 +98,7 @@
 
   function productCard(product, index) {
     const variants = commerce?.variantsFor?.(product) || []; const hasOptions = variants.length || product.hasVariants;
-    const image = commerce?.image?.(product.image) || 'assets/sally-kids-hero.png'; const price = variants.length ? Math.min(...variants.map(item => item.price)) : product.price;
+    const image = commerce?.image?.(product.image) || 'assets/sally-kids-product-placeholder.svg'; const price = variants.length ? Math.min(...variants.map(item => item.price)) : product.price;
     const badge = state.sort === 'newest' || index < 2 ? '<span class="shop-product-badge">Mới</span>' : '';
     return `<article class="shop-product-card" data-product-id="${escape(product.id)}"><a class="shop-product-link" href="${productUrl(product)}"><div class="shop-product-media shop-product-media--${cardThemes[index % cardThemes.length]}">${badge}<img data-smart-fit src="${escape(image)}" alt="${escape(product.imageAlt || product.title)}" width="520" height="693" loading="lazy" decoding="async"></div><div class="shop-product-copy"><p class="shop-product-category">${escape(product.category || 'Sally Kids')}</p><h3>${escape(product.title)}</h3><p class="shop-product-price">${commerce?.money?.(price) || ''}</p></div></a><button class="shop-product-action" type="button" data-shop-action="add" data-product-id="${escape(product.id)}" data-has-options="${hasOptions ? 'true' : 'false'}">${hasOptions ? 'Xem lựa chọn' : 'Thêm vào túi'}<span aria-hidden="true">+</span></button></article>`;
   }

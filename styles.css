@@ -127,6 +127,17 @@ img[data-smart-fit].is-smart-contain{object-fit:contain!important;object-positio
 .catalog-product-grid .product-image,
 .charm-card .product-image{height:auto;aspect-ratio:3/4}
 
+/* Product names stay calm and readable across every storefront surface.
+   Prices and actions retain their stronger weight for quick scanning. */
+.product-card h3,
+.catalog-product-grid .product-card h3,
+.cart-item h3{
+  font-family:var(--font-body);
+  font-weight:400;
+  letter-spacing:0;
+  line-height:1.25;
+}
+
 /* The region/language picker is useful on desktop, but its two native selects
    are too wide for the compact header. A second mount lives in the mobile
    menu so the controls stay reachable without creating horizontal scroll. */

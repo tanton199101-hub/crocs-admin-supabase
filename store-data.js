@@ -131,14 +131,14 @@
   function seed() {
     const date = days => new Date(Date.now() - days * 86400000).toISOString();
     const rows = [
-      ['p1', 'Set váy hoa nắng', '10001-100', 3499, 8, 'Active', 'sally-kids-hero-900.webp', 'Bé gái'],
-      ['p2', 'Áo thun cầu vồng', '20598-5AD', 5999, 64, 'Active', 'sally-kids-play-720.webp', 'Bé trai'],
-      ['p3', 'Set đôi cuối tuần', '206991-0DA', 3999, 32, 'Draft', 'sally-kids-school-720.webp', 'Đồ đôi'],
-      ['p4', 'Áo khoác gió pastel', '206750-001', 6499, 5, 'Active', 'sally-kids-play-720.webp', 'Đi học'],
-      ['p5', 'Váy len ngày se lạnh', '209587-001', 2799, 42, 'Active', 'sally-kids-school-720.webp', 'Bé gái'],
-      ['p6', 'Mũ bucket hoa nhỏ', '210260-6UR', 3499, 27, 'Active', 'sally-kids-hero-900.webp', 'Phụ kiện'],
-      ['p7', 'Túi mini đi chơi', '203591-206', 4999, 12, 'Active', 'sally-kids-school-720.webp', 'Phụ kiện'],
-      ['p8', 'Kẹp tóc cầu vồng', '100152-90H', 999, 0, 'Draft', 'sally-kids-play-720.webp', 'Phụ kiện'],
+      ['p1', 'Set váy hoa nắng', '10001-100', 3499, 8, 'Active', 'sally-kids-product-placeholder.svg', 'Bé gái'],
+      ['p2', 'Áo thun cầu vồng', '20598-5AD', 5999, 64, 'Active', 'sally-kids-product-placeholder.svg', 'Bé trai'],
+      ['p3', 'Set đôi cuối tuần', '206991-0DA', 3999, 32, 'Draft', 'sally-kids-product-placeholder.svg', 'Đồ đôi'],
+      ['p4', 'Áo khoác gió pastel', '206750-001', 6499, 5, 'Active', 'sally-kids-product-placeholder.svg', 'Đi học'],
+      ['p5', 'Váy len ngày se lạnh', '209587-001', 2799, 42, 'Active', 'sally-kids-product-placeholder.svg', 'Bé gái'],
+      ['p6', 'Mũ bucket hoa nhỏ', '210260-6UR', 3499, 27, 'Active', 'sally-kids-product-placeholder.svg', 'Phụ kiện'],
+      ['p7', 'Túi mini đi chơi', '203591-206', 4999, 12, 'Active', 'sally-kids-product-placeholder.svg', 'Phụ kiện'],
+      ['p8', 'Kẹp tóc cầu vồng', '100152-90H', 999, 0, 'Draft', 'sally-kids-product-placeholder.svg', 'Phụ kiện'],
     ];
     const products = rows.map(([id, title, sku, price, stock, status, image, category]) => ({ id, title, sku, price, stock, status, image: `assets/${image}`, imageAlt: `${title} — ảnh sản phẩm`, brand: 'Sally Kids', category, description: 'Thiết kế mềm mại, dễ mặc và sẵn sàng cho mọi cuộc khám phá.', tags: ['Sally Kids'], slug: title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, ''), seo: { title: '', description: '', noindex: false }, options: [], variants: [], amazon: { asin: '', prices: {} }, customization: { enabled: false, mode: 'personalize', version: 1, surfaces: [], productionDays: 3, proofRequired: false, instructions: '', syncState: 'draft', sellerCentralConfirmedAt: '' }, updatedAt: date(0) }));
     const customers = [['c1', 'Olivia Grant', 'olivia@example.com', 'London'], ['c2', 'Noah Williams', 'noah@example.com', 'Manchester'], ['c3', 'Amelia Brown', 'amelia@example.com', 'Bristol'], ['c4', 'Charlie Evans', 'charlie@example.com', 'Leeds']].map(([id, name, email, city]) => ({ id, name, email, city, phone: '', note: 'Khách hàng mẫu để trải nghiệm quản trị.', marketing: false, createdAt: date(10) }));

@@ -115,9 +115,11 @@
     if (!variant) return '';
     return variant.image || variant.imageUrl || item?.variantImages?.[variant.id] || item?.variantImages?.[variant.sku] || commerce.optionsFor(item).map(option => optionImageFor(item, option, variant.values?.[option.id])).find(Boolean) || '';
   }
+  const isBannerMedia = value => /(?:^|[\\/])(?:sally-kids-(?:hero|play|school)(?:-[\w]+)?|crocs-(?:hero|cozy|crocband|pokemon|ninjago)(?:-[\w]+)?)\.(?:png|jpe?g|webp|avif)(?:[?#].*)?$/i.test(String(value || ''));
+  const productMediaValue = value => value && !isBannerMedia(value) ? value : '';
   function mediaFor(item, variant = null) {
     const values = [variantImageFor(item, variant), item?.image, ...(Array.isArray(item?.gallery) ? item.gallery : [])]
-      .filter(Boolean).map(value => commerce.image(value)).filter(Boolean);
+      .filter(productMediaValue).map(value => commerce.image(value)).filter(productMediaValue);
     return [...new Set(values)];
   }
   function attributeMarkup(item) {
@@ -145,7 +147,7 @@
       embedded.push(...(name === 'srcset' || name === 'data-srcset' ? match[3].split(',').map(value => value.trim().split(/\s+/)[0]) : [match[3]]));
     }
     for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\((?:["']?)([^)"']+)/gi)) embedded.push(match[1]);
-    return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
+    return [...new Set([...direct, ...embedded].map(value => commerce.image(value)).filter(productMediaValue))].slice(0, MAX_DETAIL_IMAGES);
   }
   function videoMediaFor(item) {
     return [...new Set((Array.isArray(item?.videos) ? item.videos : []).map(value => commerce.video?.(value)).filter(Boolean))].slice(0, 8);

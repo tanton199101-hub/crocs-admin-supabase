@@ -3,6 +3,37 @@ import { createHash } from 'node:crypto';
 export const fold = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').toLowerCase();
 export const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 export const safeJson = value => JSON.stringify(value).replace(/</g, '\\u003c');
+export const PRODUCT_PLACEHOLDER = 'assets/sally-kids-product-placeholder.svg';
+const isBannerAsset = value => /(?:^|[\\/])(?:sally-kids-(?:hero|play|school)(?:-[\w]+)?|crocs-(?:hero|cozy|crocband|pokemon|ninjago)(?:-[\w]+)?)\.(?:png|jpe?g|webp|avif)(?:[?#].*)?$/i.test(String(value || '').trim());
+const mediaValue = value => typeof value === 'string' ? value : value && typeof value === 'object' ? value.imageUrl || value.imgUrl || value.imageURI || value.fullPathImageURI || value.url || '' : '';
+const safeProductImage = value => {
+  const raw = mediaValue(value).trim();
+  return raw && !isBannerAsset(raw) ? raw : '';
+};
+const safeProductImageList = value => [...new Set((Array.isArray(value) ? value : []).map(safeProductImage).filter(Boolean))];
+const safeProductImageMap = (value, nested = false) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value).map(([key, raw]) => {
+    if (!nested) {
+      const image = safeProductImage(Array.isArray(raw) ? raw[0] : raw);
+      return image ? [String(key), image] : null;
+    }
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+    const mapped = Object.fromEntries(Object.entries(raw).map(([option, image]) => {
+      const safe = safeProductImage(image);
+      return safe ? [String(option), safe] : null;
+    }).filter(Boolean));
+    return Object.keys(mapped).length ? [String(key), mapped] : null;
+  }).filter(Boolean));
+};
+const sanitizeProductMedia = product => {
+  const result = { ...product, image: safeProductImage(product?.image) || PRODUCT_PLACEHOLDER };
+  if (Array.isArray(product?.gallery)) result.gallery = safeProductImageList(product.gallery);
+  if (Array.isArray(product?.detailImages)) result.detailImages = safeProductImageList(product.detailImages);
+  if (product?.optionImages && typeof product.optionImages === 'object') result.optionImages = safeProductImageMap(product.optionImages, true);
+  if (product?.variantImages && typeof product.variantImages === 'object') result.variantImages = safeProductImageMap(product.variantImages);
+  return result;
+};
 const decimals = code => code === 'VND' || code === 'JPY' || code === 'KRW' ? 0 : 2;
 
 export function regionalPrice(product, localization, regionId) {
@@ -78,7 +109,7 @@ export function summary(p, localization = {}, regionId) {
   const localizedPrice = regionId ? regionalPrice(p, localization, regionId) : p.price;
   return Object.fromEntries([
     ['id', p.id], ['title', p.title], ['sku', p.sku], ['price', localizedPrice],
-    ['basePrice', p.price], ['stock', p.stock], ['status', p.status], ['image', p.image],
+    ['basePrice', p.price], ['stock', p.stock], ['status', p.status], ['image', safeProductImage(p.image) || PRODUCT_PLACEHOLDER],
     ['imageAlt', p.imageAlt], ['brand', p.brand], ['slug', p.slug], ['category', p.category],
     ['hasVariants', p.hasVariants], ['regionalPrices', p.regionalPrices], ['priceByRegion', p.priceByRegion],
     ['pricesByRegion', p.pricesByRegion], ['createdAt', p.createdAt], ['updatedAt', p.updatedAt],
@@ -87,7 +118,7 @@ export function summary(p, localization = {}, regionId) {
 }
 
 export function presentation(live, mirror) {
-  if (!mirror) return { ...live, brand: /crocs|1688|supplier/i.test(live.brand || '') ? 'Sally Kids' : live.brand || 'Sally Kids' };
+  if (!mirror) return sanitizeProductMedia({ ...live, brand: /crocs|1688|supplier/i.test(live.brand || '') ? 'Sally Kids' : live.brand || 'Sally Kids' });
   // The live record owns availability, price, inventory and admin edits.
   const localized = /[\u3400-\u9fff]|1688|mẫu \d{10,}/i.test(live.title || '') || live.title?.length > 85;
   const result = { ...live, brand: /crocs|1688|supplier/i.test(live.brand || '') ? 'Sally Kids' : live.brand || 'Sally Kids' };
@@ -118,5 +149,5 @@ export function presentation(live, mirror) {
   if (Object.keys(variantImages).length) result.variantImages = variantImages;
   if ((!live.descriptionHtml || !String(live.descriptionHtml).trim()) && mirror.descriptionHtml) result.descriptionHtml = mirror.descriptionHtml;
   if (!live.seo?.title && !live.seo?.description) result.seo = { ...mirror.seo, ...live.seo, noindex: live.seo?.noindex === true };
-  return result;
+  return sanitizeProductMedia(result);
 }

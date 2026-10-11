@@ -11,7 +11,7 @@
     const meta = S?.CURRENCIES?.[code] || { decimals: 2, locale: settings.locale || 'en-US' };
     return { code, decimals: Number.isInteger(meta.decimals) ? meta.decimals : 2, locale: settings.locale || meta.locale || 'en-US' };
   };
-  const assets = ['sally-kids-hero-900.webp', 'sally-kids-play-720.webp', 'sally-kids-school-720.webp'];
+  const assets = ['sally-kids-product-placeholder.svg'];
   const input = (name, label, value = '', attrs = '') => `<label class="field"><span>${label}</span><input name="${name}" value="${esc(value)}" ${attrs}></label>`;
   const decimal = value => value == null ? '' : (value / 100).toFixed(2);
   const priceAttrs = 'type="number" min="0" max="1000000" step="0.01" inputmode="decimal"';
