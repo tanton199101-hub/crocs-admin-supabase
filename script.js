@@ -34,6 +34,7 @@
   let publicCollections = [];
   let activeCollectionId = '';
   let visibleCatalogProducts = 24;
+  const publicCollectionTitle = value => ({ 'New arrivals': 'Mới về', 'Cozy favourites': 'Được yêu thích' }[String(value || '')] || String(value || '').replace(/\s*1688\s*/gi, ' ').trim());
 
   const syncScrolledState = () => body.classList.toggle('has-scrolled', window.scrollY > 8);
   window.addEventListener('scroll', syncScrolledState, { passive: true });
@@ -43,14 +44,17 @@
   // storefront renderer deliberately conservative: only known fields and hex
   // colours are applied, and all copy goes through textContent.
   const themeImages = {
-    cozy: { desktop: 'assets/crocs-hero-desktop.jpg', mobile: 'assets/eba3407d4d927c9b.png' },
-    crocband: { desktop: 'assets/abed2e8b5d4c3b0d.png', mobile: 'assets/abed2e8b5d4c3b0d.png' },
-    ninjago: { desktop: 'assets/12875aebbb61f08d.png', mobile: 'assets/12875aebbb61f08d.png' },
+    cozy: { desktop: 'assets/sally-kids-hero.png', mobile: 'assets/sally-kids-hero.png' },
+    crocband: { desktop: 'assets/sally-kids-play.png', mobile: 'assets/sally-kids-play.png' },
+    ninjago: { desktop: 'assets/sally-kids-school.png', mobile: 'assets/sally-kids-school.png' },
   };
-  const safeThemeText = (value, fallback = '') => typeof value === 'string' ? value.trim().slice(0, 180) : fallback;
+  const legacyBrandWords = /crocs|jibbitz|heydude|clog|crocband|unfurgettable|mckenna grace/i;
+  const safeThemeText = (value, fallback = '') => typeof value === 'string' && !legacyBrandWords.test(value) ? value.trim().slice(0, 180) : fallback;
   const safeThemeHex = value => typeof value === 'string' && /^#[\da-f]{6}$/i.test(value) ? value : null;
   const applyTheme = (theme) => {
     if (!theme || typeof theme !== 'object') return;
+    const themeText = `${theme.heroTitle || ''} ${theme.heroSubtitle || ''} ${theme.announcement || ''}`;
+    if (legacyBrandWords.test(themeText)) return;
     const accent = safeThemeHex(theme.accent);
     const background = safeThemeHex(theme.background);
     if (accent) document.documentElement.style.setProperty('--green', accent);
@@ -152,20 +156,31 @@
     if (event.key === 'Escape') { closeDrawers(); closeSearch(); }
   });
 
-  const safeMenuHref = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|index\.html(?:#[\w-]+)?)$/.test(String(value || '')) ? String(value) : '#catalog';
+  const safeMenuHref = value => /^(#[a-zA-Z][\w-]*|https?:\/\/[^\s]+|(?:index|shop)\.html(?:[?#][^\s]*)?)$/.test(String(value || '')) ? String(value) : 'shop.html';
   function renderNavigation(menus) {
     const list = Array.isArray(menus) ? menus : [];
     const mainMenu = list.find(menu => menu.id === 'main') || list[0];
     if (mainMenu?.items?.length) {
+      const canonicalMenu = [
+        { label: 'Mới về', url: 'shop.html?sort=newest' },
+        { label: 'Bé gái', url: 'shop.html?collection=col-1688-dresses' },
+        { label: 'Bé trai', url: 'shop.html?collection=col-1688-tops' },
+        { label: 'Đồ đôi', url: 'shop.html' },
+        { label: 'Đi học', url: 'shop.html?collection=col-1688-tops' },
+        { label: 'Phụ kiện', url: 'shop.html?collection=col-1688-accessories' },
+        { label: 'Shop', url: 'shop.html' },
+      ];
+      const legacyMenu = mainMenu.items.some(item => /crocs|jibbitz|heydude|women|men|classic|sale|1688|new arrivals|cozy favourites|xem toàn bộ catalog/i.test(String(item.label || '')));
+      const items = legacyMenu ? canonicalMenu : mainMenu.items;
       const desktop = document.querySelector('.desktop-nav');
       const drawer = document.querySelector('.drawer-nav');
       if (desktop) {
         desktop.dataset.dynamicMenu = 'true';
-        desktop.innerHTML = mainMenu.items.map((item, index) => `<a${index === 0 ? ' class="sale-link"' : ''} href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)}</a>`).join('');
+        desktop.innerHTML = items.map((item, index) => `<a${index === 0 ? ' class="sale-link"' : ''} href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)}</a>`).join('');
       }
       if (drawer) {
         drawer.dataset.dynamicMenu = 'true';
-        drawer.innerHTML = mainMenu.items.map(item => `<a href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)} <span>›</span></a>`).join('');
+        drawer.innerHTML = items.map(item => `<a href="${commerce.escape(safeMenuHref(item.url))}">${commerce.escape(item.label)} <span>›</span></a>`).join('');
       }
     }
     const footerMenu = list.find(menu => menu.id === 'footer');
@@ -189,7 +204,8 @@
   searchForm?.addEventListener('submit', (event) => {
     event.preventDefault();
     const term = searchInput.value.trim();
-    showToast(term ? `Showing results for “${term}”` : 'Try searching for a clog, charm or slipper');
+    if (term) window.location.href = `shop.html?query=${encodeURIComponent(term)}`;
+    else window.location.href = 'shop.html';
   });
 
   const cardThemes = ['cream', 'blue', 'pink', 'yellow', 'mint', 'sand', 'lavender'];
@@ -228,7 +244,8 @@
     const filtered = ids ? active.filter(product => ids.has(product.id)) : active;
     catalogTitle.textContent = collection?.title || 'Tất cả sản phẩm';
     catalogCount.textContent = `${filtered.length.toLocaleString('vi-VN')} sản phẩm đang bán`;
-    catalogFilters.innerHTML = [`<button class="catalog-filter${activeCollectionId ? '' : ' is-active'}" type="button" data-collection="">Tất cả</button>`, ...publicCollections.map(item => `<button class="catalog-filter${item.id === activeCollectionId ? ' is-active' : ''}" type="button" data-collection="${commerce.escape(item.id)}">${commerce.escape(item.title)} <span>${(item.productIds || []).length}</span></button>`)].join('');
+    const visibleCollections = publicCollections.filter(item => !/tất cả sản phẩm\s*1688/i.test(String(item.title || '')));
+    catalogFilters.innerHTML = [`<button class="catalog-filter${activeCollectionId ? '' : ' is-active'}" type="button" data-collection="">Tất cả</button>`, ...visibleCollections.map(item => `<button class="catalog-filter${item.id === activeCollectionId ? ' is-active' : ''}" type="button" data-collection="${commerce.escape(item.id)}">${commerce.escape(publicCollectionTitle(item.title))} <span>${(item.productIds || []).length}</span></button>`)].join('');
     const shown = filtered.slice(0, visibleCatalogProducts);
     catalogGrid.innerHTML = shown.length ? shown.map(catalogCard).join('') : '<p class="catalog-empty">Bộ sưu tập này chưa có sản phẩm đang bán.</p>';
     catalogLoadMore.hidden = shown.length >= filtered.length;
@@ -265,9 +282,9 @@
         variantId: line.variantId || '',
         size: line.size,
         quantity: line.quantity,
-        name: product ? `${product.title}${variant ? ` — ${commerce.variantTitle(product, variant)}` : ''}` : card?.querySelector('h3')?.textContent || 'Crocs product',
+        name: product ? `${product.title}${variant ? ` — ${commerce.variantTitle(product, variant)}` : ''}` : card?.querySelector('h3')?.textContent || 'Sally Kids product',
         price: variant?.price || product?.price || Math.round(Number(card?.querySelector('.add-button')?.dataset.price || 0) * 100),
-        image: product?.image || card?.querySelector('img')?.getAttribute('src') || 'assets/arrival-classic-clog-100.png'
+        image: product?.image || card?.querySelector('img')?.getAttribute('src') || 'assets/sally-kids-hero.png'
       };
     });
   };
@@ -312,7 +329,7 @@
       } catch (error) { showToast(error.message); }
       return;
     }
-    const name = button.dataset.product || 'Classic Clog';
+    const name = button.dataset.product || 'Sally Kids product';
     const price = Math.round(Number(button.dataset.price || 0) * 100);
     const image = button.closest('.product-card')?.querySelector('img')?.src || '';
     const existing = cart.find((item) => item.name === name);

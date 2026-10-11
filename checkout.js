@@ -21,7 +21,7 @@
 
   function renderEmpty() {
     main.setAttribute('aria-busy', 'false');
-    main.innerHTML = `<section class="checkout-empty"><div><h1>${t('emptyBag', 'Your bag is empty')}</h1><p>${t('findPair', 'Find a pair that feels like you.')} ${stripeConfig.ready ? t('secureIntro', 'Secure payment is handled by Stripe.') : t('reviewIntro', 'No payment is taken until Stripe is configured.')}</p><a class="commerce-button-link" href="index.html#new-arrivals">${t('newArrivals', 'Shop new arrivals')}</a></div></section>`;
+    main.innerHTML = `<section class="checkout-empty"><div><h1>${t('emptyBag', 'Your bag is empty')}</h1><p>${t('findPair', 'Find a look made for little adventures.')} ${stripeConfig.ready ? t('secureIntro', 'Secure payment is handled by Stripe.') : t('reviewIntro', 'No payment is taken until Stripe is configured.')}</p><a class="commerce-button-link" href="shop.html?sort=newest">${t('newArrivals', 'Shop new arrivals')}</a></div></section>`;
   }
 
   function renderSuccess(order) {
@@ -183,7 +183,7 @@
 
   (async () => {
     try { await commerce.ready; await commerce.ensureCartProducts(); await loadStripeConfig(); if (await renderStripeReturn()) return; viewReady = true; render(); }
-    catch (error) { main.setAttribute('aria-busy', 'false'); main.innerHTML = `<section class="checkout-empty"><div><h1>Checkout is unavailable</h1><p>${commerce.escape(error.message)}</p><a class="commerce-button-link" href="index.html">Return to the store</a></div></section>`; }
+    catch (error) { main.setAttribute('aria-busy', 'false'); main.innerHTML = `<section class="checkout-empty"><div><h1>Thanh toán tạm thời chưa sẵn sàng</h1><p>${commerce.escape(error.message)}</p><a class="commerce-button-link" href="shop.html">Về shop Sally Kids</a></div></section>`; }
   })();
   root.addEventListener('crocs:catalog', render);
   root.addEventListener('crocs:language-change', render);

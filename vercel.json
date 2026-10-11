@@ -12,7 +12,7 @@
       ]
     },
     {
-      "source": "/(index|admin|product|checkout).html",
+      "source": "/(index|shop|admin|product|checkout).html",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]

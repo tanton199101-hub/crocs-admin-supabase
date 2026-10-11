@@ -15,11 +15,11 @@
   let selectedMediaIndex = 0;
 
   const renderMissing = (message = 'This product is not available right now.') => {
-    document.title = 'Product unavailable | Crocs Studio';
+    document.title = 'Sản phẩm không khả dụng | Sally Kids';
     ensureMeta('description', message);
     ensureMeta('robots', 'noindex, nofollow');
     main.setAttribute('aria-busy', 'false');
-    main.innerHTML = `<section class="checkout-empty"><div><h1>We couldn’t find that pair</h1><p>${commerce.escape(message)}</p><a class="commerce-button-link" href="index.html#new-arrivals">Browse new arrivals</a></div></section>`;
+    main.innerHTML = `<section class="checkout-empty"><div><h1>Không tìm thấy sản phẩm</h1><p>${commerce.escape(message)}</p><a class="commerce-button-link" href="shop.html?sort=newest">Xem sản phẩm mới</a></div></section>`;
   };
 
   function ensureMeta(name, content) {
@@ -50,8 +50,8 @@
     base.search = `?id=${encodeURIComponent(product.id)}`;
     const canonical = new URL(base.href);
     canonical.searchParams.set('slug', product.slug || product.id);
-    const description = product.seo?.description || product.description || `${product.title} from ${product.brand || 'Crocs'}.`;
-    document.title = product.seo?.title || `${product.title} | Crocs Studio`;
+    const description = product.seo?.description || product.description || `${product.title} từ Sally Kids.`;
+    document.title = product.seo?.title || `${product.title} | Sally Kids`;
     setCanonical(canonical.href);
     ensureMeta('description', description.slice(0, 320));
     const isPreview = query.get('preview') === 'theme' || query.get('preview') === 'product';
@@ -70,7 +70,7 @@
     const media = mediaFor(product);
     const imageUrl = absolute(media[0] || commerce.image(product.image));
     ensureProperty('og:type', 'product');
-    ensureProperty('og:site_name', 'Crocs UK');
+    ensureProperty('og:site_name', 'Sally Kids');
     ensureProperty('og:title', document.title);
     ensureProperty('og:description', description.slice(0, 320));
     ensureProperty('og:url', canonical.href);
@@ -88,11 +88,11 @@
     })) : [];
     const schema = variantList.length ? {
       '@context': 'https://schema.org', '@type': 'ProductGroup', '@id': `${base.href}#product-group`, name: product.title,
-       description, image: media.map(absolute), brand: { '@type': 'Brand', name: product.brand || 'Crocs' }, productGroupID: product.sku || product.id,
+       description, image: media.map(absolute), brand: { '@type': 'Brand', name: product.brand || 'Sally Kids' }, productGroupID: product.sku || product.id,
       variesBy: commerce.optionsFor(product).map(option => `https://schema.org/${/size/i.test(option.name) ? 'size' : /colou?r/i.test(option.name) ? 'color' : 'additionalProperty'}`), hasVariant: variants
     } : {
       '@context': 'https://schema.org', '@type': 'Product', name: product.title, description, image: media.map(absolute), sku: product.sku || product.id,
-      brand: { '@type': 'Brand', name: product.brand || 'Crocs' }, offers: offer({ id: '', price: product.price, stock: product.stock })
+       brand: { '@type': 'Brand', name: product.brand || 'Sally Kids' }, offers: offer({ id: '', price: product.price, stock: product.stock })
     };
     let script = document.head.querySelector('#productStructuredData');
     if (!script) { script = document.createElement('script'); script.id = 'productStructuredData'; script.type = 'application/ld+json'; document.head.appendChild(script); }
@@ -188,7 +188,7 @@
           <p class="product-gallery-note">Product code ${commerce.escape(current?.sku || product.sku || product.id)}${media.length > 1 ? ` · ${media.length} ảnh sản phẩm` : ''}</p>
         </div>
         <div class="product-copy">
-          <p class="product-kicker">${commerce.escape(product.brand || product.category || 'Crocs comfort')}</p>
+           <p class="product-kicker">${commerce.escape(product.brand || product.category || 'Sally Kids')}</p>
           <h1 id="productTitle">${commerce.escape(product.title)}</h1>
           <p class="product-price" aria-live="polite">${displayPrice(current)}</p>
           <p class="product-description">${commerce.escape(product.description || 'Lightweight comfort. Made for everyday adventures.')}</p>
@@ -208,7 +208,7 @@
         </div>
       </section>
       ${descriptionMarkup(product) || detailImages.length || videos.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${videos.length ? `<div class="product-video-media"><div class="product-detail-media-heading"><strong>Video sản phẩm</strong><span>${videos.length} video từ 1688</span></div><div class="product-video-list" aria-label="Video sản phẩm">${videos.map((src, index) => `<figure><video controls preload="metadata" playsinline poster="${commerce.escape(media[0] || '')}" aria-label="${commerce.escape(product.title)} — video ${index + 1}"><source src="${commerce.escape(src)}" type="video/mp4">Trình duyệt của bạn không hỗ trợ video.</video><figcaption>Video sản phẩm ${index + 1}</figcaption></figure>`).join('')}</div></div>` : ''}${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ 1688</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img data-smart-fit src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" width="900" height="1200" loading="lazy" decoding="async">`).join('')}</div></div>` : ''}</section>` : ''}
-      ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">More comfort, same energy</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
+       ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">Gợi ý cho outfit của bé</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
     bind();
     commerce.enhanceImages?.(main);
   }

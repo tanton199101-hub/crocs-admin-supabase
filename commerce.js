@@ -26,10 +26,10 @@
       const parsed = new URL(raw, root.location?.origin || 'https://store.invalid');
       if (parsed.origin === (root.location?.origin || 'https://store.invalid') && parsed.pathname === '/api/1688-image') {
         const source = new URL(parsed.searchParams.get('url') || '');
-        return source.protocol === 'https:' && allowedRemoteHost(source.hostname) && !/^\/1688offer\//i.test(source.pathname) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : 'assets/arrival-classic-clog-100.png';
+        return source.protocol === 'https:' && allowedRemoteHost(source.hostname) && !/^\/1688offer\//i.test(source.pathname) ? `${parsed.pathname}?url=${encodeURIComponent(source.href)}` : 'assets/sally-kids-hero.png';
       }
-      return parsed.protocol === 'https:' && allowedRemoteHost(parsed.hostname) && !/^\/1688offer\//i.test(parsed.pathname) ? parsed.href : 'assets/arrival-classic-clog-100.png';
-    } catch { return 'assets/arrival-classic-clog-100.png'; }
+      return parsed.protocol === 'https:' && allowedRemoteHost(parsed.hostname) && !/^\/1688offer\//i.test(parsed.pathname) ? parsed.href : 'assets/sally-kids-hero.png';
+    } catch { return 'assets/sally-kids-hero.png'; }
   };
   const video = value => {
     const raw = normalizeImageReference(value);
@@ -85,7 +85,9 @@
     const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
     const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(image).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
     const videos = [...new Set((Array.isArray(p.videos) ? p.videos : []).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
-    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand: p.brand || 'Crocs', slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
+    const requestedBrand = String(p.brand || '').trim();
+    const brand = !requestedBrand || /crocs|1688|supplier|nhà cung cấp/i.test(requestedBrand) ? 'Sally Kids' : requestedBrand;
+    const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: image(p.image), gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options: optionsFor(p), variants };
     return { ...normalized, price: active.length ? Math.min(...active.map(v => v.price)) : variants.length ? 0 : basePrice, stock: variants.length ? active.reduce((n, v) => n + v.stock, 0) : p.stock, colour: p.colour || colourNames[p.id] || 'As pictured', sizes: sizesFor(normalized) };
   }
 
@@ -195,13 +197,13 @@
     return scope;
   }
   const seeds = [
-    ['p1','Classic Clog','10001-100',3499,8,'arrival-classic-clog-100.png','Clogs'],
-    ['p2','Crocband™ Runner','20598-5AD',5999,64,'arrival-crocband-runner-5AD.png','Clogs'],
-    ['p4','Classic Platform Bloom','206750-001',6499,5,'arrival-platform-bloom-001.png','Platforms'],
-    ['p5','Getaway Strappy','209587-001',2799,42,'arrival-getaway-001.png','Sandals'],
-    ['p6','Classic Ballet','210260-6UR',3499,27,'arrival-ballet-6UR.png','Flats'],
-    ['p7','Classic Lined Clog','203591-206',4999,12,'icon-lined-206.png','Clogs']
-  ].map(([id,title,sku,price,stock,img,category]) => normalize({ id,title,sku,price,stock,image:`assets/${img}`,category,status:'Active',description:'Lightweight comfort. Made for everyday adventures.' }));
+    ['p1','Set váy hoa nắng','SK-001',18900,8,'sally-kids-hero.png','Bé gái'],
+    ['p2','Áo thun cầu vồng','SK-002',9900,64,'sally-kids-play.png','Bé trai'],
+    ['p4','Set đôi cuối tuần','SK-004',24900,5,'sally-kids-school.png','Đồ đôi'],
+    ['p5','Áo khoác gió pastel','SK-005',21900,42,'sally-kids-play.png','Đi học'],
+    ['p6','Mũ bucket hoa nhỏ','SK-006',7900,27,'sally-kids-hero.png','Phụ kiện'],
+    ['p7','Túi mini đi chơi','SK-007',12900,12,'sally-kids-school.png','Phụ kiện']
+  ].map(([id,title,sku,price,stock,img,category]) => normalize({ id,title,sku,price,stock,image:`assets/${img}`,category,status:'Active',brand:'Sally Kids',description:'Thiết kế mềm mại, dễ mặc và sẵn sàng cho mọi cuộc khám phá.' }));
   let catalog = seeds, source = 'sample', problem = '';
   let staticSummary = null;
   function readCart() {

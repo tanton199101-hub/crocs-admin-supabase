@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f7fbff">
+    <meta name="description" content="Shop Sally Kids — thời trang trẻ em mềm mại, dễ mặc và sẵn sàng cho mọi cuộc khám phá.">
+    <link rel="canonical" href="https://crocs-admin-supabase.vercel.app/shop.html">
+    <meta property="og:type" content="website">
+    <meta property="og:site_name" content="Sally Kids">
+    <meta property="og:title" content="Shop Sally Kids — Mặc vui lớn khôn">
+    <meta property="og:description" content="Khám phá đồ mặc hằng ngày, đồ đi học và phụ kiện cho bé.">
+    <meta property="og:url" content="https://crocs-admin-supabase.vercel.app/shop.html">
+    <meta property="og:image" content="https://crocs-admin-supabase.vercel.app/assets/sally-kids-school.png">
+    <title>Shop Sally Kids — Mặc vui lớn khôn</title>
+    <link rel="preconnect" href="https://uvtgzcuifbiufwcrylxx.supabase.co" crossorigin>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="commerce.css">
+    <link rel="stylesheet" href="shop.css">
+    <script defer src="regional-commerce.js"></script>
+    <script defer src="supabase-config.js"></script>
+    <script defer src="supabase-storefront.js"></script>
+    <script defer src="commerce.js"></script>
+    <script defer src="commerce-ui.js"></script>
+    <script defer src="shop.js"></script>
+  </head>
+  <body class="commerce-page shop-page">
+    <a class="skip-commerce" href="#shopCatalog">Bỏ qua đến danh mục</a>
+    <div data-store-header></div>
+
+    <main>
+      <section class="shop-hero" aria-labelledby="shopHeroTitle">
+        <div class="shop-hero-inner">
+          <div class="shop-hero-copy">
+            <p class="shop-eyebrow">Sally Kids · chọn theo nhịp vui</p>
+            <h1 id="shopHeroTitle">Đồ xinh cho những ngày thật nhiều chuyện để kể.</h1>
+            <p>Phom dễ chịu, chất liệu mềm và màu sắc để bé tự tin chạy nhảy từ sáng đến tối.</p>
+            <div class="shop-hero-actions"><a class="shop-primary-button" href="#shopCatalog">Bắt đầu chọn đồ</a><a class="shop-quiet-link" href="index.html#club">Nhận ưu đãi 10% <span>↗</span></a></div>
+          </div>
+          <div class="shop-hero-art" aria-label="Bộ sưu tập Sally Kids">
+            <span class="shop-art-sticker shop-art-sticker--sun">mềm<br>như mây</span>
+            <span class="shop-art-sticker shop-art-sticker--star">✦</span>
+            <img src="assets/sally-kids-school.png" alt="Ba em nhỏ mặc đồ Sally Kids sẵn sàng đến lớp" width="900" height="1200" fetchpriority="high">
+          </div>
+        </div>
+      </section>
+
+      <section class="shop-shell" id="shopCatalog" aria-labelledby="catalogTitle">
+        <aside class="shop-sidebar" id="shopSidebar" aria-label="Bộ lọc sản phẩm" aria-hidden="false">
+          <div class="shop-sidebar-heading"><div><p class="shop-filter-kicker">Tìm đúng món bé thích</p><h2>Bộ lọc</h2></div><button type="button" class="shop-sidebar-close" id="shopSidebarClose" aria-label="Đóng bộ lọc">×</button></div>
+          <label class="shop-search-field" for="shopSearch"><svg aria-hidden="true" viewBox="0 0 24 24"><circle cx="10.8" cy="10.8" r="6.8"></circle><path d="m16 16 5 5"></path></svg><input id="shopSearch" type="search" placeholder="Tìm váy, áo, mũ…" autocomplete="off"><kbd>/</kbd></label>
+          <div class="shop-filter-block"><div class="shop-filter-title">Danh mục</div><div class="shop-collection-list" id="shopCollections"></div></div>
+          <div class="shop-filter-block"><div class="shop-filter-title">Khoảng giá</div><div class="shop-price-list"><label><input type="radio" name="price" value="all" checked><span>Tất cả mức giá</span></label><label><input type="radio" name="price" value="under-200"><span>Dưới 200.000 ₫</span></label><label><input type="radio" name="price" value="200-500"><span>200.000 – 500.000 ₫</span></label><label><input type="radio" name="price" value="over-500"><span>Trên 500.000 ₫</span></label></div></div>
+          <button class="shop-clear-button" id="shopClear" type="button">Xoá bộ lọc</button>
+          <div class="shop-sidebar-note"><span aria-hidden="true">✦</span><p>Miễn phí đổi size trong 7 ngày cho đơn hàng của Sally Kids.</p></div>
+        </aside>
+
+        <div class="shop-results">
+          <div class="shop-results-heading">
+            <div><p class="shop-filter-kicker">Sally Kids shop</p><h2 id="catalogTitle">Tất cả sản phẩm</h2><p id="shopResultCount" class="shop-result-count" aria-live="polite">Đang tải sản phẩm…</p></div>
+            <div class="shop-toolbar"><button class="shop-filter-toggle" id="shopFilterToggle" type="button" aria-controls="shopSidebar" aria-expanded="false"><svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 6h16M7 12h10M10 18h4"></path></svg> Bộ lọc</button><label class="shop-sort"><span>Sắp xếp</span><select id="shopSort"><option value="featured">Nổi bật</option><option value="newest">Mới nhất</option><option value="price-asc">Giá thấp đến cao</option><option value="price-desc">Giá cao đến thấp</option><option value="name">Tên A–Z</option></select></label></div>
+          </div>
+          <div class="shop-active-filters" id="shopActiveFilters" aria-live="polite"></div>
+          <div class="shop-grid" id="shopGrid" aria-live="polite"><div class="shop-loading"><span class="shop-loading-orbit" aria-hidden="true"></span><p>Đang chuẩn bị những món đồ thật vui…</p></div></div>
+          <div class="shop-load-more"><button class="shop-secondary-button" id="shopLoadMore" type="button" hidden>Xem thêm sản phẩm</button></div>
+        </div>
+      </section>
+
+      <section class="shop-service-strip" aria-label="Dịch vụ Sally Kids">
+        <div><span aria-hidden="true">✦</span><strong>Đổi size nhẹ nhàng</strong><p>7 ngày để bé mặc thử và chọn lại.</p></div>
+        <div><span aria-hidden="true">♡</span><strong>Vải mềm cho da bé</strong><p>Ưu tiên chất liệu dễ chịu mỗi ngày.</p></div>
+        <div><span aria-hidden="true">☼</span><strong>Giao hàng toàn quốc</strong><p>Đóng gói gọn gàng, gửi đi thật nhanh.</p></div>
+      </section>
+    </main>
+
+    <div class="shop-filter-backdrop" id="shopFilterBackdrop" hidden></div>
+    <div data-store-footer></div>
+    <div class="commerce-toast" id="commerceToast" role="status" aria-live="polite"></div>
+  </body>
+</html>

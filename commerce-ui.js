@@ -36,7 +36,7 @@
         <a class="mobile-bottom-nav__item" data-nav-key="home" href="index.html" aria-label="${t('home', 'Home')}">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1Z"/></svg><span>${t('home', 'Home')}</span>
         </a>
-        <a class="mobile-bottom-nav__item" data-nav-key="shop" href="index.html#catalog" aria-label="${t('shop', 'Shop')}">
+        <a class="mobile-bottom-nav__item" data-nav-key="shop" href="shop.html" aria-label="${t('shop', 'Shop')}">
           <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9h16l-1 11H5L4 9Z"/><path d="M8 9a4 4 0 0 1 8 0M9 13h.01M15 13h.01"/></svg><span>${t('shop', 'Shop')}</span>
         </a>
         <button class="mobile-bottom-nav__item" type="button" data-mobile-nav-action="search" aria-label="${t('search', 'Search')}">
@@ -55,7 +55,7 @@
     const path = String(root.location.pathname || '').toLowerCase();
     const hash = String(root.location.hash || '').toLowerCase();
     if (path.endsWith('/checkout.html') || path.endsWith('checkout.html')) return '';
-    if (path.endsWith('/product.html') || path.endsWith('product.html') || hash === '#catalog' || hash === '#new-arrivals' || hash === '#shop') return 'shop';
+    if (path.endsWith('/product.html') || path.endsWith('product.html') || path.endsWith('/shop.html') || path.endsWith('shop.html') || hash === '#catalog' || hash === '#new-arrivals' || hash === '#shop') return 'shop';
     return 'home';
   }
 
@@ -106,11 +106,11 @@
         const action = button.dataset.mobileNavAction;
         if (action === 'search') {
           const trigger = document.querySelector('#searchTrigger');
-          if (trigger) trigger.click(); else root.location.href = 'index.html#catalog';
+          if (trigger) trigger.click(); else root.location.href = 'shop.html';
         }
         if (action === 'menu') {
           const trigger = document.querySelector('#menuButton');
-          if (trigger) trigger.click(); else root.location.href = 'index.html#catalog';
+          if (trigger) trigger.click(); else root.location.href = 'shop.html';
         }
       };
     });
@@ -122,13 +122,13 @@
       const t = (key, fallback) => commerce?.t?.(key, fallback) || fallback;
       mount.innerHTML = `
         <header class="commerce-header">
-          <a class="commerce-logo" href="index.html" aria-label="Crocs Studio home">
-            <img src="assets/crocs-logo.svg" alt="Crocs" width="137" height="30">
+          <a class="commerce-logo" href="index.html" aria-label="Sally Kids trang chủ">
+            <span class="commerce-brand" aria-hidden="true"><span>sally</span><b>Kids</b><i>✦</i></span>
           </a>
           <nav class="commerce-nav" aria-label="Store navigation">
-            <a href="index.html#new-arrivals">${t('newArrivals', 'New arrivals')}</a>
-            <a href="index.html#shop">${t('shopClassics', 'Classics')}</a>
-            <a href="index.html#club">Crocs Club</a>
+            <a href="shop.html?sort=newest">${t('newArrivals', 'Mới về')}</a>
+            <a href="shop.html">${t('shopClassics', 'Khám phá shop')}</a>
+            <a href="index.html#club">Sally Club</a>
           </nav>
           <div class="commerce-header-actions">
             <a class="commerce-back" href="index.html" aria-label="Back to shop">${t('continueShopping', 'Back to shop')}</a>
@@ -144,9 +144,9 @@
   function mountFooter() {
     document.querySelectorAll('[data-store-footer]').forEach((mount) => {
       mount.innerHTML = `
-        <footer class="commerce-footer">
-          <div><img src="assets/crocs-logo.svg" alt="Crocs" width="110" height="24"><p>Come as you are. Comfort for every version of you.</p></div>
-          <div class="commerce-footer-links"><a href="index.html#footer">${commerce.t('help', 'Help & FAQs')}</a><a href="index.html#footer">${commerce.t('privacy', 'Privacy')}</a><a href="index.html#footer">${commerce.escape(regional?.region?.name || 'United States')}</a></div>
+          <footer class="commerce-footer">
+          <div><a class="commerce-footer-brand" href="index.html" aria-label="Sally Kids trang chủ"><span>sally</span><b>Kids</b><i>✦</i></a><p>Mặc vui lớn khôn, mỗi ngày một khám phá.</p></div>
+          <div class="commerce-footer-links"><a href="index.html#footer">${commerce.t('help', 'Hỗ trợ & câu hỏi')}</a><a href="index.html#footer">${commerce.t('privacy', 'Bảo mật')}</a><a href="index.html#footer">${commerce.escape(regional?.region?.name || 'Việt Nam')}</a></div>
         </footer>`;
     });
   }
