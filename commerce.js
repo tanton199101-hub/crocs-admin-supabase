@@ -5,6 +5,8 @@
 })(typeof window === 'undefined' ? globalThis : window, function (root) {
   'use strict';
   const CART_KEY = 'crocs-bag-v2';
+  const RECENTLY_VIEWED_KEY = 'sally-kids-recently-viewed-v1';
+  const RECENTLY_VIEWED_LIMIT = 8;
   const CATALOG_CACHE_KEY = 'crocs-catalog-v1';
   const CATALOG_CACHE_TTL = 60 * 1000;
   const STATIC_CATALOG_PATH = 'assets/catalog-1688';
@@ -45,7 +47,7 @@
       }
       const host = parsed.hostname.toLowerCase();
       const pathOkay = /^\/(?:play|video|download)\//i.test(parsed.pathname) || host === 'caiyuanbao.alicdn.com';
-      return parsed.protocol === 'https:' && remoteVideoHosts.has(host) && pathOkay && /\.mp4(?:$|[?#])/i.test(parsed.pathname + parsed.search) ? parsed.href : '';
+      return parsed.protocol === 'https:' && remoteVideoHosts.has(host) && pathOkay && /\.mp4(?:$|[?#])/i.test(parsed.pathname + parsed.search) ? `/api/1688-video?url=${encodeURIComponent(parsed.href)}` : '';
     } catch { return ''; }
   };
   const descriptionImages = value => {
@@ -58,6 +60,32 @@
     }
     for (const match of html.matchAll(/background(?:-image)?\s*:\s*url\(\s*["']?([^\)"']+)/gi)) result.push(match[1]);
     return result.filter(Boolean);
+  };
+  const descriptionVideos = value => {
+    const html = String(value || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    const result = [];
+    for (const match of html.matchAll(/(?:src|data-src|data-video|video-url|data-video-url)\s*=\s*(["'])([\s\S]*?)\1/gi)) result.push(match[2]);
+    result.push(...(html.match(/(?:https?:)?\/\/[^"'<>\s\\]+\.mp4(?:[?#][^"'<>\s\\]*)?/gi) || []));
+    return result.filter(Boolean);
+  };
+  const videoCandidates = value => {
+    const output = [];
+    const visit = (item, depth = 0) => {
+      // Supplier payloads sometimes contain several stale/invalid media URLs
+      // before the verified clip in the description. Keep a bounded traversal
+      // for safety, but do not let those stale entries hide a valid video.
+      if (depth > 8 || item == null || output.length >= MAX_VIDEOS * 16) return;
+      if (typeof item === 'string') {
+        const text = normalizeImageReference(item);
+        const urls = text.match(/https?:\/\/[^\s"'<>\\]+/gi) || [text];
+        urls.forEach(url => output.push(url.replace(/[\\"']+$/g, '')));
+        return;
+      }
+      if (Array.isArray(item)) { item.forEach(value => visit(value, depth + 1)); return; }
+      if (typeof item === 'object') Object.values(item).forEach(value => visit(value, depth + 1));
+    };
+    visit(value);
+    return output;
   };
   const mediaImageValue = value => {
     if (typeof value === 'string') return value;
@@ -129,7 +157,14 @@
     const gallery = Array.isArray(p.gallery) ? p.gallery.map(safeProductImage).filter(Boolean).slice(0, MAX_GALLERY_IMAGES) : [];
     const directDetailImages = Array.isArray(p.detailImages) ? p.detailImages : [];
     const detailImages = [...new Set([...directDetailImages, ...descriptionImages(p.descriptionHtml)].map(safeProductImage).filter(Boolean))].slice(0, MAX_DETAIL_IMAGES);
-    const videos = [...new Set((Array.isArray(p.videos) ? p.videos : []).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
+    const rawVideos = [
+      ...(Array.isArray(p.videos) ? p.videos : []),
+      p.videoUrl, p.video,
+      p.source?.videos, p.source?.videoUrl, p.source?.video,
+      descriptionVideos(p.descriptionHtml), descriptionVideos(p.description),
+      videoCandidates(p.media), videoCandidates(p.mediaUrls), videoCandidates(p.videoInfo),
+    ];
+    const videos = [...new Set(videoCandidates(rawVideos).map(video).filter(Boolean))].slice(0, MAX_VIDEOS);
     const requestedBrand = String(p.brand || '').trim();
     const brand = !requestedBrand || /crocs|1688|supplier|nhà cung cấp/i.test(requestedBrand) ? 'Sally Kids' : requestedBrand;
     const normalized = { ...p, basePrice, hasVariants: p.hasVariants === true || variants.length > 0, image: safeProductImage(p.image) || gallery[0] || PRODUCT_PLACEHOLDER, gallery, detailImages, videos, attributes: Array.isArray(p.attributes) ? p.attributes.slice(0, 80) : [], imageAlt: p.imageAlt || p.title, brand, slug: p.slug || '', seo: { title: '', description: '', noindex: false, ...(p.seo || {}) }, options, optionImages, variantImages: Object.fromEntries(Object.entries({ ...variantImages, ...Object.fromEntries(variants.map(v => [String(v.id || v.sku), v.image]).filter(([, value]) => value)) }).filter(([, value]) => value)), variants };
@@ -272,6 +307,25 @@
     catch { throw new Error('Your bag could not be saved. Please allow browser storage and try again.'); }
     root.dispatchEvent?.(new Event('crocs:bag'));
     return lines;
+  }
+  function readRecentlyViewed() {
+    try {
+      const parsed = JSON.parse(root.localStorage?.getItem(RECENTLY_VIEWED_KEY) || '[]');
+      if (!Array.isArray(parsed)) return [];
+      return [...new Set(parsed.filter(id => typeof id === 'string' && /^[\w-]{1,120}$/.test(id)))].slice(0, RECENTLY_VIEWED_LIMIT);
+    } catch { return []; }
+  }
+  function rememberRecentlyViewed(productId) {
+    const id = String(productId || '').trim();
+    if (!id || !/^[\w-]{1,120}$/.test(id)) return readRecentlyViewed();
+    const ids = [id, ...readRecentlyViewed().filter(value => value !== id)].slice(0, RECENTLY_VIEWED_LIMIT);
+    try { root.localStorage?.setItem(RECENTLY_VIEWED_KEY, JSON.stringify(ids)); } catch { /* Recent history is optional. */ }
+    root.dispatchEvent?.(new CustomEvent('crocs:recently-viewed', { detail: { ids } }));
+    return ids;
+  }
+  function clearRecentlyViewed() {
+    try { root.localStorage?.removeItem(RECENTLY_VIEWED_KEY); } catch { /* Recent history is optional. */ }
+    root.dispatchEvent?.(new CustomEvent('crocs:recently-viewed', { detail: { ids: [] } }));
   }
   function resolveLine(product, line) {
     const variants = variantsFor(product);
@@ -532,7 +586,7 @@
     root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
   });
   root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, hydrateProduct, localizeProduct, localizeCatalog, seeds, readCart, saveCart, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
+  const api = { CART_KEY, RECENTLY_VIEWED_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, hydrateProduct, localizeProduct, localizeCatalog, seeds, readCart, saveCart, readRecentlyViewed, rememberRecentlyViewed, clearRecentlyViewed, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;

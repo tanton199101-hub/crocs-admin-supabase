@@ -28,6 +28,35 @@ test('commerce normalizes verified 1688 product videos through the same-origin p
   assert.match(product.videos[0], /^\/api\/1688-video\?/);
 });
 
+test('commerce recovers video URLs from rich supplier markup and source media', () => {
+  const product = Commerce.normalize({
+    id: 'rich-media', title: 'Rich media product', sku: 'RICH', price: 1000, stock: 1,
+    status: 'Active', image: 'https://cbu01.alicdn.com/rich.jpg',
+    descriptionHtml: '<p>Chi tiết</p><video data-video="https://cloud.video.taobao.com/play/u/2/p/2/e/6/t/1/3.mp4"></video>',
+    source: { videos: ['https://video01.1688.com/video/clip.mp4'] },
+  });
+  assert.equal(product.videos.length, 2);
+  assert.ok(product.videos.every(value => value.startsWith('/api/1688-video?')));
+});
+
+test('recently viewed history keeps newest products first and stays bounded', () => {
+  const storage = new Map();
+  const sandbox = {
+    module: { exports: {} },
+    localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+    dispatchEvent() {}, Intl, URL, URLSearchParams, AbortSignal, Set, Map, JSON, Date, Number, String, Object, Array, Error,
+    Event: function Event() {}, CustomEvent: function CustomEvent() {}, console,
+  };
+  require('node:vm').runInNewContext(require('node:fs').readFileSync(require('node:path').join(__dirname, '../commerce.js'), 'utf8'), sandbox);
+  const isolated = sandbox.module.exports;
+  for (let index = 0; index < 10; index += 1) isolated.rememberRecentlyViewed(`product-${index}`);
+  assert.deepEqual(Array.from(isolated.readRecentlyViewed()), ['product-9', 'product-8', 'product-7', 'product-6', 'product-5', 'product-4', 'product-3', 'product-2']);
+  isolated.rememberRecentlyViewed('product-4');
+  assert.equal(isolated.readRecentlyViewed()[0], 'product-4');
+  isolated.clearRecentlyViewed();
+  assert.deepEqual(Array.from(isolated.readRecentlyViewed()), []);
+});
+
 function packedProduct() {
   return {
     id: 'packed-bootstrap', title: 'Áo trẻ em', sku: '1688-123456789',

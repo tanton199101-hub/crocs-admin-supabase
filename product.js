@@ -19,6 +19,9 @@
   let selectedSize = '';
   let selectedValues = {};
   let selectedMediaIndex = 0;
+  let recentHydrationFlight = null;
+  let recommendationHydrationFlight = null;
+  let recommendationCandidates = null;
 
   const renderMissing = (message = 'This product is not available right now.') => {
     document.title = 'Sản phẩm không khả dụng | Sally Kids';
@@ -132,6 +135,23 @@
     }).join('')}</dl>`;
   }
   function descriptionMarkup(item) {
+    // Some supplier records put the rich fragment in `description` while
+    // others use `descriptionHtml`; accept either shape before falling back
+    // to escaped plain text.
+    const html = String(item?.descriptionHtml || item?.description || '').replace(/\\u003c/gi, '<').replace(/\\u003e/gi, '>').replace(/\\u0026/gi, '&').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    if (html && /<[a-z][\s\S]*>/i.test(html)) {
+      const mediaOnly = html
+        .replace(/<(?:script|style|noscript|template|iframe|object|embed|video|audio|source|picture|figure)\b[\s\S]*?<\/(?:script|style|noscript|template|iframe|object|embed|video|audio|source|picture|figure)>/gi, '')
+        .replace(/<(?:img|source|track|input|button)\b[^>]*\/?>/gi, '')
+        .replace(/\s+on[a-z-]+\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/gi, '')
+        .replace(/<\/?([a-z][\w:-]*)(?:\s[^>]*)?>/gi, (tag, name) => {
+          const allowed = new Set(['p', 'br', 'strong', 'b', 'em', 'i', 'u', 'small', 'ul', 'ol', 'li', 'h3', 'h4', 'blockquote', 'div', 'span', 'table', 'thead', 'tbody', 'tr', 'th', 'td']);
+          return allowed.has(String(name).toLowerCase()) ? (tag.startsWith('</') ? `</${String(name).toLowerCase()}>` : `<${String(name).toLowerCase()}>`) : '';
+        })
+        .replace(/\n{3,}/g, '\n\n').trim();
+      const visible = mediaOnly.replace(/<[^>]+>/g, '').replace(/&(?:nbsp|amp|lt|gt|quot);/gi, ' ').replace(/\s+/g, '').trim();
+      if (visible) return `<div class="product-rich-description">${mediaOnly}</div>`;
+    }
     const text = String(item?.description || '').trim();
     if (!text) return '';
     return text.split(/\n{2,}|\r?\n/).filter(Boolean).map(part => `<p>${commerce.escape(part.trim())}</p>`).join('');
@@ -139,7 +159,7 @@
   function detailMediaFor(item) {
     const MAX_DETAIL_IMAGES = 120;
     const direct = Array.isArray(item?.detailImages) ? item.detailImages : [];
-    const html = String(item?.descriptionHtml || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    const html = String(item?.descriptionHtml || item?.description || '').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
     const embedded = [];
     for (const match of html.matchAll(/([\w-]+)\s*=\s*(["'])([\s\S]*?)\2/gi)) {
       const name = String(match[1] || '').toLowerCase();
@@ -151,6 +171,118 @@
   }
   function videoMediaFor(item) {
     return [...new Set((Array.isArray(item?.videos) ? item.videos : []).map(value => commerce.video?.(value)).filter(Boolean))].slice(0, 8);
+  }
+  function productUrl(item) {
+    const path = root.location?.protocol === 'file:' ? 'product.html' : 'product';
+    return `${path}?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}`;
+  }
+  const foldTaxonomyText = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+  function taxonomyFor(item) {
+    const text = foldTaxonomyText([item?.title, item?.category, item?.type, item?.productType].join(' '));
+    let category = String(item?.categoryId || '').trim();
+    let type = String(item?.typeId || '').trim();
+    if (!category || category === 'Thời trang trẻ em') {
+      if (/bieu dien|san khau|mua|nhay|jazz|cheer|co vu|hop xuong|hip hop|khieu vu/.test(text)) category = 'performance';
+      else if (/\bmu\b|\bnon\b|\bhat\b|\bcap\b|\btat\b|\bsock\b|phu kien|accessor|tui|balo|bag|giay|dep|sandal|shoe/.test(text)) category = 'accessories';
+      else if (/vay|dam|chan vay|dress|skirt/.test(text)) category = 'dresses';
+      else if (/quan|legging|short|pants|trousers/.test(text)) category = 'bottoms';
+      else if (/\bao\b|so mi|t-shirt|shirt|jacket|coat|hoodie/.test(text)) category = 'tops';
+      else if (/bo|set|ensemble|tracksuit/.test(text)) category = 'sets';
+      else category = 'other';
+    }
+    if (!type || type === 'Thời trang trẻ em') {
+      type = category;
+      if (category === 'performance') type = /jazz/.test(text) ? 'performance-jazz' : /cheer|co vu/.test(text) ? 'performance-cheer' : /hip hop/.test(text) ? 'performance-hiphop' : /hop xuong/.test(text) ? 'performance-choir' : 'performance-dance';
+      if (category === 'accessories') type = /\bmu\b|\bnon\b|\bhat\b|\bcap\b/.test(text) ? 'accessories-hats' : /\btat\b|\bsock\b/.test(text) ? 'accessories-socks' : /tui|balo|bag/.test(text) ? 'accessories-bags' : /giay|dep|sandal|shoe/.test(text) ? 'accessories-shoes' : 'accessories-other';
+    }
+    return {
+      category,
+      type,
+      audience: item?.audience || (/be gai|girl|female/.test(text) ? 'girls' : /be trai|boy|male/.test(text) ? 'boys' : 'children'),
+      occasions: Array.isArray(item?.occasions) && item.occasions.length ? item.occasions : [category === 'performance' ? 'performance' : 'everyday'],
+      price: Number(item?.price || 0),
+    };
+  }
+  function recommendationCards(items, tag = '') {
+    return items.map(item => `<a class="related-card recommendation-card" href="${productUrl(item)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async">${tag ? `<span class="recommendation-tag">${commerce.escape(tag)}</span>` : ''}</div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('');
+  }
+  function recommendationSection(id, title, note, items, tag = '') {
+    if (!items.length) return '';
+    return `<section class="related-products recommendation-section recommendation-section--${id}" aria-labelledby="${id}RecommendationTitle"><div class="recommendation-heading"><div><p class="product-kicker">${commerce.escape(note)}</p><h2 id="${id}RecommendationTitle">${commerce.escape(title)}</h2></div><span class="recommendation-count">${items.length} gợi ý</span></div><div class="related-grid">${recommendationCards(items, tag)}</div></section>`;
+  }
+  function recommendationsFor(item) {
+    const current = taxonomyFor(item);
+    const candidates = (recommendationCandidates || commerce.products).filter(candidate => candidate?.id && candidate.id !== item.id && candidate.status === 'Active' && candidate.image && candidate.image !== 'assets/sally-kids-product-placeholder.svg');
+    const score = (candidate, mode) => {
+      const value = taxonomyFor(candidate);
+      const occasionMatch = value.occasions.filter(id => current.occasions.includes(id)).length;
+      const sameType = value.type === current.type;
+      const sameCategory = value.category === current.category;
+      const sameAudience = value.audience === current.audience || value.audience === 'children' || current.audience === 'children';
+      if (mode === 'cross') {
+        if (sameType && sameCategory) return -1;
+        return (sameAudience ? 5 : 0) + occasionMatch * 3 + (value.category.startsWith('accessories') ? 4 : 0) + (value.type !== current.type ? 2 : 0) - Math.abs(value.price - current.price) / Math.max(current.price, 1) * 0.8;
+      }
+      if (mode === 'upsell') {
+        if (value.price <= current.price || (!sameType && !sameCategory)) return -1;
+        return (sameType ? 8 : 0) + (sameCategory ? 4 : 0) + (sameAudience ? 2 : 0) + occasionMatch - Math.abs(value.price - current.price) / Math.max(current.price, 1);
+      }
+      return (sameType ? 8 : 0) + (sameCategory ? 4 : 0) + (sameAudience ? 2 : 0) + occasionMatch;
+    };
+    const ranked = (mode, list = candidates) => list.map(candidate => ({ candidate, rank: score(candidate, mode) })).filter(row => row.rank >= 0).sort((left, right) => right.rank - left.rank || left.candidate.id.localeCompare(right.candidate.id));
+    const select = (mode, limit = 4, list = candidates) => ranked(mode, list).slice(0, limit).map(row => row.candidate);
+    let upsell = select('upsell');
+    // Widen an empty upgrade rail to the same audience. A cheaper item is
+    // never presented as an upgrade; only higher-priced products qualify.
+    if (!upsell.length) {
+      const higherAudience = candidates.filter(candidate => {
+        const value = taxonomyFor(candidate);
+        return value.price > current.price && (value.audience === current.audience || value.audience === 'children' || current.audience === 'children');
+      });
+      upsell = higherAudience.sort((left, right) => Number(left.price) - Number(right.price) || left.id.localeCompare(right.id)).slice(0, 4);
+    }
+    const recentIds = commerce.readRecentlyViewed?.() || [];
+    const recentPool = [...new Map([...(recommendationCandidates || []), ...commerce.products].filter(value => value?.id).map(value => [value.id, value]).values())];
+    const recent = recentIds.filter(id => id !== item.id).map(id => recentPool.find(candidate => candidate.id === id)).filter(Boolean).slice(0, 4);
+    return { cross: select('cross'), upsell, similar: select('similar'), recent };
+  }
+  function renderPreservingScroll() {
+    const scrollY = Number(root.scrollY || root.pageYOffset || 0);
+    render();
+    if (scrollY > 0 && typeof root.scrollTo === 'function') {
+      try { root.scrollTo({ top: scrollY, left: 0, behavior: 'auto' }); } catch { root.scrollTo(0, scrollY); }
+    }
+  }
+  async function hydrateRecommendationCandidates() {
+    if (recommendationCandidates || recommendationHydrationFlight || !commerce.loadCatalogPage || !product) return recommendationHydrationFlight;
+    const current = product;
+    const taxonomy = taxonomyFor(current);
+    const requests = [{ category: [taxonomy.category] }];
+    // Accessories are the most useful cross-sell companion for a clothing
+    // item. Load their small facet separately so the main catalog request
+    // stays light while the rail can still suggest hats, belts or bags.
+    if (taxonomy.category !== 'accessories') requests.push({ category: ['accessories'] });
+    if (taxonomy.audience && taxonomy.audience !== 'children') requests.push({ audience: [taxonomy.audience] });
+    recommendationHydrationFlight = Promise.allSettled(requests.map(options => commerce.loadCatalogPage({ ...options, limit: 24, sort: 'featured' })))
+      .then(results => {
+        const remote = results.flatMap(result => result.status === 'fulfilled' ? result.value.products || [] : []);
+        const merged = new Map([...commerce.products, ...remote].filter(item => item?.id).map(item => [item.id, item]));
+        recommendationCandidates = [...merged.values()];
+        if (product === current) renderPreservingScroll();
+      })
+      .catch(() => { recommendationCandidates = [...commerce.products]; })
+      .finally(() => { recommendationHydrationFlight = null; });
+    return recommendationHydrationFlight;
+  }
+  async function hydrateRecentProducts() {
+    if (recentHydrationFlight || !commerce.loadProducts) return recentHydrationFlight;
+    const ids = (commerce.readRecentlyViewed?.() || []).filter(id => id !== product?.id).slice(0, 6);
+    const missing = ids.filter(id => !commerce.product?.(id));
+    if (!missing.length) return null;
+    recentHydrationFlight = commerce.loadProducts(missing).catch(() => []).finally(() => { recentHydrationFlight = null; });
+    await recentHydrationFlight;
+    if (product) renderPreservingScroll();
+    return null;
   }
   function displayPrice(current) {
     if (current) return commerce.money(current.price);
@@ -188,7 +320,8 @@
     selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
     const detailImages = detailMediaFor(product);
     const videos = videoMediaFor(product);
-    const related = commerce.products.filter(item => item.id !== product.id && item.status === 'Active' && item.category === product.category).slice(0, 4);
+    const description = `${descriptionMarkup(product)}${!videos.length && /^1688-/i.test(String(product.sku || '')) ? '<p class="product-media-note">Video sản phẩm chưa có dữ liệu xác minh từ nhà cung cấp.</p>' : ''}`;
+    const recommendations = recommendationsFor(product);
     updateStructuredData(variants, current);
     main.setAttribute('aria-busy', 'false');
     main.innerHTML = `
@@ -224,8 +357,11 @@
           <p class="shipping-note">${t('freeDelivery', 'Free standard delivery on orders over {amount}. This storefront is a demo; no payment is taken.', { amount: commerce.money(regional?.convert?.(5000) || 5000) })}</p>
         </div>
       </section>
-      ${descriptionMarkup(product) || detailImages.length || videos.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${descriptionMarkup(product)}${attributeMarkup(product)}</div>${videos.length ? `<div class="product-video-media"><div class="product-detail-media-heading"><strong>Video sản phẩm</strong><span>${videos.length} video từ 1688</span></div><div class="product-video-list" aria-label="Video sản phẩm">${videos.map((src, index) => `<figure><video controls preload="metadata" playsinline poster="${commerce.escape(media[0] || '')}" aria-label="${commerce.escape(product.title)} — video ${index + 1}"><source src="${commerce.escape(src)}" type="video/mp4">Trình duyệt của bạn không hỗ trợ video.</video><figcaption>Video sản phẩm ${index + 1}</figcaption></figure>`).join('')}</div></div>` : ''}${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ 1688</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img data-smart-fit src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" width="900" height="1200" loading="lazy" decoding="async">`).join('')}</div></div>` : ''}</section>` : ''}
-       ${related.length ? `<section class="related-products" aria-labelledby="relatedTitle"><h2 id="relatedTitle">Gợi ý cho outfit của bé</h2><div class="related-grid">${related.map(item => `<a class="related-card" href="product.html?id=${encodeURIComponent(item.id)}&slug=${encodeURIComponent(item.slug || item.id)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('')}</div></section>` : ''}`;
+      ${description || detailImages.length || videos.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${description}${attributeMarkup(product)}</div>${videos.length ? `<div class="product-video-media"><div class="product-detail-media-heading"><strong>Video sản phẩm</strong><span>${videos.length} video đã xác minh</span></div><div class="product-video-list" aria-label="Video sản phẩm">${videos.map((src, index) => `<figure><video controls preload="none" playsinline poster="${commerce.escape(media[0] || '')}" aria-label="${commerce.escape(product.title)} — video ${index + 1}"><source src="${commerce.escape(src)}" type="video/mp4">Trình duyệt của bạn không hỗ trợ video.</video><figcaption>Video sản phẩm ${index + 1}</figcaption></figure>`).join('')}</div></div>` : ''}${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ nhà cung cấp</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img class="product-detail-image" src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" width="900" loading="lazy" decoding="async">`).join('')}</div></div>` : ''}</section>` : ''}
+       ${recommendationSection('cross', 'Phối cùng outfit', 'Bán chéo thông minh', recommendations.cross, 'Phối cùng')}
+       ${recommendationSection('upsell', 'Nâng cấp outfit', 'Gợi ý cao hơn', recommendations.upsell, 'Nâng cấp')}
+       ${recommendationSection('recent', 'Bạn vừa xem', 'Lịch sử của bé', recommendations.recent)}
+       ${!recommendations.cross.length && !recommendations.upsell.length && !recommendations.recent.length ? recommendationSection('similar', 'Có thể bé sẽ thích', 'Gợi ý tương tự', recommendations.similar) : ''}`;
     bind();
     commerce.enhanceImages?.(main);
   }
@@ -316,7 +452,10 @@
       if (bootstrappedProduct?.id === requestedId) {
         product = commerce.hydrateProduct(bootstrappedProduct);
       } else product = await commerce.loadProduct(requestedId);
+      commerce.rememberRecentlyViewed?.(product.id);
       render();
+      hydrateRecentProducts();
+      hydrateRecommendationCandidates();
     } catch (error) { renderMissing(error.message); }
   })();
   root.addEventListener('crocs:catalog', event => {

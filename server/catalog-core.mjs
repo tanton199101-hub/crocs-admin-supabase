@@ -13,6 +13,31 @@ const safeProductImage = value => {
   return raw && !isBannerAsset(raw) ? raw : '';
 };
 const safeProductImageList = value => [...new Set((Array.isArray(value) ? value : []).map(safeProductImage).filter(Boolean))];
+const remoteVideoHosts = new Set(['cloud.video.taobao.com', 'video01.1688.com', 'video.1688.com', 'caiyuanbao.alicdn.com']);
+const safeProductVideo = value => {
+  const raw = typeof value === 'string' ? value.trim().replace(/\\u002f/gi, '/').replace(/\\\//g, '/') : mediaValue(value).trim();
+  if (!raw) return '';
+  // Keep legacy relative fixture/media references intact; the browser-side
+  // normalizer will still drop anything that cannot be played safely.
+  if (/^[\w./-]+\.mp4$/i.test(raw)) return raw;
+  try {
+    const parsed = new URL(raw, 'https://store.invalid');
+    let source = parsed;
+    if (parsed.origin === 'https://store.invalid' && parsed.pathname === '/api/1688-video') source = new URL(parsed.searchParams.get('url') || '');
+    const host = source.hostname.toLowerCase();
+    const pathOkay = /^\/(?:play|video|download)\//i.test(source.pathname) || host === 'caiyuanbao.alicdn.com';
+    if (source.protocol !== 'https:' || !remoteVideoHosts.has(host) || !pathOkay || !/\.mp4(?:$|[?#])/i.test(source.pathname + source.search)) return '';
+    return `/api/1688-video?url=${encodeURIComponent(source.href)}`;
+  } catch { return ''; }
+};
+const videoValues = value => {
+  if (Array.isArray(value)) return value.flatMap(videoValues);
+  if (value && typeof value === 'object') return Object.values(value).flatMap(videoValues);
+  if (typeof value !== 'string') return [];
+  const text = value.replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+  return [text, ...(text.match(/(?:https?:)?\/\/[^"'<>\s\\]+\.mp4(?:[?#][^"'<>\s\\]*)?/gi) || [])];
+};
+const safeProductVideoList = value => [...new Set(videoValues(value).map(safeProductVideo).filter(Boolean))].slice(0, 8);
 const safeProductImageMap = (value, nested = false) => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return Object.fromEntries(Object.entries(value).map(([key, raw]) => {
@@ -33,6 +58,13 @@ const sanitizeProductMedia = product => {
   const result = { ...product, image: safeProductImage(product?.image) || gallery[0] || PRODUCT_PLACEHOLDER };
   if (Array.isArray(product?.gallery)) result.gallery = gallery;
   if (Array.isArray(product?.detailImages)) result.detailImages = safeProductImageList(product.detailImages);
+  const videos = safeProductVideoList([
+    product?.videos, product?.videoUrl, product?.video,
+    product?.source?.videos, product?.source?.videoUrl, product?.source?.video,
+    product?.descriptionHtml,
+  ]);
+  if (videos.length) result.videos = videos;
+  else if (Array.isArray(product?.videos)) result.videos = [];
   if (product?.optionImages && typeof product.optionImages === 'object') result.optionImages = safeProductImageMap(product.optionImages, true);
   if (product?.variantImages && typeof product.variantImages === 'object') result.variantImages = safeProductImageMap(product.variantImages);
   if (Array.isArray(product?.variants)) result.variants = product.variants.map(variant => {
