@@ -5,7 +5,7 @@ import { presentation } from './catalog-core.mjs';
 
 const base = process.env.SUPABASE_URL || 'https://uvtgzcuifbiufwcrylxx.supabase.co';
 const key = process.env.SUPABASE_PUBLISHABLE_KEY || 'sb_publishable_z8ozM2OM1MV3fo0nJDksxA_bBi97bIP';
-let catalogCache, catalogFlight, mirrorCache;
+let catalogCache, catalogFlight, mirrorCache, fallbackMirrorCache;
 const details = new Map();
 const moduleRoot = dirname(fileURLToPath(import.meta.url));
 const projectRoot = join(moduleRoot, '..');
@@ -28,6 +28,27 @@ async function mirror() {
   if (!mirrorCache) mirrorCache = JSON.parse(await readProjectFile('assets/catalog-1688/summary.json'));
   return mirrorCache;
 }
+
+export async function catalogWithMirrorOptions(catalog, readChunk = async chunk => JSON.parse(await readProjectFile(`assets/catalog-1688/details-${chunk}.json`))) {
+  const products = Array.isArray(catalog?.products) ? catalog.products : [];
+  const metadata = new Map();
+  const chunks = [...new Set(products.map(product => product.detailChunk).filter(chunk => Number.isInteger(chunk) && chunk >= 0))];
+  // Keep the summary's price/stock/status authoritative. Only retain option
+  // metadata, not every SKU/media row, after reading each detail chunk.
+  for (const chunk of chunks) {
+    try {
+      const rows = await readChunk(chunk);
+      for (const product of products.filter(item => item.detailChunk === chunk)) {
+        const detail = rows?.[product.id];
+        if (!detail || (detail.id && detail.id !== product.id)) continue;
+        metadata.set(product.id, Object.fromEntries(['options', 'sizes', 'colour', 'colors']
+          .filter(key => detail[key] != null).map(key => [key, detail[key]])));
+      }
+    } catch { /* One unavailable chunk must not discard the remaining catalogue. */ }
+  }
+  return { ...catalog, products: products.map(product => ({ ...metadata.get(product.id), ...product })) };
+}
+
 export async function catalogData() {
   if (catalogCache && Date.now() - catalogCache.time < 30000) return catalogCache.value;
   if (catalogFlight) return catalogFlight;
@@ -35,7 +56,12 @@ export async function catalogData() {
     const staticData = await mirror().catch(() => null);
     let live;
     try { live = await publicRpc('storefront_catalog_v1'); }
-    catch { live = staticData; }
+    catch {
+      // summary.json intentionally omits options. Without this enrichment,
+      // a transient RPC failure makes every classification filter return 0.
+      if (staticData && !fallbackMirrorCache) fallbackMirrorCache = await catalogWithMirrorOptions(staticData);
+      live = fallbackMirrorCache || staticData;
+    }
     if (!Array.isArray(live?.products)) throw Object.assign(Error('Catalog chưa sẵn sàng.'), { status: 503 });
     const translations = new Map((staticData?.products || []).map(p => [p.id, p]));
     const value = {
