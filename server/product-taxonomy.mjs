@@ -154,7 +154,7 @@ export function productTaxonomy(product = {}) {
   ]);
   const colors = cleanValues([
     ...valueList(product.colors), ...valueList(product.colours), ...valueList(product.color), ...valueList(product.colour),
-    ...optionValues(product, /mau|color|colour/), ...attributeValues(product, /mau|color|colour/),
+    ...optionValues(product, /phan loai|mau|color|colour/), ...attributeValues(product, /mau|color|colour/),
   ]);
   const category = categoryLookup.get(typeId) || categoryLookup.get(categoryId) || { id: categoryId, title: 'Sản phẩm khác', parentId: categoryId };
   const group = CATEGORY_DEFINITIONS.find(item => item.id === categoryId) || CATEGORY_DEFINITIONS.at(-1);

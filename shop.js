@@ -76,7 +76,7 @@
     const audience = /be gai|con gai|girl|female|nu/.test(text) ? 'girls' : /be trai|con trai|boy|male|nam/.test(text) ? 'boys' : 'children';
     const occasions = categoryId === 'performance' ? ['performance'] : /mua he|summer|di bien|beach/.test(text) ? ['summer'] : /di hoc|dong phuc|school|uniform/.test(text) ? ['school'] : ['everyday'];
     const sizes = [...new Set([...(Array.isArray(product?.sizes) ? product.sizes : []), ...optionValues(product, /size|kich thuoc|co|tuoi|chieu cao/)].map(value => String(value || '').trim()).filter(Boolean))];
-    const colors = [...new Set([...(Array.isArray(product?.colors) ? product.colors : []), ...(Array.isArray(product?.colours) ? product.colours : []), product?.colour, product?.color, ...optionValues(product, /mau|color|colour/)].map(value => String(value || '').trim()).filter(Boolean))];
+    const colors = [...new Set([...(Array.isArray(product?.colors) ? product.colors : []), ...(Array.isArray(product?.colours) ? product.colours : []), product?.colour, product?.color, ...optionValues(product, /phan loai|mau|color|colour/)].map(value => String(value || '').trim()).filter(Boolean))];
     return { categoryId, typeId, categoryIds: [categoryId, typeId], audience, occasions, sizes, colors };
   };
   const selectedCount = () => state.category.length + state.type.length + state.audience.length + state.occasion.length + state.size.length + state.color.length + (state.price !== 'all' ? 1 : 0) + (state.query ? 1 : 0) + (state.collection ? 1 : 0);
@@ -148,7 +148,7 @@
     ['audiences', 'audience', 'Đối tượng'],
     ['occasions', 'occasion', 'Dịp sử dụng'],
     ['sizes', 'size', 'Kích thước'],
-    ['colors', 'color', 'Màu / kiểu'],
+    ['colors', 'color', 'Phân loại'],
   ];
 
   function renderFacetGroups() {
@@ -230,7 +230,7 @@
     if (state.query) chips.push(`<button type="button" data-clear-filter="query">Tìm: “${escape(state.query)}” <span>×</span></button>`);
     if (collection) chips.push(`<button type="button" data-clear-filter="collection">${escape(labelForCollection(collection.title))} <span>×</span></button>`);
     if (state.price !== 'all') chips.push(`<button type="button" data-clear-filter="price">${state.price === 'under-200' ? 'Dưới 200K' : state.price === '200-500' ? '200K – 500K' : 'Trên 500K'} <span>×</span></button>`);
-    const labels = { category: 'Danh mục', type: 'Kiểu', audience: 'Đối tượng', occasion: 'Dịp', size: 'Size', color: 'Màu' };
+    const labels = { category: 'Danh mục', type: 'Kiểu', audience: 'Đối tượng', occasion: 'Dịp', size: 'Size', color: 'Phân loại' };
     for (const key of ['category', 'type', 'audience', 'occasion', 'size', 'color']) state[key].forEach(value => {
       chips.push(`<button type="button" data-clear-filter="${key}" data-clear-value="${escape(value)}">${labels[key]}: ${escape(facetTitle(key, value))} <span>×</span></button>`);
     });

@@ -849,7 +849,7 @@
     if (Array.isArray(input.options) && input.options.length) return input.options;
     const heights = Array.isArray(input.heights) ? input.heights : [];
     if (!heights.length) return [];
-    return [{ id: 'height', name: 'Height', values: heights.map(value => clean(value, 40)).filter(Boolean) }];
+    return [{ id: 'height', name: 'Size (cm)', values: heights.map(value => clean(value, 40)).filter(Boolean) }];
   }
 
   function normalizeOptions(options, translations = {}) {

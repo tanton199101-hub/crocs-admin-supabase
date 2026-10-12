@@ -433,7 +433,7 @@
     bind();
     commerce.enhanceImages?.(main);
     if (preserveScroll) {
-      root.scrollTo?.({ top: preservedScroll, left: 0, behavior: 'auto' });
+      root.scrollTo?.({ top: preservedScroll, left: 0, behavior: 'instant' });
       const focusTarget = focusToggle
         ? [...main.querySelectorAll('[data-option-toggle]')].find(item => item.dataset.optionToggle === focusOption)
         : [...main.querySelectorAll('[data-option-id]')].find(item => item.dataset.optionId === focusOption && item.dataset.optionValue === focusValue);
@@ -495,7 +495,7 @@
       const optionId = button.dataset.optionToggle;
       if (expandedOptions.has(optionId)) expandedOptions.delete(optionId); else expandedOptions.add(optionId);
       render({ preserveScroll: true, focusOption: optionId, focusToggle: true });
-      [...main.querySelectorAll('[data-option-toggle]')].find(item => item.dataset.optionToggle === optionId)?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' });
+      if (!expandedOptions.has(optionId)) [...main.querySelectorAll('[data-option-toggle]')].find(item => item.dataset.optionToggle === optionId)?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' });
     }));
     main.querySelectorAll('[data-option-id]').forEach(button => button.addEventListener('click', () => {
       const option = commerce.optionsFor(product).find(item => item.id === button.dataset.optionId);

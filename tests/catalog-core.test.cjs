@@ -77,6 +77,26 @@ test('presentation keeps live inventory while replacing supplier-facing copy', (
   assert.equal(result.brand, 'Sally Kids');
 });
 
+test('renamed variant options keep packed SKUs, prices, images and shop facets intact', () => {
+  const input = {
+    id: 'renamed', title: 'Trang phục biểu diễn', price: 100, stock: 4, status: 'Active',
+    options: [{ id: 'option-1', name: 'Màu sắc', values: ['Áo + quần', 'Áo + váy'] }, { id: 'option-2', name: 'Chiều cao', values: ['110cm'] }],
+    optionImages: { 'option-1': { 'Áo + quần': 'https://cbu01.alicdn.com/outfit.jpg' } },
+    variantEncoding: 'crocs-1688-v3', variantRegions: ['vn'],
+    variantsPacked: [['sku-1', 0, 0, 100, 2, 20000, 1], ['sku-2', 1, 0, 120, 2, 24000, 1]],
+  };
+  const original = structuredClone(input);
+  const product = Core.presentation(input, null);
+  assert.deepEqual(product.options.map(option => option.name), ['Phân loại', 'Size (cm)']);
+  assert.deepEqual(product.variantsPacked, original.variantsPacked);
+  assert.deepEqual(product.optionImages, original.optionImages);
+  assert.deepEqual(input, original);
+  const page = Core.catalogPage({ products: [product] }, new URLSearchParams('color=ao-quan&size=110cm'));
+  assert.equal(page.total, 1);
+  assert.ok(page.facets.colors.some(facet => facet.title === 'Áo + quần'));
+  assert.ok(page.facets.sizes.some(facet => facet.title === '110cm'));
+});
+
 test('presentation merges partial live media with the verified 1688 mirror', () => {
   const live = {
     id: '1688-media', title: 'Mẫu 1081098810208', price: 100, stock: 7,
