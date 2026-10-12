@@ -2,6 +2,7 @@
 // import often says only “Thời trang trẻ em”, so these rules use stronger
 // signals from the product title and option metadata before falling back to
 // “Sản phẩm khác”.
+import optionTranslations from '../assets/catalog-1688/variation-translations.vi.json' with { type: 'json' };
 
 export const fold = value => String(value || '')
   .normalize('NFD')
@@ -63,6 +64,18 @@ export const facetKey = value => fold(value)
   .replace(/[^\p{L}\p{N}]+/gu, '-')
   .replace(/^-+|-+$/g, '')
   .slice(0, 80);
+
+// The live catalogue RPC can retain supplier option values even when product
+// details use the Vietnamese mirror. Translate only derived filter metadata:
+// raw option values, packed SKU indices and image/price maps must stay intact.
+const supplierLabel = /[\u3400-\u9fff\uf900-\ufaff]/;
+const facetLabel = value => {
+  const text = String(value || '').trim();
+  const translated = supplierLabel.test(text) ? optionTranslations[text.slice(0, 80)] : '';
+  return typeof translated === 'string' && translated.trim() ? translated.trim() : text;
+};
+const legacyFacetKeys = new Map(Object.keys(optionTranslations).filter(value => supplierLabel.test(value))
+  .map(value => [facetKey(value), facetKey(facetLabel(value))]));
 
 const valueList = value => Array.isArray(value)
   ? value.flatMap(valueList)
@@ -151,11 +164,11 @@ export function productTaxonomy(product = {}) {
     ...valueList(product.sizes), ...valueList(product.size),
     ...optionValues(product, /size|kich thuoc|co|tuoi|chieu cao|ma so/),
     ...attributeValues(product, /size|kich thuoc|co|tuoi|chieu cao/),
-  ]);
+  ].map(facetLabel));
   const colors = cleanValues([
     ...valueList(product.colors), ...valueList(product.colours), ...valueList(product.color), ...valueList(product.colour),
     ...optionValues(product, /phan loai|mau|color|colour/), ...attributeValues(product, /mau|color|colour/),
-  ]);
+  ].map(facetLabel));
   const category = categoryLookup.get(typeId) || categoryLookup.get(categoryId) || { id: categoryId, title: 'Sản phẩm khác', parentId: categoryId };
   const group = CATEGORY_DEFINITIONS.find(item => item.id === categoryId) || CATEGORY_DEFINITIONS.at(-1);
   return {
@@ -183,7 +196,9 @@ export function productSearchText(product, taxonomy = productTaxonomy(product)) 
   ].join(' '));
 }
 
-export const parseSelections = (params, name) => [...new Set(String(params.get(name) || '').split(',').map(value => value.trim()).filter(Boolean))].slice(0, 24);
+export const parseSelections = (params, name) => [...new Set(String(params.get(name) || '').split(',')
+  .map(value => value.trim()).filter(Boolean)
+  .map(value => name === 'color' || name === 'size' ? legacyFacetKeys.get(value) || value : value))].slice(0, 24);
 
 export function matchesFacet(product, dimension, values, taxonomy = productTaxonomy(product)) {
   if (!values.length) return true;

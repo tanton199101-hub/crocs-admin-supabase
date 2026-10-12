@@ -155,7 +155,7 @@ export function catalogPage(catalog, params = new URLSearchParams()) {
   const limit = Number.isFinite(requestedLimit) ? Math.min(24, Math.max(1, Math.floor(requestedLimit))) : 24;
   const next = offset + limit;
   return { products: products.slice(offset, next).map(product => summary(product, localization, region?.id)), total: products.length, activeTotal: active.length,
-    facets: buildFacets(baseProducts, selections),
+    facets: buildFacets(baseProducts, selections), selections,
     collections: publicCollections(catalog.collections, active), localization, store: catalog.store,
     nextCursor: next < products.length ? Buffer.from(JSON.stringify({ key: fingerprint, offset: next })).toString('base64url') : null,
     source: 'live', generatedAt: new Date().toISOString() };

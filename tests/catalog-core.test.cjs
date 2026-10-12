@@ -97,6 +97,30 @@ test('renamed variant options keep packed SKUs, prices, images and shop facets i
   assert.ok(page.facets.sizes.some(facet => facet.title === '110cm'));
 });
 
+test('supplier option values use verified Vietnamese facets without rewriting SKU values or breaking old filter links', () => {
+  const input = {
+    id: 'supplier-facets', title: 'Trang phục trẻ em', price: 100, stock: 4, status: 'Active',
+    options: [{ id: 'outfit', name: 'Màu sắc', values: ['上衣+裤子', '黑色'] }, { id: 'height', name: 'Chiều cao', values: ['110'] }],
+    optionImages: { outfit: { '上衣+裤子': 'https://cbu01.alicdn.com/outfit.jpg' } },
+    variants: [{ id: 'live-sku', sku: 'live-sku', values: { outfit: '上衣+裤子', height: '110' }, price: 100, stock: 4 }],
+  };
+  const original = structuredClone(input);
+  const product = Core.presentation(input, null);
+  const catalog = { products: [product] };
+  const page = Core.catalogPage(catalog, new URLSearchParams('color=ao-quan&size=110'));
+  assert.equal(page.total, 1);
+  assert.deepEqual(page.products[0].colors, ['Áo + quần', 'màu đen']);
+  assert.ok(page.facets.colors.some(facet => facet.id === 'ao-quan' && facet.title === 'Áo + quần'));
+  assert.ok(page.facets.colors.every(facet => !/[\u3400-\u9fff]/.test(facet.title)));
+  const legacy = Core.catalogPage(catalog, new URLSearchParams({ color: '上衣-裤子' }));
+  assert.deepEqual(legacy.selections.color, ['ao-quan']);
+  assert.deepEqual(legacy.products.map(row => row.id), page.products.map(row => row.id));
+  assert.deepEqual(product.options[0].values, original.options[0].values);
+  assert.deepEqual(product.variants, original.variants);
+  assert.deepEqual(product.optionImages, original.optionImages);
+  assert.deepEqual(input, original);
+});
+
 test('presentation merges partial live media with the verified 1688 mirror', () => {
   const live = {
     id: '1688-media', title: 'Mẫu 1081098810208', price: 100, stock: 7,

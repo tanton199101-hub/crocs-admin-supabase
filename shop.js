@@ -264,8 +264,19 @@
     if (!append) { state.cursor = ''; products = []; renderLoading(); }
     try {
       if (!commerce?.loadCatalogPage) throw new Error('API catalogue chưa sẵn sàng.');
+      const requestedOptions = { size: JSON.stringify(state.size), color: JSON.stringify(state.color) };
       const data = await commerce.loadCatalogPage({ query: state.query, collection: state.collection, sort: state.sort, price: state.price, category: state.category, type: state.type, audience: state.audience, occasion: state.occasion, size: state.size, color: state.color, limit: 24, cursor: append ? state.cursor : '' });
       if (currentRequest !== requestId) return;
+      let canonicalized = false;
+      for (const key of ['size', 'color']) {
+        const canonical = data.selections?.[key];
+        // Keep bookmarked supplier-language filters checked after translation,
+        // but never overwrite a newer selection queued during this request.
+        if (Array.isArray(canonical) && JSON.stringify(state[key]) === requestedOptions[key] && JSON.stringify(canonical) !== requestedOptions[key]) {
+          state[key] = canonical; canonicalized = true;
+        }
+      }
+      if (canonicalized) pushUrl();
       const incoming = Array.isArray(data.products) ? data.products : []; const merged = append ? [...products, ...incoming] : incoming; const seen = new Set();
       products = merged.filter(item => item?.id && !seen.has(item.id) && seen.add(item.id)); state.server = true;
       state.total = Number(data.total || products.length); state.activeTotal = Number(data.activeTotal || state.total); state.cursor = data.nextCursor || '';
