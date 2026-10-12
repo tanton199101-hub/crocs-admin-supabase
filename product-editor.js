@@ -25,6 +25,7 @@
     const priceAttrs = `type="number" min="0" max="1000000" step="${currency.decimals ? `0.${'0'.repeat(Math.max(0, currency.decimals - 1))}1` : '1'}" inputmode="decimal"`;
     const original = M.clone(product);
     let draft = { brand: 'Sally Kids', imageAlt: '', compareAt: null, cost: null, options: [], variants: [], ...M.clone(product), seo: { title: '', description: '', noindex: false, ...product.seo } };
+    draft.options = root.CrocsVariantOptions.normalize(draft.options);
     let selected = new Set(), filter = '', undo = null, saving = false, slugManual = !!draft.slug;
     let optionsPending = false;
     draft.slug ||= M.slugify(draft.title);
@@ -33,7 +34,10 @@
     const notice = message => { $('#productEditorNotice').textContent = message; };
     const error = message => { const box = $('#productEditorError'); box.textContent = message; box.hidden = !message; if (message) box.scrollIntoView({ block: 'nearest' }); };
     const markDirty = () => { $('#productEditorForm').dataset.dirty = 'true'; $('#productSaveState').textContent = 'Có thay đổi chưa lưu'; };
-    function readOptions() { return $$('.pe-option').map(row => ({ id: row.dataset.option, name: row.querySelector('[data-option-name]').value, values: row.querySelector('[data-option-values]').value.split(',') })); }
+    function readOptions() {
+      const options = $$('.pe-option').map(row => ({ id: row.dataset.option, name: row.querySelector('[data-option-name]').value, values: row.querySelector('[data-option-values]').value.split(',') }));
+      return root.CrocsVariantOptions.normalize(options);
+    }
     function readFields() {
       const fd = new FormData($('#productEditorForm'));
       for (const name of ['title', 'description', 'sku', 'category', 'brand', 'imageAlt', 'slug', 'status']) draft[name] = String(fd.get(name) || '').trim();
@@ -55,7 +59,7 @@
       });
     }
     function optionMarkup(o) {
-      return `<div class="pe-option" data-option="${esc(o.id)}"><label class="field"><span>Thuộc tính</span><input data-option-name value="${esc(o.name)}" maxlength="40" placeholder="Màu sắc"></label><label class="field"><span>Giá trị, ngăn cách bằng dấu phẩy</span><input data-option-values value="${esc(o.values.join(', '))}" placeholder="Trắng, Đen, Hồng"></label><button type="button" class="pe-icon" data-pe="remove-option" aria-label="Bỏ thuộc tính ${esc(o.name)}">×</button></div>`;
+      return `<div class="pe-option" data-option="${esc(o.id)}"><label class="field"><span>Thuộc tính</span><input data-option-name value="${esc(o.name)}" maxlength="40" placeholder="Phân loại"></label><label class="field"><span>Giá trị, ngăn cách bằng dấu phẩy</span><input data-option-values value="${esc(o.values.join(', '))}" placeholder="Mẫu 1, Mẫu 2, Mẫu 3"></label><button type="button" class="pe-icon" data-pe="remove-option" aria-label="Bỏ thuộc tính ${esc(o.name)}">×</button></div>`;
     }
     function mediaList() {
       return [...new Set([draft.image, ...(Array.isArray(draft.gallery) ? draft.gallery : [])].filter(Boolean))].slice(0, 50);
@@ -139,8 +143,8 @@
           ${input('imageAlt', 'Văn bản thay thế ảnh (alt text)', draft.imageAlt, 'maxlength="180" placeholder="Ví dụ: Dép Classic Clog trắng, nhìn nghiêng"')}
         </section>
         <section class="pe-card" id="pe-pricing"><header><h2>Giá bán & giá vốn</h2><p id="basePriceHint"></p></header><div class="pe-three-columns">${input('price', `Giá bán (${esc(currency.code)})`, decimal(draft.price), `${priceAttrs} required`)}${input('compareAt', `Giá niêm yết (${esc(currency.code)})`, decimal(draft.compareAt), `${priceAttrs} placeholder="Không giảm giá"`)}${input('cost', `Giá vốn (${esc(currency.code)})`, decimal(draft.cost), `${priceAttrs} placeholder="Tùy chọn"`)}</div><p class="pe-help" id="productMargin"></p><div class="form-grid">${input('sku', 'SKU gốc', draft.sku, 'required maxlength="60" placeholder="CLC-2026"')}<div id="baseStock">${input('stock', 'Tồn kho khả dụng', draft.stock, `${stockAttrs} required`)}</div></div></section>
-        <section class="pe-card pe-variants" id="pe-variants"><header class="pe-card-title"><div><h2>Biến thể sản phẩm</h2><p>Màu × size × chất liệu. Mỗi tổ hợp có SKU, giá và tồn kho riêng.</p></div><span class="pe-pill" id="variantCount"></span></header>
-           <div class="pe-preset-row"><span>Tạo nhanh thuộc tính</span><button type="button" data-pe="preset-colour">+ Màu sắc</button><button type="button" data-pe="preset-size">+ Size UK</button><button type="button" data-pe="add-option">+ Tùy chỉnh</button></div><div id="productOptions">${draft.options.map(optionMarkup).join('')}</div>
+        <section class="pe-card pe-variants" id="pe-variants"><header class="pe-card-title"><div><h2>Biến thể sản phẩm</h2><p>Phân loại × size × chất liệu. Mỗi tổ hợp có SKU, giá và tồn kho riêng.</p></div><span class="pe-pill" id="variantCount"></span></header>
+           <div class="pe-preset-row"><span>Tạo nhanh thuộc tính</span><button type="button" data-pe="preset-colour">+ Phân loại</button><button type="button" data-pe="preset-height">+ Size (cm)</button><button type="button" data-pe="preset-size">+ Size UK</button><button type="button" data-pe="add-option">+ Tùy chỉnh</button></div><div id="productOptions">${draft.options.map(optionMarkup).join('')}</div>
            <div class="pe-generate"><button type="button" class="button button--dark" data-pe="generate">Tạo / cập nhật tổ hợp</button><p>Tối đa 3 thuộc tính, ${M.MAX_VARIANTS || 500} tổ hợp trong bản này. Biến thể mới bắt đầu với giá ${esc(currency.code)}0 và tồn 0; hãy nhập giá bán &gt; ${esc(currency.code)}0 và tồn khả dụng &gt; 0 cho ít nhất một dòng trước khi chuyển sang Đang bán. Giá/SKU của tổ hợp cũ được giữ nguyên.</p></div><p id="variantEmpty" class="pe-empty"></p>
           <div id="variantWork"><div class="pe-variant-toolbar"><label class="field"><span>Lọc biến thể</span><input type="search" id="variantFilter" placeholder="Màu, size hoặc SKU"></label><strong id="variantSelectionCount">0 biến thể đã chọn</strong><button type="button" class="button button--quiet" data-pe="select-all">Chọn tất cả</button><button type="button" class="button button--quiet" data-pe="clear-selection">Bỏ chọn</button></div>
           <div class="pe-bulk"><label class="field"><span>Chỉnh các dòng đã chọn</span><select id="variantBulkOperation"><option value="price">Đặt giá bán (${esc(currency.code)})</option><option value="price-percent">Tăng / giảm giá (%)</option><option value="price-delta">Cộng / trừ giá (${esc(currency.code)})</option><option value="compareAt">Đặt / xóa giá niêm yết (${esc(currency.code)})</option><option value="stock">Đặt tồn kho</option><option value="stock-delta">Cộng / trừ tồn kho</option><option value="enabled">Bật / tắt biến thể</option></select></label><label class="field"><span>Giá trị</span><input id="variantBulkValue" inputmode="decimal" placeholder="Ví dụ: 39.99 hoặc -10"><select id="variantBulkEnabled" hidden><option value="true">Bật bán</option><option value="false">Tắt bán</option></select></label><button type="button" class="button button--green" data-pe="apply-bulk" disabled>Áp dụng</button><button type="button" class="button button--quiet" data-pe="undo-bulk" disabled>Hoàn tác</button></div>
@@ -191,9 +195,9 @@
         if (action === 'close') return doClose();
         if (action === 'jump') return $(`#pe-${button.dataset.section}`).scrollIntoView({ behavior: 'auto', block: 'start' });
         if (action === 'slug') { $('[name=slug]').value = M.slugify($('[name=title]').value); slugManual = false; markDirty(); return refreshPreview(); }
-        if (['preset-colour', 'preset-size', 'add-option'].includes(action)) {
+        if (['preset-colour', 'preset-height', 'preset-size', 'add-option'].includes(action)) {
           const current = readOptions(); if (current.length >= 3) throw new Error('Tối đa 3 thuộc tính.');
-          const o = action === 'preset-colour' ? { name: 'Màu sắc', values: ['Trắng', 'Đen', 'Hồng'] } : action === 'preset-size' ? { name: 'Size UK', values: ['4', '5', '6', '7', '8'] } : { name: '', values: [] };
+          const o = action === 'preset-colour' ? { name: 'Phân loại', values: ['Mẫu 1', 'Mẫu 2', 'Mẫu 3'] } : action === 'preset-height' ? { name: 'Size (cm)', values: ['110', '120', '130', '140', '150'] } : action === 'preset-size' ? { name: 'Size UK', values: ['4', '5', '6', '7', '8'] } : { name: '', values: [] };
           if (o.name && current.some(x => x.name.toLowerCase() === o.name.toLowerCase())) throw new Error('Thuộc tính này đã có. Chỉnh các giá trị trực tiếp.');
           o.id = `opt-${Date.now().toString(36)}-${current.length}`;
           $('#productOptions').insertAdjacentHTML('beforeend', optionMarkup(o)); optionsPending = true; markDirty(); return;

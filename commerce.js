@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory(root);
+  const api = factory(root, typeof require === 'function' ? require('./variant-options.js') : root.CrocsVariantOptions);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.CrocsCommerce = api;
-})(typeof window === 'undefined' ? globalThis : window, function (root) {
+})(typeof window === 'undefined' ? globalThis : window, function (root, variantOptions) {
   'use strict';
   const CART_KEY = 'crocs-bag-v2';
   const RECENTLY_VIEWED_KEY = 'sally-kids-recently-viewed-v1';
@@ -144,7 +144,8 @@
     p = unpackPackedProduct(p);
     if (!p || typeof p.id !== 'string' || !p.title || !Number.isSafeInteger(p.price) || p.price < 0 || !Number.isSafeInteger(p.stock) || p.stock < 0) throw new Error('Invalid product data.');
     const basePrice = Number.isSafeInteger(p.basePrice) ? p.basePrice : p.price;
-    const options = optionsFor(p);
+    const options = variantOptions.normalize(optionsFor(p));
+    p = { ...p, description: variantOptions.description(p.description) };
     const optionImages = normalizeOptionImageMap(p.optionImages);
     const variantImages = normalizeVariantImageMap(p.variantImages);
     const variants = Array.isArray(p.variants) ? p.variants.map(v => {
@@ -574,6 +575,22 @@
     const unique = [...new Set((Array.isArray(ids) ? ids : []).map(id => String(id || '').trim()).filter(Boolean))];
     return Promise.all(unique.map(loadProduct));
   }
+  async function loadRecentlyViewedProducts(ids = readRecentlyViewed()) {
+    const unique = [...new Set((Array.isArray(ids) ? ids : []).filter(id => typeof id === 'string' && /^[\w-]{1,120}$/.test(id)))].slice(0, RECENTLY_VIEWED_LIMIT);
+    if (!unique.length) return [];
+    try {
+      const data = await storefrontApi({ view: 'recent', ids: unique.join(','), region: regional?.region?.id || '' });
+      if (!Array.isArray(data.products)) throw new Error('Recent products are unavailable.');
+      const rows = data.products.filter(item => unique.includes(item?.id) && item.status === 'Active').map(item => localizeProduct(normalize(item)));
+      const byId = new Map(rows.map(item => [item.id, item]));
+      return unique.map(id => byId.get(id)).filter(Boolean);
+    } catch {
+      // Static previews and temporary outages retain independent fallbacks:
+      // one deleted product must not discard all the other history cards.
+      const results = await Promise.allSettled(unique.map(loadProduct));
+      return results.filter(result => result.status === 'fulfilled' && result.value?.status === 'Active').map(result => result.value);
+    }
+  }
   async function ensureCartProducts(lines = readCart()) {
     const missing = (Array.isArray(lines) ? lines : [])
       .filter(line => !catalog.find(item => item.id === line.productId)?._detailLoaded)
@@ -585,9 +602,13 @@
     catalog = localizeCatalog(catalog);
     root.dispatchEvent?.(new CustomEvent('crocs:catalog', { detail: { products: catalog, localization: regional?.config || {} } }));
   });
-  root.addEventListener?.('storage', event => { if (event.key === CART_KEY) root.dispatchEvent(new Event('crocs:bag')); });
-  const api = { CART_KEY, RECENTLY_VIEWED_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, hydrateProduct, localizeProduct, localizeCatalog, seeds, readCart, saveCart, readRecentlyViewed, rememberRecentlyViewed, clearRecentlyViewed, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
+  root.addEventListener?.('storage', event => {
+    if (event.key === CART_KEY || event.key === null) root.dispatchEvent?.(new Event('crocs:bag'));
+    if (event.key === RECENTLY_VIEWED_KEY || event.key === null) root.dispatchEvent?.(new CustomEvent('crocs:recently-viewed', { detail: { ids: readRecentlyViewed() } }));
+  });
+  const api = { CART_KEY, RECENTLY_VIEWED_KEY, CATALOG_CACHE_KEY, money, escape, image, video, enhanceImage, enhanceImages, sizesFor, optionsFor, variantsFor, variantFor, variantTitle, variantSize, normalize, hydrateProduct, localizeProduct, localizeCatalog, seeds, readCart, saveCart, readRecentlyViewed, rememberRecentlyViewed, clearRecentlyViewed, loadRecentlyViewedProducts, validateLines, add, update, quote, shippingCost, rpc, storefrontApi, loadCatalogPage, loadCatalog, loadProduct, loadProducts, ensureCartProducts, t: (...args) => regional?.t?.(...args) || args[1] || args[0], get region() { return regional?.region || null; }, get language() { return regional?.language || 'en'; }, get currency() { return regional?.region?.currency || 'USD'; },
     product: id => catalog.find(p => p.id === id), get products() { return catalog; }, get source() { return source; }, get problem() { return problem; } };
+  api.variantOptions = variantOptions;
   api.ready = root.document ? loadCatalog() : Promise.resolve(catalog);
   return api;
 });

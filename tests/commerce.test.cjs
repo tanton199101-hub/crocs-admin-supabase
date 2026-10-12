@@ -2,6 +2,23 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const Commerce = require('../commerce.js');
 
+function isolatedCommerce({ storage = new Map(), fetch = async () => { throw new Error('Offline'); } } = {}) {
+  const events = [];
+  const handlers = new Map();
+  const sandbox = {
+    module: { exports: {} }, fetch,
+    location: { origin: 'https://store.invalid', protocol: 'https:' },
+    CrocsVariantOptions: require('../variant-options.js'),
+    localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+    dispatchEvent: event => events.push(event), addEventListener: (type, handler) => handlers.set(type, handler),
+    Intl, URL, URLSearchParams, AbortSignal, console,
+    Event: function Event(type) { this.type = type; },
+    CustomEvent: function CustomEvent(type, options) { this.type = type; this.detail = options.detail; },
+  };
+  require('node:vm').runInNewContext(require('node:fs').readFileSync(require('node:path').join(__dirname, '../commerce.js'), 'utf8'), sandbox);
+  return { api: sandbox.module.exports, events, handlers, storage };
+}
+
 test('variant line quotes the variant price and stock', () => {
   const product = Commerce.normalize({
     id: 'vp', title: 'Variant pair', sku: 'VP', price: 1000, stock: 6,
@@ -44,6 +61,7 @@ test('recently viewed history keeps newest products first and stays bounded', ()
   const sandbox = {
     module: { exports: {} },
     localStorage: { getItem: key => storage.get(key) || null, setItem: (key, value) => storage.set(key, value), removeItem: key => storage.delete(key) },
+    CrocsVariantOptions: require('../variant-options.js'),
     dispatchEvent() {}, Intl, URL, URLSearchParams, AbortSignal, Set, Map, JSON, Date, Number, String, Object, Array, Error,
     Event: function Event() {}, CustomEvent: function CustomEvent() {}, console,
   };
@@ -55,6 +73,45 @@ test('recently viewed history keeps newest products first and stays bounded', ()
   assert.equal(isolated.readRecentlyViewed()[0], 'product-4');
   isolated.clearRecentlyViewed();
   assert.deepEqual(Array.from(isolated.readRecentlyViewed()), []);
+});
+
+test('recent history survives a new page and responds to clearing in another tab', () => {
+  const first = isolatedCommerce();
+  first.api.rememberRecentlyViewed('product-first');
+  first.api.rememberRecentlyViewed('product-second');
+  first.api.rememberRecentlyViewed('bad/id');
+  const next = isolatedCommerce({ storage: first.storage });
+  assert.deepEqual(Array.from(next.api.readRecentlyViewed()), ['product-second', 'product-first']);
+  first.api.clearRecentlyViewed();
+  next.handlers.get('storage')({ key: next.api.RECENTLY_VIEWED_KEY });
+  assert.equal(next.events.at(-1).type, 'crocs:recently-viewed');
+  assert.deepEqual(Array.from(next.events.at(-1).detail.ids), []);
+  next.storage.set(next.api.RECENTLY_VIEWED_KEY, '{broken json');
+  assert.deepEqual(Array.from(next.api.readRecentlyViewed()), []);
+});
+
+test('recent history loads public summaries in one request and keeps the newest first', async () => {
+  const requests = [];
+  const product = id => ({ id, title: 'Áo cho bé', price: 1000, stock: 1, status: 'Active' });
+  const { api } = isolatedCommerce({ fetch: async url => {
+    requests.push(url);
+    return { ok: true, json: async () => ({ products: [product('older'), product('newer'), { ...product('draft'), status: 'Draft' }, product('unrequested')] }) };
+  } });
+  const rows = await api.loadRecentlyViewedProducts(['newer', 'draft', 'older', 'newer', 'bad/id']);
+  assert.equal(requests.length, 1);
+  const params = new URL(requests[0], 'https://store.invalid').searchParams;
+  assert.equal(params.get('view'), 'recent');
+  assert.equal(params.get('ids'), 'newer,draft,older');
+  assert.deepEqual(Array.from(rows, row => row.id), ['newer', 'older']);
+  assert.deepEqual(Array.from(await api.loadRecentlyViewedProducts([])), []);
+  assert.equal(requests.length, 1, 'Empty history makes no network request');
+});
+
+test('recent history fallback does not lose valid products when one is unavailable', async () => {
+  const { api } = isolatedCommerce({ fetch: async () => ({ ok: false, status: 404, json: async () => ({ error: 'Missing product' }) }) });
+  for (const id of ['older', 'newer']) api.hydrateProduct({ id, title: 'Áo cho bé', price: 1000, stock: 1, status: 'Active' });
+  const rows = await api.loadRecentlyViewedProducts(['newer', 'missing', 'older']);
+  assert.deepEqual(Array.from(rows, row => row.id), ['newer', 'older']);
 });
 
 function packedProduct() {
@@ -80,6 +137,7 @@ test('SSR product normalization decodes packed SKUs and keeps Vietnamese sizes a
   assert.equal(product.hasVariants, true);
   assert.equal(product.variantEncoding, undefined);
   assert.deepEqual(Commerce.sizesFor(product), ['110cm']);
+  assert.deepEqual(product.options.map(option => option.name), ['Phân loại', 'Size (cm)']);
   assert.equal(Commerce.variantSize(product, product.variants[1]), '110cm');
   assert.equal(product.variants[0].image, input.optionImages['option-1'].Trắng);
   assert.equal(product.variants[1].image, input.variantImages['sku-black']);

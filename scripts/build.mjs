@@ -10,7 +10,7 @@ await mkdir(output, { recursive: true });
 // route precedence as a fresh deployment.
 await unlink(resolve(output, 'product.html')).catch(() => {});
 // Explicit allowlist: SQL, tests, credentials and git history never ship.
-for (const name of ['index.html', 'shop.html', 'admin.html', 'checkout.html', 'styles.css', 'shop.css', 'admin.css', 'admin-auth.css', 'product-editor.css', 'commerce.css', 'script.js', 'shop.js', 'admin.js', 'admin-auth.js', 'amazon-channel.js', '1688-importer.js', 'product-model.js', 'product-editor.js', 'commerce.js', 'commerce-ui.js', 'regional-commerce.js', 'product.js', 'checkout.js', 'store-data.js', 'supabase-config.js', 'supabase-sync.js', 'supabase-storefront.js', 'assets']) {
+for (const name of ['index.html', 'shop.html', 'admin.html', 'checkout.html', 'styles.css', 'shop.css', 'admin.css', 'admin-auth.css', 'product-editor.css', 'commerce.css', 'script.js', 'shop.js', 'admin.js', 'admin-auth.js', 'amazon-channel.js', '1688-importer.js', 'product-model.js', 'product-editor.js', 'variant-options.js', 'commerce.js', 'commerce-ui.js', 'regional-commerce.js', 'product.js', 'checkout.js', 'store-data.js', 'supabase-config.js', 'supabase-sync.js', 'supabase-storefront.js', 'assets']) {
   await cp(resolve(root, name), resolve(output, name), { recursive: true });
 }
 await build({

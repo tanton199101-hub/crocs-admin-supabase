@@ -1,4 +1,5 @@
 import { createHash } from 'node:crypto';
+import variantOptions from '../variant-options.js';
 import { buildFacets, matchesFacet, parseSelections, productSearchText, productTaxonomy } from './product-taxonomy.mjs';
 
 export const fold = value => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
@@ -54,6 +55,7 @@ const safeProductImageMap = (value, nested = false) => {
   }).filter(Boolean));
 };
 const sanitizeProductMedia = product => {
+  product = { ...product, ...(Array.isArray(product.options) ? { options: variantOptions.normalize(product.options) } : {}), ...(typeof product.description === 'string' ? { description: variantOptions.description(product.description) } : {}) };
   const gallery = Array.isArray(product?.gallery) ? safeProductImageList(product.gallery) : [];
   const result = { ...product, image: safeProductImage(product?.image) || gallery[0] || PRODUCT_PLACEHOLDER };
   if (Array.isArray(product?.gallery)) result.gallery = gallery;
@@ -172,6 +174,14 @@ export function summary(p, localization = {}, regionId) {
     ['typeId', taxonomy.typeId], ['typeTitle', taxonomy.typeTitle], ['audience', taxonomy.audience],
     ['occasions', taxonomy.occasions], ['sizes', taxonomy.sizes], ['colors', taxonomy.colors],
   ]);
+}
+
+export function recentlyViewedProducts(catalog, params = new URLSearchParams()) {
+  const ids = [...new Set(String(params.get('ids') || '').split(',').filter(id => /^[\w-]{1,120}$/.test(id)))].slice(0, 8);
+  const active = new Map((catalog.products || []).filter(product => product.status === 'Active').map(product => [product.id, product]));
+  // Only public summary fields are needed for a history card. Never include
+  // supplier credentials, descriptions or hundreds of variant rows here.
+  return ids.map(id => active.get(id)).filter(Boolean).map(product => summary(product, catalog.localization || {}, params.get('region') || undefined));
 }
 
 export function presentation(live, mirror) {

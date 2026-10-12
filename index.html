@@ -33,6 +33,148 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <svg class="sally-icon-defs" xmlns="http://www.w3.org/2000/svg" width="0" height="0" aria-hidden="true" focusable="false">
+      <defs>
+        <symbol id="sally-icon-dress" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="m33 17 8-3c1 9 13 9 14 0l8 3 5 17-10 5v8l17 31c-16 8-38 8-54 0l17-31v-8l-10-5Z" />
+          <path class="sally-icon__lining" d="m33 17 8-3c1 9 13 9 14 0l8 3-5 24H38Z" />
+          <path class="sally-icon__contrast" d="M38 42h20v8H38Z" />
+          <path class="sally-icon__detail" d="m40 57-6 17m14-17v20m8-20 6 17" />
+          <path class="sally-icon__stitch" d="M29 76c12 5 26 5 38 0" />
+          <path class="sally-icon__contrast" d="m48 29 2-4 4 2-1 4 3 3-4 2-1 4-4-1-3 2-2-4-4-1 1-4 4-1 2-4Z" />
+          <circle class="sally-icon__lining" cx="48" cy="32" r="2.5" />
+        </symbol>
+        <symbol id="sally-icon-shirt" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="m33 18 7-3c1 8 15 8 16 0l7 3 19 16-12 15-8-6v36H34V43l-8 6-12-15Z" />
+          <path class="sally-icon__lining" d="m33 18 7-3c1 8 15 8 16 0l7 3-3 11H36Z" />
+          <path class="sally-icon__detail" d="m23 29 10 9m40-9L63 38" />
+          <path class="sally-icon__contrast" d="m48 39 3 6 7 1-5 5 1 7-6-3-6 3 1-7-5-5 7-1Z" />
+          <path class="sally-icon__stitch" d="M38 73h20" />
+        </symbol>
+        <symbol id="sally-icon-matching" viewBox="0 0 96 96">
+          <path class="sally-icon__lining" d="m21 23 7-3c2 6 10 6 12 0l7 3 12 12-8 10-6-4v29H23V41l-6 4-8-10Z" />
+          <path class="sally-icon__detail" d="M28 20c2 6 10 6 12 0M26 63h16" />
+          <path class="sally-icon__fabric" d="m51 37 7-3c2 6 10 6 12 0l7 3 12 12-8 10-6-4v29H53V55l-6 4-8-10Z" />
+          <path class="sally-icon__detail" d="M58 34c2 6 10 6 12 0M56 77h16" />
+          <path class="sally-icon__contrast" d="M28 39c0-5 6-5 6-1 0-4 6-4 6 1 0 4-6 8-6 8s-6-4-6-8Zm30 14c0-5 6-5 6-1 0-4 6-4 6 1 0 4-6 8-6 8s-6-4-6-8Z" />
+        </symbol>
+        <symbol id="sally-icon-backpack" viewBox="0 0 96 96">
+          <path class="sally-icon__detail" d="M38 22v-4a10 10 0 0 1 20 0v4M24 42h-5v30h8m45-30h5v30h-8" />
+          <rect class="sally-icon__fabric" x="26" y="22" width="44" height="61" rx="16" />
+          <path class="sally-icon__lining" d="M26 43V38a16 16 0 0 1 16-16h12a16 16 0 0 1 16 16v5Z" />
+          <rect class="sally-icon__contrast" x="33" y="52" width="30" height="22" rx="7" />
+          <path class="sally-icon__detail" d="M36 58h24m-5 0v5" />
+          <path class="sally-icon__stitch" d="M32 43h32" />
+          <path class="sally-icon__contrast" d="m48 29 2 4 5 1-3 3v5l-4-2-4 2v-5l-3-3 5-1Z" />
+        </symbol>
+        <symbol id="sally-icon-accessories" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="m21 17 31 2 6 24-45-3Z" />
+          <path class="sally-icon__lining" d="m13 37 45 4 8 11c-17 7-41 5-55-4Z" />
+          <path class="sally-icon__detail" d="m21 31 31 3" />
+          <path class="sally-icon__detail" d="M54 59v-8a9 9 0 0 1 18 0v8" />
+          <path class="sally-icon__contrast" d="M45 57h35l3 25c-11 4-28 4-41 0Z" />
+          <path class="sally-icon__lining" d="M46 61h33v7c-9 5-24 5-33 0Z" />
+          <circle class="sally-icon__fabric" cx="63" cy="70" r="3" />
+          <path class="sally-icon__stitch" d="M48 79h29" />
+        </symbol>
+        <symbol id="sally-icon-hat" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="M29 23c12-5 26-5 38 0l7 34H22Z" />
+          <path class="sally-icon__lining" d="M22 52h52l12 16c-18 13-58 13-76 0Z" />
+          <path class="sally-icon__detail" d="M26 43h44" />
+          <path class="sally-icon__contrast" d="m48 29 3-3 4 2v4l3 3-3 3v4l-4 2-3-3-4 1-2-4-4-1 1-4 4-1 1-4Z" />
+          <circle class="sally-icon__lining" cx="48" cy="35" r="2.5" />
+          <path class="sally-icon__stitch" d="M18 66c17 9 43 9 60 0" />
+        </symbol>
+        <symbol id="sally-icon-bag" viewBox="0 0 96 96">
+          <path class="sally-icon__detail" d="M21 48V31a27 27 0 0 1 54 0v17" />
+          <rect class="sally-icon__fabric" x="18" y="40" width="60" height="41" rx="13" />
+          <path class="sally-icon__lining" d="M18 53V46a6 6 0 0 1 6-6h48a6 6 0 0 1 6 6v7c-17 14-43 14-60 0Z" />
+          <rect class="sally-icon__contrast" x="43" y="54" width="10" height="16" rx="4" />
+          <path class="sally-icon__stitch" d="M26 74h44" />
+        </symbol>
+        <symbol id="sally-icon-hairclip" viewBox="0 0 96 96">
+          <path class="sally-icon__rainbow-coral" d="M15 62v-8a33 33 0 0 1 66 0v8H71v-8a23 23 0 0 0-46 0v8Z" />
+          <path class="sally-icon__rainbow-butter" d="M25 62v-8a23 23 0 0 1 46 0v8H61v-8a13 13 0 0 0-26 0v8Z" />
+          <path class="sally-icon__rainbow-mint" d="M35 62v-8a13 13 0 0 1 26 0v8H52v-8a4 4 0 0 0-8 0v8Z" />
+          <rect class="sally-icon__lining" x="17" y="63" width="62" height="13" rx="6.5" />
+          <path class="sally-icon__detail" d="M26 69.5h39" />
+          <circle class="sally-icon__rainbow-coral" cx="71" cy="69.5" r="2" />
+        </symbol>
+        <symbol id="sally-icon-bear" viewBox="0 0 96 96">
+          <circle class="sally-icon__fabric" cx="27" cy="24" r="10" /><circle class="sally-icon__fabric" cx="69" cy="24" r="10" />
+          <path class="sally-icon__fabric" d="M29 50c-14-5-19 10-7 17-12 9-7 21 6 16l10-7h20l10 7c13 5 18-7 6-16 12-7 7-22-7-17Z" />
+          <ellipse class="sally-icon__lining" cx="48" cy="65" rx="14" ry="13" />
+          <rect class="sally-icon__fabric" x="23" y="19" width="50" height="40" rx="20" />
+          <ellipse class="sally-icon__lining" cx="48" cy="44" rx="12" ry="9" />
+          <path class="sally-icon__detail" d="M36 34h1m22 0h1m-14 6h4l-2 3Zm2 3v4m-4 0c2 2 6 2 8 0" />
+          <path class="sally-icon__contrast" d="m39 57 9 4 9-4v10l-9-4-9 4Z" />
+        </symbol>
+        <symbol id="sally-icon-socks" viewBox="0 0 96 96">
+          <path class="sally-icon__lining" d="M51 14h24v34L60 67c-7 9-22-1-14-11l5-7Z" />
+          <path class="sally-icon__contrast" d="M51 14h24v10H51Zm7 41 8 6-6 6c-7 9-22-1-14-11l3-4Z" />
+          <path class="sally-icon__fabric" d="M25 25h25v36L35 80c-8 10-23-1-15-11l5-7Z" />
+          <path class="sally-icon__lining" d="M25 25h25v10H25Zm7 45 9 4-6 6c-8 10-23-1-15-11l3-4Z" />
+          <path class="sally-icon__detail" d="M33 29v3m8-3v3m18-14v3m8-3v3" />
+          <path class="sally-icon__contrast" d="m38 43 2 4 4 1-3 3 1 4-4-2-4 2 1-4-3-3 4-1Z" />
+        </symbol>
+        <symbol id="sally-icon-shoe" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="M18 30c10 12 19 12 29-1l17 23 13 3c7 2 10 6 10 14H12V48Z" />
+          <path class="sally-icon__lining" d="M47 29 64 52l-17 7-16-17Zm17 23 13 3c7 2 10 6 10 14H64Z" />
+          <path class="sally-icon__contrast" d="M12 67h75v10H12Z" />
+          <path class="sally-icon__detail" d="m40 40 11-5m-6 12 11-5m-6 12 11-5M17 74h64" />
+          <path class="sally-icon__stitch" d="M22 50v10h18" />
+        </symbol>
+        <symbol id="sally-icon-umbrella" viewBox="0 0 96 96">
+          <path class="sally-icon__detail" d="M48 12v6m0 32v29c0 11 16 11 16 0" />
+          <path class="sally-icon__fabric" d="M10 53a38 38 0 0 1 76 0c-6-7-12-7-19 0-6-7-12-7-19 0-6-7-12-7-19 0-6-7-12-7-19 0Z" />
+          <path class="sally-icon__lining" d="M48 15c-11 8-17 21-19 38 6-7 13-7 19 0 6-7 13-7 19 0-2-17-8-30-19-38Z" />
+          <path class="sally-icon__detail" d="M48 15v38" />
+          <path class="sally-icon__stitch" d="M17 43c4-12 13-20 25-22" />
+        </symbol>
+        <symbol id="sally-icon-family" viewBox="0 0 96 96">
+          <path class="sally-icon__lining" d="m24 18 7-3c1 7 9 7 10 0l7 3 5 15-10 5v9l13 31c-13 6-28 6-41 0l13-31v-9l-10-5Z" />
+          <path class="sally-icon__contrast" d="M28 40h15v7H28Z" />
+          <path class="sally-icon__fabric" d="m61 40 6-2c1 5 6 5 7 0l6 2 4 11-7 4v5l9 22c-9 5-20 5-29 0l9-22v-5l-8-4Z" />
+          <path class="sally-icon__contrast" d="M66 55h11v5H66Z" />
+          <path class="sally-icon__detail" d="m29 55-5 18m17-18 5 18m22-7-4 13m11-13 4 13" />
+          <path class="sally-icon__fabric" d="M29 30c0-4 6-4 6 0 0-4 6-4 6 0 0 3-6 7-6 7s-6-4-6-7Z" />
+          <path class="sally-icon__lining" d="M67 48c0-3 4-3 4 0 0-3 4-3 4 0 0 2-4 5-4 5s-4-3-4-5Z" />
+        </symbol>
+        <symbol id="sally-icon-friends" viewBox="0 0 96 96">
+          <path class="sally-icon__lining" d="m17 26 5-2c1 4 7 4 8 0l5 2 9 9-6 8-4-3v25H19V40l-4 3-6-8Z" />
+          <path class="sally-icon__contrast" d="m61 26 5-2c1 4 7 4 8 0l5 2 8 9-6 8-4-3v25H63V40l-4 3-6-8Z" />
+          <path class="sally-icon__fabric" d="m36 43 6-2c1 5 10 5 11 0l6 2 11 10-7 9-5-4v27H38V58l-5 4-7-9Z" />
+          <path class="sally-icon__detail" d="M43 41c1 5 8 5 9 0M42 79h12" />
+          <path class="sally-icon__lining" d="m48 56 2 4 5 1-3 3v5l-4-2-4 2v-5l-3-3 5-1Z" />
+        </symbol>
+        <symbol id="sally-icon-trousers" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="M29 15h38l8 67H55l-7-35-7 35H21Z" />
+          <path class="sally-icon__lining" d="M29 15h38l1 12H28Zm-7 58h21l-2 9H21Zm31 0h21l1 9H55Z" />
+          <path class="sally-icon__detail" d="M34 27c0 10-4 14-8 14m36-14c0 10 4 14 8 14M48 27v20m-4-27h8" />
+          <path class="sally-icon__stitch" d="m31 48-4 20m38-20 4 20" />
+        </symbol>
+        <symbol id="sally-icon-performance" viewBox="0 0 96 96">
+          <path class="sally-icon__lining" d="m32 18 9-4c1 9 13 9 14 0l9 4-6 28H38Z" />
+          <path class="sally-icon__fabric" d="M38 43h20l21 24c-18 10-44 10-62 0Z" />
+          <path class="sally-icon__contrast" d="M38 43h20v7H38Z" />
+          <path class="sally-icon__detail" d="m39 56-7 11m16-11v14m9-14 7 11M39 75l-4 9m22-9 4 9" />
+          <path class="sally-icon__contrast" d="m48 27 2 4 5 1-3 3v5l-4-2-4 2v-5l-3-3 5-1Z" />
+          <path class="sally-icon__detail" d="M77 21v15m0-15 9-3v15" /><ellipse class="sally-icon__fabric" cx="74" cy="37" rx="3" ry="2" /><ellipse class="sally-icon__fabric" cx="83" cy="34" rx="3" ry="2" />
+        </symbol>
+        <symbol id="sally-icon-grid" viewBox="0 0 96 96">
+          <rect class="sally-icon__fabric" x="16" y="16" width="26" height="26" rx="7" /><rect class="sally-icon__lining" x="54" y="16" width="26" height="26" rx="7" />
+          <rect class="sally-icon__lining" x="16" y="54" width="26" height="26" rx="7" /><rect class="sally-icon__contrast" x="54" y="54" width="26" height="26" rx="7" />
+        </symbol>
+        <symbol id="sally-icon-new" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="m47 14 9 24 25 9-25 9-9 25-9-25-24-9 24-9Z" />
+          <path class="sally-icon__detail" d="m77 14 3 9 9 3-9 3-3 9-3-9-9-3 9-3Z" />
+        </symbol>
+        <symbol id="sally-icon-favourite" viewBox="0 0 96 96">
+          <path class="sally-icon__fabric" d="M48 79S14 57 14 34a17 17 0 0 1 34-1 17 17 0 0 1 34 1C82 57 48 79 48 79Z" />
+          <path class="sally-icon__detail" d="M23 34c0-5 4-9 9-9" />
+        </symbol>
+      </defs>
+    </svg>
     <div class="sr-only" id="liveRegion" aria-live="polite"></div>
 
     <header class="site-header">
@@ -124,11 +266,11 @@
       <section class="section classics" id="shop">
         <div class="section-heading"><div><p class="eyebrow">Chọn theo gu của bé</p><h2>Mỗi ngày một kiểu vui</h2></div><a class="text-link desktop-only" href="shop.html">Xem tất cả sản phẩm <span>↗</span></a></div>
         <div class="product-rail icon-rail" data-rail>
-          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-dresses"><div class="product-image category-art category-art--coral"><span aria-hidden="true">🎀</span></div><h3>Bé gái</h3><p>Váy xinh, màu yêu</p></a></article>
-          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-tops"><div class="product-image category-art category-art--mint"><span aria-hidden="true">🧢</span></div><h3>Bé trai</h3><p>Năng động cả ngày</p></a></article>
-          <article class="icon-card category-card"><a href="shop.html"><div class="product-image category-art category-art--butter"><span aria-hidden="true">✨</span></div><h3>Đồ đôi</h3><p>Cùng mặc cùng vui</p></a></article>
-          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-tops"><div class="product-image category-art category-art--lilac"><span aria-hidden="true">🎒</span></div><h3>Đi học</h3><p>Gọn gàng, dễ vận động</p></a></article>
-          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image category-art category-art--sky"><span aria-hidden="true">🌈</span></div><h3>Phụ kiện</h3><p>Thêm một chút đáng yêu</p></a></article>
+          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-dresses"><div class="product-image category-art category-art--coral"><span class="category-icon"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-dress" /></svg></span></div><h3>Bé gái</h3><p>Váy xinh, màu yêu</p></a></article>
+          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-tops"><div class="product-image category-art category-art--mint"><span class="category-icon"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-shirt" /></svg></span></div><h3>Bé trai</h3><p>Năng động cả ngày</p></a></article>
+          <article class="icon-card category-card"><a href="shop.html"><div class="product-image category-art category-art--butter"><span class="category-icon"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-matching" /></svg></span></div><h3>Đồ đôi</h3><p>Cùng mặc cùng vui</p></a></article>
+          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-tops"><div class="product-image category-art category-art--lilac"><span class="category-icon"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-backpack" /></svg></span></div><h3>Đi học</h3><p>Gọn gàng, dễ vận động</p></a></article>
+          <article class="icon-card category-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image category-art category-art--sky"><span class="category-icon"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-accessories" /></svg></span></div><h3>Phụ kiện</h3><p>Thêm một chút đáng yêu</p></a></article>
         </div>
         <a class="button button--outline mobile-only full-width" href="shop.html">Xem tất cả sản phẩm</a>
       </section>
@@ -170,26 +312,26 @@
       <section class="section charms" id="accessories">
         <div class="tab-heading"><div><p class="eyebrow">Hoàn thiện outfit</p><h2>Phối đồ của bé</h2></div><a class="text-link desktop-only" href="shop.html?collection=col-1688-accessories">Xem toàn bộ phụ kiện <span>↗</span></a></div>
         <div class="tabs" role="tablist" aria-label="Danh mục phụ kiện">
-          <button class="tab is-active" id="tab-tattoos" type="button" role="tab" aria-selected="true" aria-controls="panel-tattoos" data-tab="tattoos">Mũ &amp; túi</button>
-          <button class="tab" id="tab-accessories" type="button" role="tab" aria-selected="false" aria-controls="panel-accessories" data-tab="accessories">Tất &amp; giày</button>
-          <button class="tab" id="tab-matching" type="button" role="tab" aria-selected="false" aria-controls="panel-matching" data-tab="matching">Đồ đôi</button>
+          <button class="tab is-active" id="tab-tattoos" type="button" role="tab" aria-selected="true" aria-controls="panel-tattoos" data-tab="tattoos"><svg class="sally-illustration tab-icon" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-accessories" /></svg><span data-i18n-label>Mũ &amp; túi</span></button>
+          <button class="tab" id="tab-accessories" type="button" role="tab" aria-selected="false" aria-controls="panel-accessories" data-tab="accessories"><svg class="sally-illustration tab-icon" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-shoe" /></svg><span data-i18n-label>Tất &amp; giày</span></button>
+          <button class="tab" id="tab-matching" type="button" role="tab" aria-selected="false" aria-controls="panel-matching" data-tab="matching"><svg class="sally-illustration tab-icon" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-matching" /></svg><span data-i18n-label>Đồ đôi</span></button>
         </div>
         <div class="tab-panels">
           <div class="tab-panel is-active" id="panel-tattoos" role="tabpanel" aria-labelledby="tab-tattoos" data-panel="tattoos"><div class="product-rail charm-rail">
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--lavender"><div class="charm-illustration">🧢</div></div><h3>Mũ bucket hoa nhỏ</h3><p class="price">Từ 79.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--coral"><div class="charm-illustration">🎒</div></div><h3>Túi mini đi chơi</h3><p class="price">Từ 129.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--mint"><div class="charm-illustration">🎀</div></div><h3>Kẹp tóc cầu vồng</h3><p class="price">Từ 39.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--yellow"><div class="charm-illustration">🧸</div></div><h3>Gấu bông đeo túi</h3><p class="price">Từ 59.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--lavender"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-hat" /></svg></div></div><h3>Mũ bucket hoa nhỏ</h3><p class="price">Từ 79.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--coral"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-bag" /></svg></div></div><h3>Túi mini đi chơi</h3><p class="price">Từ 129.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--mint"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-hairclip" /></svg></div></div><h3>Kẹp tóc cầu vồng</h3><p class="price">Từ 39.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--yellow"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-bear" /></svg></div></div><h3>Gấu bông đeo túi</h3><p class="price">Từ 59.000 ₫</p></a></article>
           </div></div>
           <div class="tab-panel" id="panel-accessories" role="tabpanel" aria-labelledby="tab-accessories" data-panel="accessories"><div class="product-rail charm-rail">
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--sky"><div class="charm-illustration">🧦</div></div><h3>Tất cổ ngắn pastel</h3><p class="price">Từ 29.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--pink"><div class="charm-illustration">👟</div></div><h3>Giày vải đi học</h3><p class="price">Từ 199.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--sand"><div class="charm-illustration">☂️</div></div><h3>Ô mini cho bé</h3><p class="price">Từ 89.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--sky"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-socks" /></svg></div></div><h3>Tất cổ ngắn pastel</h3><p class="price">Từ 29.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--pink"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-shoe" /></svg></div></div><h3>Giày vải đi học</h3><p class="price">Từ 199.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html?collection=col-1688-accessories"><div class="product-image product-image--sand"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-umbrella" /></svg></div></div><h3>Ô mini cho bé</h3><p class="price">Từ 89.000 ₫</p></a></article>
           </div></div>
           <div class="tab-panel" id="panel-matching" role="tabpanel" aria-labelledby="tab-matching" data-panel="matching"><div class="product-rail charm-rail">
-            <article class="product-card charm-card"><a href="shop.html"><div class="product-image product-image--coral"><div class="charm-illustration">👩‍👧</div></div><h3>Set mẹ và bé</h3><p class="price">Từ 289.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html"><div class="product-image product-image--yellow"><div class="charm-illustration">👫</div></div><h3>Set anh chị em</h3><p class="price">Từ 249.000 ₫</p></a></article>
-            <article class="product-card charm-card"><a href="shop.html"><div class="product-image product-image--mint"><div class="charm-illustration">💛</div></div><h3>Áo nhóm bạn thân</h3><p class="price">Từ 119.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html"><div class="product-image product-image--coral"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-family" /></svg></div></div><h3>Set mẹ và bé</h3><p class="price">Từ 289.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html"><div class="product-image product-image--yellow"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-matching" /></svg></div></div><h3>Set anh chị em</h3><p class="price">Từ 249.000 ₫</p></a></article>
+            <article class="product-card charm-card"><a href="shop.html"><div class="product-image product-image--mint"><div class="charm-illustration"><svg class="sally-illustration" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-friends" /></svg></div></div><h3>Áo nhóm bạn thân</h3><p class="price">Từ 119.000 ₫</p></a></article>
           </div></div>
         </div>
         <a class="button button--outline full-width mobile-only" href="shop.html?collection=col-1688-accessories">Xem toàn bộ phụ kiện</a>
@@ -216,6 +358,7 @@
     <script src="regional-commerce.js" defer></script>
     <script src="supabase-config.js" defer></script>
     <script src="supabase-storefront.js" defer></script>
+    <script src="variant-options.js" defer></script>
     <script src="commerce.js" defer></script>
     <script src="commerce-ui.js" defer></script>
     <script src="script.js" defer></script>

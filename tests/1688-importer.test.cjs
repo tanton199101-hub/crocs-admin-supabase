@@ -83,7 +83,7 @@ test('1688 presentation localization shortens titles and translates every varian
   }, { 颜色: 'Màu sắc', 红色: 'Đỏ', 黑色: 'Đen' }, { maxLength: 56 });
   assert.equal(/[\u3400-\u9fff\uf900-\ufaff]/.test(JSON.stringify(localized)), false);
   assert.ok(localized.title.length <= 56);
-  assert.deepEqual(localized.options[0], { id: 'colour', name: 'Màu sắc', values: ['Đỏ', 'Đen'] });
+  assert.deepEqual(localized.options[0], { id: 'colour', name: 'Phân loại', values: ['Đỏ', 'Đen'] });
   assert.equal(localized.variants[0].values.colour, 'Đỏ');
 });
 
@@ -97,7 +97,7 @@ test('1688 detail parser keeps gallery/detail images and maps SKU specs to optio
     offerModel: { offerDetail: { subject: 'Áo biểu diễn', skuProps: [{ prop: '颜色', value: [{ name: 'Đỏ', imageUrl: 'https://cbu01.alicdn.com/img/ibank/red.jpg' }] }, { prop: '尺码', value: [{ name: 'S' }] }] } },
     dataModel: { mainPrice: { fields: { finalPriceModel: { tradeWithoutPromotion: { skuMapOriginal: [{ skuId: 'sku-1', specAttrs: '颜色:Đỏ;尺码:S', price: '12.50', canBookCount: 4 }] } } } } },
   });
-  assert.deepEqual(parsed.options.map(item => item.name), ['Màu sắc', 'Kích thước']);
+  assert.deepEqual(parsed.options.map(item => item.name), ['Phân loại', 'Kích thước']);
   assert.deepEqual(parsed.variants[0].values, { 'option-1': 'Đỏ', 'option-2': 'S' });
   assert.match(parsed.optionImages['option-1'].Đỏ, /red\.jpg$/);
   assert.match(parsed.variantImages['sku-1'], /red\.jpg$/);
@@ -161,7 +161,7 @@ test('1688 detail parser accepts the current desktop window.context shape', () =
   } });
   assert.equal(parsed.offerId, '1081098810208');
   assert.equal(parsed.gallery.length, 1);
-  assert.deepEqual(parsed.options.map(item => item.name), ['Màu sắc', 'Chiều cao']);
+  assert.deepEqual(parsed.options.map(item => item.name), ['Phân loại', 'Size (cm)']);
   assert.deepEqual(parsed.variants[0].values, { color: 'Top + Pants', 'suitable-for-height': '110' });
   assert.equal(parsed.variants[1].stock, 488);
   assert.equal(parsed.attributes[0].name, 'Brand');

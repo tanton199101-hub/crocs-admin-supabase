@@ -47,6 +47,26 @@ test('public collections expose only active product ids and counts', () => {
   assert.deepEqual(collections, [{ id: 'dresses', title: 'Váy & đầm trẻ em', status: 'Active', productIds: ['b'], count: 1 }]);
 });
 
+test('recent products preserve browsing order and expose only public active summaries', () => {
+  const value = catalog();
+  value.products[0] = { ...value.products[0], source: { secret: 'private' }, descriptionHtml: '<p>Detail</p>', variants: [{ id: 'private-sku' }] };
+  const rows = Core.recentlyViewedProducts(value, new URLSearchParams('ids=b,c,a,b,missing,javascript:invalid&region=vn'));
+  assert.deepEqual(rows.map(product => product.id), ['b', 'a']);
+  assert.equal(rows[1].price, 250000);
+  for (const product of rows) {
+    assert.equal(product.source, undefined);
+    assert.equal(product.descriptionHtml, undefined);
+    assert.equal(product.variants, undefined);
+  }
+  assert.deepEqual(Core.recentlyViewedProducts(value), []);
+});
+
+test('recent products keep the response bounded to eight unique ids', () => {
+  const products = Array.from({ length: 12 }, (_, index) => ({ id: `recent-${index}`, title: 'Áo cho bé', price: 100, stock: 1, status: 'Active' }));
+  const rows = Core.recentlyViewedProducts({ products }, new URLSearchParams({ ids: products.map(product => product.id).join(',') }));
+  assert.deepEqual(rows.map(product => product.id), products.slice(0, 8).map(product => product.id));
+});
+
 test('presentation keeps live inventory while replacing supplier-facing copy', () => {
   const live = { id: 'a', title: 'Mẫu 1234567890', price: 100, stock: 7, status: 'Active', brand: 'Nhà cung cấp 1688' };
   const mirror = { title: 'Áo pastel Sally', slug: 'ao-pastel-sally', imageAlt: 'Áo pastel cho bé', description: 'Mềm mại mỗi ngày.' };

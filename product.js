@@ -19,9 +19,14 @@
   let selectedSize = '';
   let selectedValues = {};
   let selectedMediaIndex = 0;
+  // Keep the disclosure state outside the HTML string so catalog/language
+  // refreshes do not unexpectedly collapse a long classification list.
+  const expandedOptions = new Set();
   let recentHydrationFlight = null;
   let recommendationHydrationFlight = null;
   let recommendationCandidates = null;
+  let recentProducts = null;
+  let recentHydrationKey = '';
 
   const renderMissing = (message = 'This product is not available right now.') => {
     document.title = 'Sản phẩm không khả dụng | Sally Kids';
@@ -134,11 +139,26 @@
       return name && value ? `<div><dt>${commerce.escape(name)}</dt><dd>${commerce.escape(value)}</dd></div>` : '';
     }).join('')}</dl>`;
   }
+  function descriptionText(item) {
+    const text = String(item?.description || '').trim();
+    // Older imported records contain a generated option inventory and media
+    // sync report instead of product copy. Hide only that known boilerplate;
+    // authored material/care/fit descriptions remain unchanged.
+    const mediaReport = /(?:Hiện có \d+ ảnh sản phẩm đã đồng bộ từ nhà cung cấp 1688|Bộ ảnh mô tả chi tiết gồm \d+ ảnh từ nhà cung cấp 1688)\./gi;
+    if (/<[a-z][\s\S]*>/i.test(text) || !mediaReport.test(text)) return text;
+    const cleaned = text
+      .replace(/(?:Tùy|Tuỳ) chọn:\s*[\s\S]*?(?=\s+(?:Hiện có \d+ ảnh sản phẩm đã đồng bộ|Bộ ảnh mô tả chi tiết gồm \d+ ảnh))/gi, '')
+      .replace(mediaReport, '')
+      .replace(/Vui lòng chọn đúng phân loại và kích thước trước khi đặt hàng\./gi, '')
+      .replace(/\s{2,}/g, ' ').trim();
+    return cleaned === `${item.title}.` ? '' : cleaned;
+  }
   function descriptionMarkup(item) {
     // Some supplier records put the rich fragment in `description` while
     // others use `descriptionHtml`; accept either shape before falling back
     // to escaped plain text.
-    const html = String(item?.descriptionHtml || item?.description || '').replace(/\\u003c/gi, '<').replace(/\\u003e/gi, '>').replace(/\\u0026/gi, '&').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
+    const text = descriptionText(item);
+    const html = String(item?.descriptionHtml || text).replace(/\\u003c/gi, '<').replace(/\\u003e/gi, '>').replace(/\\u0026/gi, '&').replace(/\\u002f/gi, '/').replace(/\\\//g, '/');
     if (html && /<[a-z][\s\S]*>/i.test(html)) {
       const mediaOnly = html
         .replace(/<(?:script|style|noscript|template|iframe|object|embed|video|audio|source|picture|figure)\b[\s\S]*?<\/(?:script|style|noscript|template|iframe|object|embed|video|audio|source|picture|figure)>/gi, '')
@@ -152,7 +172,6 @@
       const visible = mediaOnly.replace(/<[^>]+>/g, '').replace(/&(?:nbsp|amp|lt|gt|quot);/gi, ' ').replace(/\s+/g, '').trim();
       if (visible) return `<div class="product-rich-description">${mediaOnly}</div>`;
     }
-    const text = String(item?.description || '').trim();
     if (!text) return '';
     return text.split(/\n{2,}|\r?\n/).filter(Boolean).map(part => `<p>${commerce.escape(part.trim())}</p>`).join('');
   }
@@ -203,16 +222,18 @@
       price: Number(item?.price || 0),
     };
   }
-  function recommendationCards(items, tag = '') {
-    return items.map(item => `<a class="related-card recommendation-card" href="${productUrl(item)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async">${tag ? `<span class="recommendation-tag">${commerce.escape(tag)}</span>` : ''}</div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('');
+  function recommendationCards(items) {
+    return items.map(item => `<a class="related-card recommendation-card" href="${productUrl(item)}"><div class="related-card-image"><img data-smart-fit src="${commerce.escape(commerce.image(item.image))}" alt="${commerce.escape(item.imageAlt || item.title)}" width="520" height="693" loading="lazy" decoding="async"></div><h3>${commerce.escape(item.title)}</h3><p>${commerce.money(item.price)}</p></a>`).join('');
   }
-  function recommendationSection(id, title, note, items, tag = '') {
+  function recommendationSection(id, title, items, { clear = false } = {}) {
     if (!items.length) return '';
-    return `<section class="related-products recommendation-section recommendation-section--${id}" aria-labelledby="${id}RecommendationTitle"><div class="recommendation-heading"><div><p class="product-kicker">${commerce.escape(note)}</p><h2 id="${id}RecommendationTitle">${commerce.escape(title)}</h2></div><span class="recommendation-count">${items.length} gợi ý</span></div><div class="related-grid">${recommendationCards(items, tag)}</div></section>`;
+    const action = clear ? `<button class="recommendation-clear" type="button" data-clear-recently-viewed>${commerce.escape(t('clearRecentlyViewed', 'Xoá lịch sử'))}</button>` : '';
+    return `<section class="related-products recommendation-section recommendation-section--${id}" aria-labelledby="${id}RecommendationTitle"><div class="recommendation-heading"><h2 id="${id}RecommendationTitle">${commerce.escape(title)}</h2>${action}</div><div class="related-grid">${recommendationCards(items)}</div></section>`;
   }
   function recommendationsFor(item) {
     const current = taxonomyFor(item);
-    const candidates = (recommendationCandidates || commerce.products).filter(candidate => candidate?.id && candidate.id !== item.id && candidate.status === 'Active' && candidate.image && candidate.image !== 'assets/sally-kids-product-placeholder.svg');
+    if (item === product) current.price = currentVariant()?.price ?? current.price;
+    const candidates = (recommendationCandidates || commerce.products).filter(candidate => candidate?.id && candidate.id !== item.id && candidate.status === 'Active' && candidate.image && candidate.image !== 'assets/sally-kids-product-placeholder.svg').map(candidate => commerce.localizeProduct(candidate));
     const score = (candidate, mode) => {
       const value = taxonomyFor(candidate);
       const occasionMatch = value.occasions.filter(id => current.occasions.includes(id)).length;
@@ -242,16 +263,32 @@
       upsell = higherAudience.sort((left, right) => Number(left.price) - Number(right.price) || left.id.localeCompare(right.id)).slice(0, 4);
     }
     const recentIds = commerce.readRecentlyViewed?.() || [];
-    const recentPool = [...new Map([...(recommendationCandidates || []), ...commerce.products].filter(value => value?.id).map(value => [value.id, value]).values())];
-    const recent = recentIds.filter(id => id !== item.id).map(id => recentPool.find(candidate => candidate.id === id)).filter(Boolean).slice(0, 4);
+    const recentPool = recentProducts || [...new Map([...(recommendationCandidates || []), ...commerce.products].filter(value => value?.id).map(value => [value.id, value])).values()];
+    const recent = recentIds.filter(id => id !== item.id).map(id => recentPool.find(candidate => candidate.id === id)).filter(candidate => candidate?.status === 'Active').slice(0, 8).map(candidate => commerce.localizeProduct(candidate));
     return { cross: select('cross'), upsell, similar: select('similar'), recent };
   }
-  function renderPreservingScroll() {
-    const scrollY = Number(root.scrollY || root.pageYOffset || 0);
-    render();
-    if (scrollY > 0 && typeof root.scrollTo === 'function') {
-      try { root.scrollTo({ top: scrollY, left: 0, behavior: 'auto' }); } catch { root.scrollTo(0, scrollY); }
-    }
+  function recommendationsMarkup() {
+    const recommendations = recommendationsFor(product);
+    return `${recommendationSection('cross', 'Phối cùng outfit', recommendations.cross)}
+      ${recommendationSection('upsell', 'Nâng cấp outfit', recommendations.upsell)}
+      ${recommendationSection('recent', t('recentlyViewed', 'Đã xem gần đây'), recommendations.recent, { clear: true })}
+      ${!recommendations.cross.length && !recommendations.upsell.length && !recommendations.recent.length ? recommendationSection('similar', 'Có thể bé sẽ thích', recommendations.similar) : ''}`;
+  }
+  function bindRecommendations() {
+    main.querySelector('[data-clear-recently-viewed]')?.addEventListener('click', () => {
+      commerce.clearRecentlyViewed?.();
+      refreshRecommendations();
+      main.querySelector('#productRecommendations')?.focus?.({ preventScroll: true });
+    });
+  }
+  function refreshRecommendations() {
+    const panel = main.querySelector('#productRecommendations');
+    if (!panel || !product) return;
+    // Loading recommendations must never replace the active video, gallery,
+    // quantity or variant controls above it.
+    panel.innerHTML = recommendationsMarkup();
+    bindRecommendations();
+    commerce.enhanceImages?.(panel);
   }
   async function hydrateRecommendationCandidates() {
     if (recommendationCandidates || recommendationHydrationFlight || !commerce.loadCatalogPage || !product) return recommendationHydrationFlight;
@@ -268,21 +305,35 @@
         const remote = results.flatMap(result => result.status === 'fulfilled' ? result.value.products || [] : []);
         const merged = new Map([...commerce.products, ...remote].filter(item => item?.id).map(item => [item.id, item]));
         recommendationCandidates = [...merged.values()];
-        if (product === current) renderPreservingScroll();
+        if (product === current) refreshRecommendations();
       })
       .catch(() => { recommendationCandidates = [...commerce.products]; })
       .finally(() => { recommendationHydrationFlight = null; });
     return recommendationHydrationFlight;
   }
   async function hydrateRecentProducts() {
-    if (recentHydrationFlight || !commerce.loadProducts) return recentHydrationFlight;
-    const ids = (commerce.readRecentlyViewed?.() || []).filter(id => id !== product?.id).slice(0, 6);
-    const missing = ids.filter(id => !commerce.product?.(id));
-    if (!missing.length) return null;
-    recentHydrationFlight = commerce.loadProducts(missing).catch(() => []).finally(() => { recentHydrationFlight = null; });
-    await recentHydrationFlight;
-    if (product) renderPreservingScroll();
-    return null;
+    const ids = (commerce.readRecentlyViewed?.() || []).filter(id => id !== product?.id).slice(0, 8);
+    const key = `${commerce.region?.id || ''}:${ids.join(',')}`;
+    if (!ids.length) { recentProducts = []; recentHydrationKey = key; return null; }
+    if (recentHydrationFlight || key === recentHydrationKey || !commerce.loadRecentlyViewedProducts) return recentHydrationFlight;
+    recentHydrationFlight = commerce.loadRecentlyViewedProducts(ids)
+      .then(items => {
+        const latest = (commerce.readRecentlyViewed?.() || []).filter(id => id !== product?.id).slice(0, 8);
+        // A response for an old history/region must not overwrite newer cards
+        // or restore data after the shopper has cleared their history.
+        if (`${commerce.region?.id || ''}:${latest.join(',')}` === key) recentProducts = items;
+        recentHydrationKey = key;
+      })
+      .catch(() => { recentHydrationKey = key; })
+      .finally(() => {
+        recentHydrationFlight = null;
+        if (!product) return;
+        refreshRecommendations();
+        // A second tab may change the history while this request is running.
+        const latest = (commerce.readRecentlyViewed?.() || []).filter(id => id !== product.id).slice(0, 8);
+        if (`${commerce.region?.id || ''}:${latest.join(',')}` !== recentHydrationKey) hydrateRecentProducts();
+      });
+    return recentHydrationFlight;
   }
   function displayPrice(current) {
     if (current) return commerce.money(current.price);
@@ -292,23 +343,47 @@
     const max = Math.max(...variants.map(v => v.price));
     return `${commerce.money(min)}${max > min ? ` – ${commerce.money(max)}` : ''}`;
   }
+  const variantOptions = commerce.variantOptions;
   function optionMarkup() {
-    return commerce.optionsFor(product).map(option => `<fieldset class="variant-option-group"><legend>${commerce.escape(option.name)}</legend><div class="size-grid" role="group" aria-label="${t('selectSize', `Choose ${commerce.escape(option.name)}`)}">${option.values.map(value => {
-      const values = { ...selectedValues, [option.id]: value };
-      const variant = commerce.variantFor(product, { values });
-      const disabled = !variant || variant.stock < 1;
-      const image = optionImageFor(product, option, value);
-      return `<button class="size-option${image ? ' size-option--image' : ''}${selectedValues[option.id] === value ? ' is-selected' : ''}" type="button" data-option-id="${commerce.escape(option.id)}" data-option-value="${commerce.escape(value)}" aria-pressed="${selectedValues[option.id] === value}" ${disabled ? 'disabled' : ''}>${image ? `<img data-smart-fit src="${commerce.escape(commerce.image(image))}" alt="" width="42" height="42" loading="lazy" decoding="async">` : ''}<span>${commerce.escape(value)}</span></button>`;
-    }).join('')}</div></fieldset>`).join('');
+    return commerce.optionsFor(product).map((option, optionIndex) => {
+      const kind = variantOptions.kind(option);
+      const classification = kind === 'classification';
+      const selected = selectedValues[option.id] || '';
+      const expanded = expandedOptions.has(option.id);
+      const values = variantOptions.visibleValues(option, selected, expanded);
+      const label = variantOptions.name(option.name);
+      const legendId = `variant-option-${optionIndex}`;
+      const gridId = `${legendId}-values`;
+      const selectedCopy = selected ? `<p class="variant-option-selection"><span>${commerce.escape(t('selected', 'Đã chọn'))}:</span><strong>${commerce.escape(variantOptions.valueLabel(option, selected))}</strong></p>` : '';
+      const buttons = values.map(value => {
+        const candidate = variantOptions.candidate(product, selectedValues, option, value);
+        const selectedValue = selected === value;
+        const disabled = !candidate;
+        const image = optionImageFor(product, option, value) || (classification ? variantImageFor(product, candidate || activeVariants().find(variant => variant.values?.[option.id] === value)) : '');
+        const valueLabel = variantOptions.valueLabel(option, value);
+        const imageMarkup = image
+          ? `<img src="${commerce.escape(commerce.image(image))}" alt="" width="44" height="48" loading="lazy" decoding="async">`
+          : '';
+        return `<button class="${classification ? 'classification-option' : 'size-option'}${selectedValue ? ' is-selected' : ''}" type="button" data-option-id="${commerce.escape(option.id)}" data-option-value="${commerce.escape(value)}" title="${commerce.escape(valueLabel)}" aria-label="${commerce.escape(`${label}: ${valueLabel}${disabled ? ` — ${t('outOfStock', 'Hết hàng')}` : ''}`)}" aria-pressed="${selectedValue}" ${disabled ? 'disabled' : ''}>${classification ? `${imageMarkup}<span class="classification-option__label">${commerce.escape(valueLabel)}</span><span class="classification-option__check" aria-hidden="true">✓</span>` : commerce.escape(valueLabel)}</button>`;
+      }).join('');
+      const toggle = classification && option.values.length > variantOptions.COLLAPSED_LIMIT
+        ? `<button class="variant-option-toggle" type="button" data-option-toggle="${commerce.escape(option.id)}" aria-controls="${gridId}" aria-expanded="${expanded}">${commerce.escape(expanded ? t('collapseOptions', 'Thu gọn') : `${t('showAllOptions', 'Xem tất cả')} (${option.values.length})`)}</button>`
+        : '';
+      return `<fieldset class="variant-option-group variant-option-group--${classification ? 'classification' : 'size'}"><legend id="${legendId}">${commerce.escape(label)}</legend>${classification ? selectedCopy : ''}<div id="${gridId}" class="${classification ? 'classification-grid' : 'variant-size-grid'}" role="group" aria-labelledby="${legendId}">${buttons}</div>${toggle}</fieldset>`;
+    }).join('');
   }
 
-  function render() {
+  function render({ preserveScroll = false, focusOption = '', focusValue = '', focusToggle = false } = {}) {
     if (!product) return renderMissing();
+    const active = document.activeElement;
+    if (!focusOption && active?.dataset?.optionId) { focusOption = active.dataset.optionId; focusValue = active.dataset.optionValue; preserveScroll = true; }
+    if (!focusOption && active?.dataset?.optionToggle) { focusOption = active.dataset.optionToggle; focusToggle = true; preserveScroll = true; }
+    const preservedScroll = preserveScroll ? Number(root.scrollY ?? root.pageYOffset ?? 0) : 0;
     const variants = activeVariants();
     if (variants.length) {
       const requestedVariant = commerce.variantFor(product, query.get('variant') || '');
       const selectedVariant = Object.keys(selectedValues).length ? commerce.variantFor(product, { values: selectedValues }) : null;
-      const fallback = selectedVariant || requestedVariant || variants[0];
+      const fallback = selectedVariant || requestedVariant || variants.find(variant => variant.stock > 0) || variants[0];
       selectedValues = { ...(fallback?.values || {}) };
     } else {
       const sizes = commerce.sizesFor(product);
@@ -320,8 +395,7 @@
     selectedMediaIndex = Math.min(Math.max(0, selectedMediaIndex), Math.max(0, media.length - 1));
     const detailImages = detailMediaFor(product);
     const videos = videoMediaFor(product);
-    const description = `${descriptionMarkup(product)}${!videos.length && /^1688-/i.test(String(product.sku || '')) ? '<p class="product-media-note">Video sản phẩm chưa có dữ liệu xác minh từ nhà cung cấp.</p>' : ''}`;
-    const recommendations = recommendationsFor(product);
+    const description = descriptionMarkup(product);
     updateStructuredData(variants, current);
     main.setAttribute('aria-busy', 'false');
     main.innerHTML = `
@@ -335,19 +409,16 @@
             ${media.length > 1 ? `<button class="product-gallery-control product-gallery-control--prev" type="button" data-gallery-prev aria-label="Previous product image">‹</button><button class="product-gallery-control product-gallery-control--next" type="button" data-gallery-next aria-label="Next product image">›</button>` : ''}
           </div>
           ${media.length > 1 ? `<div class="product-gallery-status" aria-live="polite"><span data-gallery-current>${selectedMediaIndex + 1}</span><span aria-hidden="true"> / </span><span>${media.length}</span></div><div class="product-thumbnails" role="list" aria-label="Product images">${media.map((src, index) => `<button type="button" class="product-thumbnail${index === selectedMediaIndex ? ' is-selected' : ''}" data-gallery-index="${index}" aria-label="View product image ${index + 1}"${index === selectedMediaIndex ? ' aria-current="true"' : ''}><img data-smart-fit src="${commerce.escape(src)}" alt="" width="90" height="120" loading="lazy" decoding="async" draggable="false"></button>`).join('')}</div>` : ''}
-          <p class="product-gallery-note">Product code ${commerce.escape(current?.sku || product.sku || product.id)}${media.length > 1 ? ` · ${media.length} ảnh sản phẩm` : ''}</p>
         </div>
         <div class="product-copy">
-           <p class="product-kicker">${commerce.escape(product.brand || product.category || 'Sally Kids')}</p>
           <h1 id="productTitle">${commerce.escape(product.title)}</h1>
           <p class="product-price" aria-live="polite">${displayPrice(current)}</p>
-          <p class="product-description">${commerce.escape(product.description || 'Lightweight comfort. Made for everyday adventures.')}</p>
           <div class="product-meta" aria-label="${t('productDetails', 'Product details')}">
-            <div class="product-meta-row"><span>${t('selected', 'Selected')}</span><strong>${commerce.escape(current ? commerce.variantTitle(product, current) : product.colour || 'As pictured')}</strong></div>
-            <div class="product-meta-row"><span>${t('availability', 'Availability')}</span><strong>${current ? (current.stock > 0 ? `${current.stock} ready to ship` : t('outOfStock', 'Out of stock')) : (product.stock > 0 ? `${product.stock} ready to ship` : t('outOfStock', 'Out of stock'))}</strong></div>
+            ${!variants.length ? `<div class="product-meta-row"><span>${t('selected', 'Selected')}</span><strong>${commerce.escape(product.colour || 'As pictured')}</strong></div>` : ''}
+            <div class="product-meta-row"><span>${t('availability', 'Availability')}</span><strong>${(current?.stock ?? product.stock) > 0 ? t('stockCount', `Còn ${current?.stock ?? product.stock} sản phẩm`, { count: current?.stock ?? product.stock }) : t('outOfStock', 'Out of stock')}</strong></div>
           </div>
           <form id="productForm">
-            ${variants.length ? optionMarkup() : `<fieldset class="variant-option-group"><legend>${t('selectSize', 'UK size')}</legend><div class="size-grid" id="sizeOptions" role="group" aria-label="${t('selectSize', 'Choose a UK size')}">${sizeValues.map(size => `<button class="size-option${size === selectedSize ? ' is-selected' : ''}" type="button" data-size="${commerce.escape(size)}" aria-pressed="${size === selectedSize}">${commerce.escape(size)}</button>`).join('')}</div></fieldset>`}
+            ${variants.length ? optionMarkup() : `<fieldset class="variant-option-group variant-option-group--size"><legend>${t('selectSize', 'UK size')}</legend><div class="variant-size-grid" id="sizeOptions" role="group" aria-label="${t('selectSize', 'Choose a UK size')}">${sizeValues.map(size => `<button class="size-option${size === selectedSize ? ' is-selected' : ''}" type="button" data-size="${commerce.escape(size)}" aria-pressed="${size === selectedSize}">${commerce.escape(size)}</button>`).join('')}</div></fieldset>`}
             <label class="commerce-form-label" for="quantityValue">${t('quantity', 'Quantity')}</label>
             <div class="quantity-control" aria-label="Quantity selector">
               <button type="button" data-quantity="decrease" aria-label="Decrease quantity">−</button><span class="quantity-value" id="quantityValue">${quantity}</span><button type="button" data-quantity="increase" aria-label="Increase quantity">+</button>
@@ -357,13 +428,17 @@
           <p class="shipping-note">${t('freeDelivery', 'Free standard delivery on orders over {amount}. This storefront is a demo; no payment is taken.', { amount: commerce.money(regional?.convert?.(5000) || 5000) })}</p>
         </div>
       </section>
-      ${description || detailImages.length || videos.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><p class="product-kicker">${t('productDetails', 'Product details')}</p><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${description}${attributeMarkup(product)}</div>${videos.length ? `<div class="product-video-media"><div class="product-detail-media-heading"><strong>Video sản phẩm</strong><span>${videos.length} video đã xác minh</span></div><div class="product-video-list" aria-label="Video sản phẩm">${videos.map((src, index) => `<figure><video controls preload="none" playsinline poster="${commerce.escape(media[0] || '')}" aria-label="${commerce.escape(product.title)} — video ${index + 1}"><source src="${commerce.escape(src)}" type="video/mp4">Trình duyệt của bạn không hỗ trợ video.</video><figcaption>Video sản phẩm ${index + 1}</figcaption></figure>`).join('')}</div></div>` : ''}${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong><span>${detailImages.length} ảnh từ nhà cung cấp</span></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img class="product-detail-image" src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" width="900" loading="lazy" decoding="async">`).join('')}</div></div>` : ''}</section>` : ''}
-       ${recommendationSection('cross', 'Phối cùng outfit', 'Bán chéo thông minh', recommendations.cross, 'Phối cùng')}
-       ${recommendationSection('upsell', 'Nâng cấp outfit', 'Gợi ý cao hơn', recommendations.upsell, 'Nâng cấp')}
-       ${recommendationSection('recent', 'Bạn vừa xem', 'Lịch sử của bé', recommendations.recent)}
-       ${!recommendations.cross.length && !recommendations.upsell.length && !recommendations.recent.length ? recommendationSection('similar', 'Có thể bé sẽ thích', 'Gợi ý tương tự', recommendations.similar) : ''}`;
+      ${description || detailImages.length || videos.length || attributeMarkup(product) ? `<section class="product-information" aria-labelledby="productInformationTitle"><div class="product-information-copy"><h2 id="productInformationTitle">${t('productDetails', 'Product details')}</h2>${description}${attributeMarkup(product)}</div>${videos.length ? `<div class="product-video-media"><div class="product-detail-media-heading"><strong>Video sản phẩm</strong></div><div class="product-video-list" aria-label="Video sản phẩm">${videos.map((src, index) => `<figure><video controls preload="none" playsinline poster="${commerce.escape(media[0] || '')}" aria-label="${commerce.escape(product.title)} — video ${index + 1}"><source src="${commerce.escape(src)}" type="video/mp4">Trình duyệt của bạn không hỗ trợ video.</video></figure>`).join('')}</div></div>` : ''}${detailImages.length ? `<div class="product-detail-media"><div class="product-detail-media-heading"><strong>Hình ảnh mô tả chi tiết</strong></div><div class="product-detail-images" aria-label="Detailed product images">${detailImages.map((src, index) => `<img class="product-detail-image" src="${commerce.escape(src)}" alt="${commerce.escape(product.title)} — ảnh chi tiết ${index + 1}" width="900" loading="lazy" decoding="async">`).join('')}</div></div>` : ''}</section>` : ''}
+       <div id="productRecommendations" tabindex="-1">${recommendationsMarkup()}</div>`;
     bind();
     commerce.enhanceImages?.(main);
+    if (preserveScroll) {
+      root.scrollTo?.({ top: preservedScroll, left: 0, behavior: 'auto' });
+      const focusTarget = focusToggle
+        ? [...main.querySelectorAll('[data-option-toggle]')].find(item => item.dataset.optionToggle === focusOption)
+        : [...main.querySelectorAll('[data-option-id]')].find(item => item.dataset.optionId === focusOption && item.dataset.optionValue === focusValue);
+      focusTarget?.focus?.({ preventScroll: true });
+    }
   }
 
   function refreshQuantity() { const value = main.querySelector('#quantityValue'); if (value) value.textContent = String(quantity); }
@@ -374,6 +449,7 @@
     updateStructuredData(activeVariants(), variant);
   }
   function bind() {
+    bindRecommendations();
     const gallery = main.querySelector('#productGallery');
     const slides = [...main.querySelectorAll('[data-gallery-slide]')];
     const thumbnails = [...main.querySelectorAll('[data-gallery-index]')];
@@ -415,12 +491,24 @@
       if (event.key === 'End') { event.preventDefault(); goToGalleryIndex(slides.length - 1); }
     });
     goToGalleryIndex(selectedMediaIndex, false);
+    main.querySelectorAll('[data-option-toggle]').forEach(button => button.addEventListener('click', () => {
+      const optionId = button.dataset.optionToggle;
+      if (expandedOptions.has(optionId)) expandedOptions.delete(optionId); else expandedOptions.add(optionId);
+      render({ preserveScroll: true, focusOption: optionId, focusToggle: true });
+      [...main.querySelectorAll('[data-option-toggle]')].find(item => item.dataset.optionToggle === optionId)?.scrollIntoView?.({ block: 'nearest', behavior: 'instant' });
+    }));
     main.querySelectorAll('[data-option-id]').forEach(button => button.addEventListener('click', () => {
-      selectedValues[button.dataset.optionId] = button.dataset.optionValue;
+      const option = commerce.optionsFor(product).find(item => item.id === button.dataset.optionId);
+      const variant = option ? variantOptions.candidate(product, selectedValues, option, button.dataset.optionValue) : null;
+      if (!variant) return;
+      const changed = commerce.optionsFor(product).filter(item => item.id !== option.id && selectedValues[item.id] && selectedValues[item.id] !== variant.values[item.id]);
+      // Use the complete candidate value map. A classification can legitimately
+      // choose an in-stock size, while a size choice keeps its outfit.
+      selectedValues = { ...(variant.values || {}), [button.dataset.optionId]: button.dataset.optionValue };
       selectedMediaIndex = 0;
-      const variant = currentVariant();
       syncVariantUrl(variant);
-      render();
+      render({ preserveScroll: true, focusOption: button.dataset.optionId, focusValue: button.dataset.optionValue });
+      if (changed.length) ui?.toast(`${t('availableOptionSelected', 'Đã chuyển sang lựa chọn còn hàng')}: ${changed.map(item => `${variantOptions.name(item.name)} ${variantOptions.valueLabel(item, variant.values[item.id])}`).join(', ')}`);
     }));
     main.querySelectorAll('[data-size]').forEach(button => button.addEventListener('click', () => {
       selectedSize = button.dataset.size;
@@ -464,7 +552,15 @@
       // A list refresh must not replace loaded SKU/media with a summary row.
       product = next?._detailLoaded ? next : commerce.localizeProduct(product);
       render();
+      hydrateRecentProducts();
     }
+  });
+  root.addEventListener('crocs:recently-viewed', () => {
+    if (!product) return;
+    const ids = (commerce.readRecentlyViewed?.() || []).filter(id => id !== product.id).slice(0, 8);
+    if (!ids.length) recentProducts = [];
+    refreshRecommendations();
+    hydrateRecentProducts();
   });
   root.addEventListener('crocs:language-change', () => { if (product) render(); });
 })(window);

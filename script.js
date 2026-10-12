@@ -36,6 +36,36 @@
   let visibleCatalogProducts = 24;
   const publicCollectionTitle = value => ({ 'New arrivals': 'Mới về', 'Cozy favourites': 'Được yêu thích' }[String(value || '')] || String(value || '').replace(/\s*1688\s*/gi, ' ').trim());
 
+  function collectionIconSymbol(collection = {}) {
+    const known = {
+      'col1': 'new', 'col2': 'favourite',
+      'col-1688-performance': 'performance', 'col-1688-dresses': 'dress',
+      'col-1688-tops': 'shirt', 'col-1688-bottoms': 'trousers',
+      'col-1688-accessories': 'accessories',
+    };
+    if (Object.hasOwn(known, collection.id)) return known[collection.id];
+    const title = String(collection.title || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/đ/g, 'd');
+    if (/moi ve|new arrivals/.test(title)) return 'new';
+    if (/yeu thich|favourites|favorites/.test(title)) return 'favourite';
+    if (/bieu dien|performance|dance/.test(title)) return 'performance';
+    if (/do doi|matching|family/.test(title)) return 'matching';
+    if (/di hoc|school/.test(title)) return 'backpack';
+    if (/phu kien|accessor/.test(title)) return 'accessories';
+    if (/vay|dam|dress/.test(title)) return 'dress';
+    if (/quan|legging|short|bottom/.test(title)) return 'trousers';
+    if (/ao|shirt|tops|uniform/.test(title)) return 'shirt';
+    return 'grid';
+  }
+
+  function catalogFilterButton(collection) {
+    const id = collection?.id || '';
+    const selected = id === activeCollectionId;
+    const title = collection ? publicCollectionTitle(collection.title) : 'Tất cả';
+    const icon = collection ? collectionIconSymbol(collection) : 'grid';
+    const count = collection ? `<span class="catalog-filter-count">${(collection.productIds || []).length}</span>` : '';
+    return `<button class="catalog-filter${selected ? ' is-active' : ''}" type="button" data-collection="${commerce.escape(id)}" aria-pressed="${selected}"><svg class="sally-illustration catalog-filter-icon" viewBox="0 0 96 96" aria-hidden="true" focusable="false"><use href="#sally-icon-${icon}" /></svg><span>${commerce.escape(title)}</span>${count}</button>`;
+  }
+
   const syncScrolledState = () => body.classList.toggle('has-scrolled', window.scrollY > 8);
   window.addEventListener('scroll', syncScrolledState, { passive: true });
   syncScrolledState();
@@ -248,7 +278,7 @@
     catalogTitle.textContent = collection?.title || 'Tất cả sản phẩm';
     catalogCount.textContent = `${filtered.length.toLocaleString('vi-VN')} sản phẩm đang bán`;
     const visibleCollections = publicCollections.filter(item => !/tất cả sản phẩm\s*1688/i.test(String(item.title || '')));
-    catalogFilters.innerHTML = [`<button class="catalog-filter${activeCollectionId ? '' : ' is-active'}" type="button" data-collection="">Tất cả</button>`, ...visibleCollections.map(item => `<button class="catalog-filter${item.id === activeCollectionId ? ' is-active' : ''}" type="button" data-collection="${commerce.escape(item.id)}">${commerce.escape(publicCollectionTitle(item.title))} <span>${(item.productIds || []).length}</span></button>`)].join('');
+    catalogFilters.innerHTML = [catalogFilterButton(null), ...visibleCollections.map(catalogFilterButton)].join('');
     const shown = filtered.slice(0, visibleCatalogProducts);
     catalogGrid.innerHTML = shown.length ? shown.map(catalogCard).join('') : '<p class="catalog-empty">Bộ sưu tập này chưa có sản phẩm đang bán.</p>';
     catalogLoadMore.hidden = shown.length >= filtered.length;

@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { catalogPage, publicCollections, escapeHtml as esc, safeJson } from '../server/catalog-core.mjs';
+import { catalogPage, recentlyViewedProducts, publicCollections, escapeHtml as esc, safeJson } from '../server/catalog-core.mjs';
 import { catalogData, productData } from '../server/catalog-runtime.mjs';
 
 const origin = process.env.PUBLIC_SITE_URL || 'https://crocs-admin-supabase.vercel.app';
@@ -32,6 +32,10 @@ export default async function handler(req, res) {
       return res.json({ store: catalog.store, localization: catalog.localization, activeTotal: catalog.products.length, collections: publicCollections(catalog.collections, catalog.products), menus: catalog.menus, theme: catalog.theme });
     }
     if (view === 'list') return res.json(catalogPage(await catalogData(), params));
+    if (view === 'recent') {
+      const catalog = await catalogData();
+      return res.json({ products: recentlyViewedProducts(catalog, params) });
+    }
     if (view === 'product' || view === 'page') {
       const product = await productData(params.get('id'));
       if (view === 'product') return res.json(product);
@@ -44,7 +48,7 @@ export default async function handler(req, res) {
       const metadata = `<link rel="canonical" href="${esc(url)}"><meta name="robots" content="${product.seo?.noindex || params.has('preview') ? 'noindex,follow' : 'index,follow'}"><meta property="og:type" content="product"><meta property="og:site_name" content="Sally Kids"><meta property="og:title" content="${esc(title)}"><meta property="og:description" content="${esc(description)}"><meta property="og:url" content="${esc(url)}"><meta property="og:image" content="${esc(image)}"><meta name="twitter:card" content="summary_large_image"><script id="productStructuredData" type="application/ld+json">${safeJson(schema)}</script><script id="productBootstrap" type="application/json">${safeJson(product)}</script>`;
       const imageUrl = image.startsWith(origin + '/api/1688-image?') ? `${image}&w=960&format=webp` : image;
       let html = template.replace(/<title>[\s\S]*?<\/title>/, `<title>${esc(title)}</title>`).replace(/<meta name="description"[^>]*>/, `<meta name="description" content="${esc(description)}">`).replace('</head>', `${metadata}</head>`);
-      html = html.replace(/<main id="productMain"[\s\S]*?<\/main>/, `<main id="productMain" class="product-page" aria-busy="true"><section class="product-detail product-prerender"><div class="product-hero-image"><img src="${esc(imageUrl)}" alt="${esc(product.imageAlt || product.title)}" width="900" height="1200" fetchpriority="high"></div><div class="product-copy"><p class="product-kicker">Sally Kids</p><h1>${esc(product.title)}</h1><p>${esc(description)}</p><p role="status">Đang cập nhật giá và lựa chọn…</p></div></section></main>`);
+      html = html.replace(/<main id="productMain"[\s\S]*?<\/main>/, `<main id="productMain" class="product-page" aria-busy="true"><section class="product-detail product-prerender"><div class="product-hero-image"><img src="${esc(imageUrl)}" alt="${esc(product.imageAlt || product.title)}" width="900" height="1200" fetchpriority="high"></div><div class="product-copy"><h1>${esc(product.title)}</h1><p>${esc(description)}</p></div></section></main>`);
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
       return res.status(200).send(req.method === 'HEAD' ? '' : html);
     }

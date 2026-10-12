@@ -1,8 +1,8 @@
 (function (root, factory) {
-  const api = factory();
+  const api = factory(typeof require === 'function' ? require('./variant-options.js') : root.CrocsVariantOptions);
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Crocs1688 = api;
-})(typeof window === 'undefined' ? globalThis : window, function () {
+})(typeof window === 'undefined' ? globalThis : window, function (variantOptions) {
   'use strict';
 
   const FALLBACK_IMAGE = 'assets/arrival-classic-clog-100.png';
@@ -475,9 +475,11 @@
   }
   function localizedOptionName(value, index = 0, translations = {}) {
     const source = clean(value, 80);
+    const canonical = variantOptions.name(source);
+    if (canonical !== source) return canonical;
     const translated = translations[source] || translations[decodeEntities(source)] || OPTION_NAME_TRANSLATIONS[source] || OPTION_NAME_TRANSLATIONS[source.toLowerCase()];
     const result = translated || fallbackOptionValue(source);
-    return clean(CHINESE_OPTION_RE.test(result) ? `Lựa chọn ${index + 1}` : (result || `Lựa chọn ${index + 1}`), 80);
+    return variantOptions.name(clean(CHINESE_OPTION_RE.test(result) ? `Lựa chọn ${index + 1}` : (result || `Lựa chọn ${index + 1}`), 80));
   }
   const optionId = (name, index) => {
     const ascii = String(name || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
@@ -486,7 +488,7 @@
   };
   const optionName = (name, index) => {
     const source = String(name || '').trim();
-    return clean(OPTION_NAME_TRANSLATIONS[source] || OPTION_NAME_TRANSLATIONS[source.toLowerCase()] || source || `Option ${index + 1}`, 80);
+    return variantOptions.name(clean(OPTION_NAME_TRANSLATIONS[source] || OPTION_NAME_TRANSLATIONS[source.toLowerCase()] || source || `Option ${index + 1}`, 80));
   };
 
   function listValues(value) {
